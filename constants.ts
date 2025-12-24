@@ -1,0 +1,113 @@
+
+import { Product, Category } from './types';
+
+export const CATEGORIES: Category[] = [
+  { id: 1, name: 'Electronics', image: 'https://picsum.photos/seed/electronics/200' },
+  { id: 2, name: 'Apparel', image: 'https://picsum.photos/seed/apparel/200' },
+  { id: 3, name: 'Home Goods', image: 'https://picsum.photos/seed/home/200' },
+  { id: 4, name: 'Books', image: 'https://picsum.photos/seed/books/200' },
+  { id: 5, name: 'Sports', image: 'https://picsum.photos/seed/sports/200' },
+];
+
+export const PRODUCTS: Product[] = [
+  {
+    id: 1,
+    name: 'Quantum Wireless Headphones',
+    category: 'Electronics',
+    price: 199.99,
+    originalPrice: 249.99,
+    rating: 4.8,
+    reviewCount: 1250,
+    images: ['https://picsum.photos/seed/headphone1/600/600', 'https://picsum.photos/seed/headphone2/600/600', 'https://picsum.photos/seed/headphone3/600/600'],
+    description: "Experience immersive sound with our new Quantum Wireless Headphones. Featuring noise-cancellation technology and a 30-hour battery life.",
+    features: ["Active Noise Cancellation", "30-Hour Battery Life", "Bluetooth 5.2", "ComfortFit Design"],
+    reviews: [
+      { id: 1, author: 'Alex D.', rating: 5, comment: 'Best headphones I have ever owned! The sound quality is crisp and clear.' },
+      { id: 2, author: 'Jane S.', rating: 4, comment: 'Very comfortable and the battery lasts forever. Noise cancellation could be slightly better.' },
+    ],
+  },
+  {
+    id: 2,
+    name: 'Aero-Tech Running Shoes',
+    category: 'Apparel',
+    price: 120.00,
+    rating: 4.6,
+    reviewCount: 890,
+    images: ['https://picsum.photos/seed/shoe1/600/600', 'https://picsum.photos/seed/shoe2/600/600'],
+    description: "Lightweight and breathable, the Aero-Tech running shoes are perfect for your daily run. Responsive cushioning provides comfort for miles.",
+    features: ["Breathable Mesh Upper", "Responsive Foam Midsole", "Durable Rubber Outsole"],
+    reviews: [
+       { id: 1, author: 'Mike P.', rating: 5, comment: 'Feels like running on clouds. Highly recommend!' },
+    ],
+  },
+  {
+    id: 3,
+    name: 'Smart Home Hub v2',
+    category: 'Home Goods',
+    price: 99.50,
+    originalPrice: 129.99,
+    rating: 4.5,
+    reviewCount: 742,
+    images: ['https://picsum.photos/seed/hub1/600/600', 'https://picsum.photos/seed/hub2/600/600'],
+    description: "Control all your smart devices from one central hub. Compatible with Alexa, Google Assistant, and Apple HomeKit.",
+    features: ["Universal Compatibility", "Voice Control", "Easy Setup"],
+    reviews: [],
+  },
+  {
+    id: 4,
+    name: 'The Obsidian Chronicles',
+    category: 'Books',
+    price: 14.99,
+    rating: 4.9,
+    reviewCount: 2310,
+    images: ['https://picsum.photos/seed/book1/600/600'],
+    description: "A thrilling fantasy novel that will transport you to a world of magic, mystery, and adventure. A must-read for fans of the genre.",
+    features: ["Hardcover", "450 Pages", "Bestseller"],
+    reviews: [],
+  },
+  {
+    id: 5,
+    name: 'Pro-Grip Yoga Mat',
+    category: 'Sports',
+    price: 45.00,
+    rating: 4.7,
+    reviewCount: 450,
+    images: ['https://picsum.photos/seed/yoga1/600/600'],
+    description: 'Eco-friendly and non-slip, this yoga mat provides the perfect surface for your practice. Made from sustainable materials.',
+    features: ["Non-Slip Surface", "Eco-Friendly Materials", "6mm Thickness"],
+    reviews: [],
+  },
+    {
+    id: 6,
+    name: 'Cyberpunk Gaming Mouse',
+    category: 'Electronics',
+    price: 79.99,
+    originalPrice: 99.99,
+    rating: 4.7,
+    reviewCount: 980,
+    images: ['https://picsum.photos/seed/mouse1/600/600', 'https://picsum.photos/seed/mouse2/600/600'],
+    description: "Dominate the competition with this ultra-responsive gaming mouse. Customizable RGB lighting and programmable buttons give you the edge.",
+    features: ["16,000 DPI Optical Sensor", "8 Programmable Buttons", "Customizable RGB Lighting"],
+    reviews: [
+      { id: 1, author: 'GamerX', rating: 5, comment: 'Incredible precision and feels great in hand.' },
+    ],
+  },
+  {
+    id: 7,
+    name: 'Urban Explorer Backpack',
+    category: 'Apparel',
+    price: 89.00,
+    rating: 4.9,
+    reviewCount: 1120,
+    images: ['https://picsum.photos/seed/backpack1/600/600'],
+    description: "A stylish and durable backpack for your daily commute or weekend adventures. Features a padded laptop sleeve and multiple compartments.",
+    features: ["Water-Resistant Fabric", "Padded Laptop Sleeve (15-inch)", "25L Capacity"],
+    reviews: [],
+  },
+];
+
+export const BANNERS: string[] = [
+  'https://picsum.photos/seed/banner1/800/400',
+  'https://picsum.photos/seed/banner2/800/400',
+  'https://picsum.photos/seed/banner3/800/400',
+];

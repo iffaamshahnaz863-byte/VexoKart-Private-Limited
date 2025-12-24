@@ -1,0 +1,5 @@
+{
+  "name": "VexoKart",
+  "description": "A modern, mobile-first e-commerce application named VexoKart with the tagline 'Shop Online, Shop Smart.' It features a premium dark theme, product listings, cart functionality, and a simulated checkout process.",
+  "requestFramePermissions": []
+}
