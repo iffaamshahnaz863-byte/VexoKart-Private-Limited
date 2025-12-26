@@ -10,8 +10,9 @@ import InvoiceModal from '../components/InvoiceModal';
 const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getOrderById } = useOrders();
+  const { getOrderById, updateOrderStatus } = useOrders();
   const [showInvoice, setShowInvoice] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   if (!id) {
     navigate('/orders');
@@ -30,92 +31,115 @@ const OrderDetailPage: React.FC = () => {
       </div>
     );
   }
+
+  const handleCancelOrder = () => {
+    if (window.confirm("Are you sure you want to cancel this order? This action cannot be undone.")) {
+      setIsCancelling(true);
+      setTimeout(() => {
+        updateOrderStatus(order.id, 'Cancelled');
+        setIsCancelling(false);
+      }, 500);
+    }
+  };
   
+  const canCancel = ['Placed', 'Confirmed'].includes(order.status);
   const { shippingAddress: address } = order;
 
   return (
-    <div>
+    <div className="min-h-screen bg-background pb-12">
       {showInvoice && order && <InvoiceModal order={order} onClose={() => setShowInvoice(false)} />}
-      <div className="sticky top-0 z-10 p-4 bg-background flex items-center shadow-md">
-        <button onClick={() => navigate('/orders')} className="p-2 -ml-2 mr-2">
-            <ChevronLeftIcon className="h-6 w-6 text-text-main" />
-        </button>
-        <h1 className="text-xl font-bold text-text-main">Order Details</h1>
+      
+      <div className="sticky top-0 z-10 p-4 bg-background/80 backdrop-blur-xl flex items-center justify-between border-b border-white/5">
+        <div className="flex items-center">
+          <button onClick={() => navigate('/orders')} className="p-2 -ml-2 mr-2">
+              <ChevronLeftIcon className="h-6 w-6 text-text-main" />
+          </button>
+          <h1 className="text-xl font-black text-text-main italic tracking-tight uppercase">Order Details</h1>
+        </div>
+        {canCancel && (
+          <button 
+            onClick={handleCancelOrder}
+            disabled={isCancelling}
+            className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+          >
+            {isCancelling ? 'Processing...' : 'Cancel Order'}
+          </button>
+        )}
       </div>
 
-      <div className="p-4 space-y-4">
-        <GlassmorphicCard className="p-4">
+      <div className="p-4 space-y-4 max-w-2xl mx-auto">
+        <GlassmorphicCard className="p-4 border-accent/20">
           <div className="flex justify-between items-center text-sm">
             <div>
-              <p className="text-text-muted">Order ID</p>
-              <p className="font-bold text-text-main">#{order.id}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Receipt ID</p>
+              <p className="font-bold text-text-main font-mono">#{order.id}</p>
             </div>
              <div>
-              <p className="text-text-muted text-right">Order Date</p>
-              <p className="font-bold text-text-main">{new Date(order.date).toLocaleDateString()}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-text-muted text-right mb-1">Placed On</p>
+              <p className="font-bold text-text-main">{new Date(order.date).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
             </div>
           </div>
         </GlassmorphicCard>
 
-        <OrderTracker status={order.status} history={order.statusHistory} />
+        <section>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-3 ml-1">Live Tracking</h2>
+          <OrderTracker status={order.status} history={order.statusHistory} />
+        </section>
 
-        {order.courierName && order.trackingId && (
-            <GlassmorphicCard className="p-4">
-                <h2 className="font-semibold text-lg mb-2 text-text-main">Tracking Information</h2>
-                <div className="text-sm space-y-1">
-                    <p><span className="text-text-muted w-24 inline-block">Courier:</span> <span className="font-bold text-text-main">{order.courierName}</span></p>
-                    <p><span className="text-text-muted w-24 inline-block">Tracking ID:</span> <span className="font-bold text-text-main">{order.trackingId}</span></p>
+        {order.status !== 'Cancelled' && order.courierName && order.trackingId && (
+            <GlassmorphicCard className="p-4 border-blue-500/20 bg-blue-500/5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                  <h2 className="font-bold text-text-main tracking-tight italic">Shipment Dispatched</h2>
+                </div>
+                <div className="text-sm space-y-2 mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">Courier Partner</span>
+                      <span className="font-bold text-text-main uppercase tracking-tight">{order.courierName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">Tracking Reference</span>
+                      <span className="font-bold text-accent font-mono">{order.trackingId}</span>
+                    </div>
                 </div>
                 <a 
                     href={`https://www.google.com/search?q=${encodeURIComponent(order.courierName + ' ' + order.trackingId + ' tracking')}`}
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="block w-full text-center mt-3 bg-accent/10 border border-accent/50 text-accent font-bold py-2 rounded-xl hover:bg-accent/20 transition"
+                    className="block w-full text-center bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 rounded-xl shadow-lg shadow-accent/20 hover:-translate-y-0.5 transition-all"
                 >
-                    Track on Courier Website
+                    Track Package
                 </a>
             </GlassmorphicCard>
         )}
         
         <GlassmorphicCard className="p-4">
-            <h2 className="font-semibold text-lg mb-2 text-text-main">Items in Order</h2>
-            <div className="space-y-3">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4 border-b border-white/5 pb-2">Order Summary</h2>
+            <div className="space-y-4">
                 {order.items.map(item => (
-                    <div key={item.id} className="flex items-center space-x-3 text-sm">
-                        <img src={item.image} alt={item.name} className="w-16 h-16 rounded-md object-cover bg-gray-700" />
-                        <div className="flex-grow">
-                            <p className="text-text-secondary font-semibold">{item.name}</p>
-                            <p className="text-text-muted">Qty: {item.quantity}</p>
+                    <div key={item.id} className="flex items-center space-x-4">
+                        <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover bg-surface border border-white/5 shadow-inner" />
+                        <div className="flex-grow min-w-0">
+                            <p className="text-text-main font-bold truncate tracking-tight">{item.name}</p>
+                            <p className="text-xs text-text-muted">Quantity: {item.quantity}</p>
                         </div>
-                        <p className="text-text-secondary font-semibold">₹{(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="text-text-main font-black italic">₹{(item.price * item.quantity).toFixed(2)}</p>
                     </div>
                 ))}
             </div>
-        </GlassmorphicCard>
-
-        <GlassmorphicCard className="p-4">
-            <h2 className="font-semibold text-lg mb-2 text-text-main">Shipping Address</h2>
-             <div className="text-text-secondary text-sm">
-                <p className="font-bold text-text-main">{address.fullName}</p>
-                <p>{address.street}</p>
-                <p>{address.city}, {address.state} {address.zip}</p>
-                <p>Phone: {address.phone}</p>
+            
+            <div className="mt-6 pt-4 border-t border-white/5 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-text-muted">Payment Type</span><span className="text-text-main font-bold">{order.paymentMethod}</span></div>
+                <div className="flex justify-between"><span className="text-text-muted">Address Detail</span><span className="text-text-main text-right font-medium max-w-[200px] truncate">{address.fullName}, {address.city}</span></div>
+                <div className="flex justify-between pt-2"><span className="text-text-main font-black uppercase tracking-widest text-[11px]">Final Total</span><span className="text-accent font-black text-lg italic">₹{order.total.toFixed(2)}</span></div>
             </div>
-        </GlassmorphicCard>
 
-         <GlassmorphicCard className="p-4">
-            <h2 className="font-semibold text-lg mb-2 text-text-main">Payment Summary</h2>
-            <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-text-muted">Payment Method:</span><span className="text-text-secondary">{order.paymentMethod}</span></div>
-                <div className="flex justify-between"><span className="text-text-muted">Subtotal:</span><span className="text-text-secondary">₹{order.total.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-text-muted">Shipping:</span><span className="text-text-secondary">₹0.00</span></div>
-                <div className="border-t border-gray-700 my-2"></div>
-                <div className="flex justify-between font-bold text-base"><span className="text-text-main">Total Paid:</span><span className="text-accent">₹{order.total.toFixed(2)}</span></div>
-            </div>
-             {order.paymentId && order.status !== 'Cancelled' && (
-                <div className="mt-4 border-t border-gray-700/50 pt-3">
-                    <button onClick={() => setShowInvoice(true)} className="w-full bg-accent/10 backdrop-blur-sm border border-accent/50 text-accent font-bold py-2 rounded-xl hover:bg-accent/20 transition">
-                        View Invoice
+            {order.paymentId && order.status !== 'Cancelled' && (
+                <div className="mt-4 pt-4 border-t border-white/5">
+                    <button onClick={() => setShowInvoice(true)} className="w-full bg-surface border border-white/10 text-text-main font-black uppercase tracking-widest text-[10px] py-3 rounded-xl hover:bg-white/5 transition">
+                        View Digital Invoice
                     </button>
                 </div>
             )}

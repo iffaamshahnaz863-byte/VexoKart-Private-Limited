@@ -45,7 +45,7 @@ const ProductsPage: React.FC = () => {
         <div className="flex space-x-2 overflow-x-auto pb-4 mb-6 no-scrollbar">
           <button
             onClick={() => handleCategorySelect('All')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition flex-shrink-0 ${selectedCategory === 'All' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'bg-surface text-text-secondary border border-border'}`}
+            className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex-shrink-0 ${selectedCategory === 'All' ? 'bg-accent text-white shadow-lg shadow-accent/30' : 'bg-surface text-text-muted border border-white/5'}`}
           >
             All
           </button>
@@ -53,7 +53,7 @@ const ProductsPage: React.FC = () => {
             <button
               key={category.id}
               onClick={() => handleCategorySelect(category.name)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition flex-shrink-0 ${selectedCategory === category.name ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'bg-surface text-text-secondary border border-border'}`}
+              className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex-shrink-0 ${selectedCategory === category.name ? 'bg-accent text-white shadow-lg shadow-accent/30' : 'bg-surface text-text-muted border border-white/5'}`}
             >
               {category.name}
             </button>
@@ -70,9 +70,10 @@ const ProductsPage: React.FC = () => {
                 <ProductCard key={product.id} product={product} />
             ))
           ) : (
-            <div className="col-span-full text-center py-20 flex flex-col items-center">
-                <svg className="w-16 h-16 text-border mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <p className="text-text-muted font-bold tracking-tight">No approved products found in this category.</p>
+            <div className="col-span-full text-center py-32 flex flex-col items-center">
+                <svg className="w-20 h-20 text-text-muted mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <h3 className="text-xl font-bold text-text-main italic">No products found</h3>
+                <p className="text-text-muted mt-2">Try adjusting your filter.</p>
             </div>
           )}
         </div>

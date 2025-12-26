@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Category } from '../types';
 import { useProducts } from '../hooks/useProducts';
@@ -12,14 +13,22 @@ interface CategoryContextType {
 
 export const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
 
+const INITIAL_CATEGORIES: Category[] = [
+  { id: 1, name: 'Electronics', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=300&q=80' },
+  { id: 2, name: 'Computing', image: 'https://images.unsplash.com/photo-1517336712461-481bf488d086?auto=format&fit=crop&w=300&q=80' },
+  { id: 3, name: 'Audio', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80' },
+  { id: 4, name: 'Accessories', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300&q=80' },
+  { id: 5, name: 'Gaming', image: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&w=300&q=80' },
+];
+
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const localData = localStorage.getItem('vexokart-categories');
-      return localData ? JSON.parse(localData) : [];
+      return localData ? JSON.parse(localData) : INITIAL_CATEGORIES;
     } catch (error) {
       console.error("Could not parse category data from localStorage", error);
-      return [];
+      return INITIAL_CATEGORIES;
     }
   });
 

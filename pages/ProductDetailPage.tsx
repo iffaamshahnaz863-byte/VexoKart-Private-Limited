@@ -121,23 +121,12 @@ const ProductDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 text-text-secondary">
       {/* Image Lightbox Modal */}
       {showImageLightbox && (
           <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300" onClick={() => setShowImageLightbox(false)}>
               <button className="absolute top-6 right-6 text-white text-3xl font-light hover:scale-110 transition">&times;</button>
-              <img 
-                src={product.images[currentImageIndex]} 
-                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
-                onClick={e => e.stopPropagation()}
-                alt="Product High Res"
-              />
-              {product.images.length > 1 && (
-                  <>
-                    <button onClick={prevImage} className="absolute left-6 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white transition"><ChevronLeftIcon className="w-10 h-10" /></button>
-                    <button onClick={nextImage} className="absolute right-6 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white transition rotate-180"><ChevronLeftIcon className="w-10 h-10" /></button>
-                  </>
-              )}
+              <img src={product.images[currentImageIndex]} className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} alt="Product High Res" />
           </div>
       )}
 
@@ -145,54 +134,23 @@ const ProductDetailPage: React.FC = () => {
       {showVideoModal && product.videoUrl && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowVideoModal(false)}>
             <div className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-border" onClick={e => e.stopPropagation()}>
-                <button 
-                    onClick={() => setShowVideoModal(false)}
-                    className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-text-main rounded-full hover:bg-black/70 transition"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                <button onClick={() => setShowVideoModal(false)} className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-text-main rounded-full hover:bg-black/70 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
-                {product.videoUrl.includes('youtube') || product.videoUrl.includes('youtu.be') ? (
-                    <iframe 
-                        className="w-full h-full" 
-                        src={getEmbedUrl(product.videoUrl)} 
-                        title="Product Video" 
-                        frameBorder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowFullScreen
-                    ></iframe>
-                ) : (
-                    <video className="w-full h-full" controls autoPlay>
-                        <source src={product.videoUrl} type="video/mp4" />
-                        Your browser does not support the video tag.
-                    </video>
-                )}
+                <iframe className="w-full h-full" src={getEmbedUrl(product.videoUrl)} title="Product Video" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
             </div>
         </div>
       )}
 
       {/* Image Gallery */}
       <div className="relative group/gallery">
-        <div 
-            className="w-full h-96 bg-surface flex items-center justify-center overflow-hidden cursor-zoom-in relative"
-            onClick={() => setShowImageLightbox(true)}
-        >
-             <img 
-                src={product.images[currentImageIndex]} 
-                alt={product.name} 
-                className="max-w-full max-h-full object-contain p-4 drop-shadow-2xl transition-transform duration-500 hover:scale-105" 
-            />
+        <div className="w-full h-96 bg-surface flex items-center justify-center overflow-hidden cursor-zoom-in relative" onClick={() => setShowImageLightbox(true)}>
+             <img src={product.images[currentImageIndex]} alt={product.name} className="max-w-full max-h-full object-contain p-4 drop-shadow-2xl transition-transform duration-500 hover:scale-105" />
             
-            {/* Gallery Navigation Arrows */}
             {product.images.length > 1 && (
                 <div className="absolute inset-0 flex items-center justify-between px-4 opacity-0 group-hover/gallery:opacity-100 transition-opacity">
-                    <button onClick={prevImage} className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-sm transition-all">
-                        <ChevronLeftIcon className="w-6 h-6" />
-                    </button>
-                    <button onClick={nextImage} className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-sm transition-all rotate-180">
-                        <ChevronLeftIcon className="w-6 h-6" />
-                    </button>
+                    <button onClick={prevImage} className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-sm transition-all"><ChevronLeftIcon className="w-6 h-6" /></button>
+                    <button onClick={nextImage} className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-sm transition-all rotate-180"><ChevronLeftIcon className="w-6 h-6" /></button>
                 </div>
             )}
         </div>
@@ -205,15 +163,10 @@ const ProductDetailPage: React.FC = () => {
             <button onClick={handleToggleWishlist} className={`p-2 bg-black/30 rounded-full transition-colors backdrop-blur-md border border-white/5 shadow-lg ${isWishlisted ? 'text-red-500' : 'text-text-main hover:text-red-400'}`}><HeartIcon className="w-6 h-6" fill={isWishlisted ? 'currentColor' : 'none'}/></button>
         </div>
 
-        {/* Video Play Button Overlay */}
+        {/* Video Play Button */}
         {product.videoUrl && (
-            <button 
-                onClick={(e) => { e.stopPropagation(); setShowVideoModal(true); }}
-                className="absolute bottom-6 right-6 p-4 bg-accent/90 rounded-full shadow-2xl transform hover:scale-110 active:scale-95 transition-all backdrop-blur-md z-10"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white fill-current" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                </svg>
+            <button onClick={(e) => { e.stopPropagation(); setShowVideoModal(true); }} className="absolute bottom-6 right-6 p-4 bg-accent/90 rounded-full shadow-2xl transform hover:scale-110 active:scale-95 transition-all backdrop-blur-md z-10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
             </button>
         )}
       </div>
@@ -221,11 +174,7 @@ const ProductDetailPage: React.FC = () => {
       <div className="flex justify-center gap-2 p-2 -mt-4 relative z-10 overflow-x-auto no-scrollbar max-w-full px-4">
         {product.images.map((img, index) => (
             <div key={index} className="flex-shrink-0 relative group">
-                <img 
-                    src={img} 
-                    onClick={() => setCurrentImageIndex(index)} 
-                    className={`w-16 h-16 rounded-xl object-cover cursor-pointer border-2 transition-all shadow-md ${currentImageIndex === index ? 'border-accent ring-2 ring-accent/20' : 'border-border opacity-70 hover:opacity-100 hover:border-text-muted'}`}
-                />
+                <img src={img} onClick={() => setCurrentImageIndex(index)} className={`w-16 h-16 rounded-xl object-cover cursor-pointer border-2 transition-all shadow-md ${currentImageIndex === index ? 'border-accent ring-2 ring-accent/20' : 'border-border opacity-70 hover:opacity-100 hover:border-text-muted'}`} />
             </div>
         ))}
       </div>
@@ -233,9 +182,7 @@ const ProductDetailPage: React.FC = () => {
       {/* Product Info */}
       <div className="p-4 space-y-4 max-w-4xl mx-auto">
         <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-black text-text-main tracking-tight leading-tight italic">
-                {product.name}
-            </h1>
+            <h1 className="text-2xl md:text-3xl font-black text-text-main tracking-tight leading-tight italic uppercase">{product.name}</h1>
             <div className="flex items-center gap-2">
                 <StarRating rating={product.rating} />
                 <span className="text-sm text-text-muted font-bold tracking-tight">{product.rating} ({product.reviewCount} Reviews)</span>
@@ -263,11 +210,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="pt-2">
           <div className="flex border-b border-border mb-4 overflow-x-auto no-scrollbar">
             {visibleTabs.map(tab => (
-              <button 
-                key={tab.id} 
-                onClick={() => setActiveTab(tab.id)} 
-                className={`flex-shrink-0 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'text-accent border-b-2 border-accent' : 'text-text-muted hover:text-text-secondary'}`}
-              >
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-shrink-0 px-6 py-3 text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'text-accent border-b-2 border-accent' : 'text-text-muted hover:text-text-secondary'}`}>
                 {tab.label}
               </button>
             ))}
@@ -288,33 +231,14 @@ const ProductDetailPage: React.FC = () => {
                 </div>
             </section>
         )}
-        
-        {/* Recently Viewed */}
-        {recentlyViewedProducts.length > 0 && (
-            <section className="pt-8">
-                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-black text-text-main italic tracking-tight uppercase">Recently Viewed</h2>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {recentlyViewedProducts.map(p => <ProductCard key={p.id} product={p} />)}
-                </div>
-            </section>
-        )}
-
       </div>
       
       {/* Sticky Footer */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-surface/90 backdrop-blur-xl border-t border-white/5 flex items-center gap-3 z-50">
-         <button 
-            onClick={handleAddToCart} 
-            className="w-1/2 bg-surface border border-accent/40 text-accent font-black uppercase tracking-widest text-[10px] py-4 rounded-xl shadow-lg hover:bg-accent/10 transition-all active:scale-95"
-         >
+         <button onClick={handleAddToCart} className="w-1/2 bg-surface border border-accent/40 text-accent font-black uppercase tracking-widest text-[10px] py-4 rounded-xl shadow-lg hover:bg-accent/10 transition-all active:scale-95">
             Add to Cart
          </button>
-         <button 
-            onClick={handleBuyNow} 
-            className="w-1/2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black uppercase tracking-widest text-[10px] py-4 rounded-xl shadow-2xl shadow-orange-500/20 hover:brightness-110 transition-all active:scale-95"
-         >
+         <button onClick={handleBuyNow} className="w-1/2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black uppercase tracking-widest text-[10px] py-4 rounded-xl shadow-2xl shadow-orange-500/20 hover:brightness-110 transition-all active:scale-95">
             Buy Now
          </button>
       </div>
