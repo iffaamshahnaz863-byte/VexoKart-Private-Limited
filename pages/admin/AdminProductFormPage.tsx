@@ -14,7 +14,6 @@ const AdminProductFormPage: React.FC = () => {
   
   const isEditing = id !== undefined;
   
-  // FIX: Added missing vendorId and status fields to the initial state to match the Product type.
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount'>>({
     name: '',
     category: categories[0]?.name || '',
@@ -23,7 +22,7 @@ const AdminProductFormPage: React.FC = () => {
     images: [],
     description: '',
     vendorId: 'vexokart_internal',
-    status: 'live',
+    status: 'approved',
     highlights: [],
     stock: 10,
     specifications: {},
@@ -39,7 +38,6 @@ const AdminProductFormPage: React.FC = () => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
       if (productToEdit) {
-        // FIX: Ensured all required fields, including vendorId and status, are set when editing a product.
         setFormData({
             name: productToEdit.name,
             category: productToEdit.category,
@@ -52,10 +50,10 @@ const AdminProductFormPage: React.FC = () => {
             highlights: productToEdit.highlights || [],
             stock: productToEdit.stock || 0,
             specifications: productToEdit.specifications || {},
-            sellerInfo: productToEdit.sellerInfo,
-            returnPolicy: productToEdit.returnPolicy,
-            warranty: productToEdit.warranty,
-            videoUrl: productToEdit.videoUrl
+            sellerInfo: productToEdit.sellerInfo || 'VexoKart Direct',
+            returnPolicy: productToEdit.returnPolicy || '30-Day Money Back Guarantee',
+            warranty: productToEdit.warranty || '1 Year Standard Warranty',
+            videoUrl: productToEdit.videoUrl || ''
         });
       }
     } else {
@@ -88,8 +86,6 @@ const AdminProductFormPage: React.FC = () => {
 
   const specString = Object.entries(formData.specifications || {}).map(([key, value]) => `${key}: ${value}`).join('\n');
 
-  // FIX: Refactored to use a for...of loop to correctly infer the type of 'file' as File, which is a Blob.
-  // The previous forEach loop caused a type error where 'file' was inferred as 'unknown'.
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       for (const file of e.target.files) {
@@ -120,18 +116,17 @@ const AdminProductFormPage: React.FC = () => {
       const updatedData = { ...existingProduct, ...formData, id: parseInt(id) } as Product;
       updateProduct(updatedData);
     } else {
-      // FIX: Correctly call addProduct by destructuring the 'status' property (which is set by the context)
-      // and passing the 'bySuperAdmin' flag.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // Destructure status to let context handle the default live status
       const { status, ...productData } = formData;
-      addProduct(productData, true);
+      addProduct(productData);
+      alert("Product published successfully!");
     }
     navigate('/admin/products');
   };
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-text-main mb-6">{isEditing ? 'Edit Product' : 'Add New Product'}</h1>
+      <h1 className="text-3xl font-bold text-text-main mb-6">{isEditing ? 'Edit Product' : 'Create New Product'}</h1>
       <GlassmorphicCard className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
             <div><label className="block text-sm font-medium text-text-secondary">Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} /></div>

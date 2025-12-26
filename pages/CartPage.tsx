@@ -61,7 +61,7 @@ const CartPage: React.FC = () => {
             <div className="mt-6">
               <button
                 onClick={() => navigate('/checkout')}
-                className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-105 transition-transform"
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-105 transition-transform shadow-orange-500/20"
               >
                 Proceed to Checkout
               </button>

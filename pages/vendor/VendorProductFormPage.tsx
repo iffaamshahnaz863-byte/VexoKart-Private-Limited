@@ -40,11 +40,9 @@ const VendorProductFormPage: React.FC = () => {
   useEffect(() => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
-      // Security check: ensure vendor owns this product
       if (productToEdit && vendor && productToEdit.vendorId === vendor.id) {
         setFormData({ ...productToEdit });
       } else {
-        // Redirect if trying to edit a product they don't own
         navigate('/vendor/products');
       }
     } else {
@@ -77,8 +75,6 @@ const VendorProductFormPage: React.FC = () => {
 
   const specString = Object.entries(formData.specifications || {}).map(([key, value]) => `${key}: ${value}`).join('\n');
 
-  // FIX: Refactored to use a for...of loop to correctly infer the type of 'file' as File, which is a Blob.
-  // The previous forEach loop caused a type error where 'file' was inferred as 'unknown'.
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       for (const file of e.target.files) {
@@ -112,15 +108,17 @@ const VendorProductFormPage: React.FC = () => {
       const existingProduct = getProduct(parseInt(id));
       const updatedData: Product = { ...existingProduct!, ...formData, id: parseInt(id) };
       updateProduct(updatedData);
+      alert("Product updated successfully!");
     } else {
       addProduct({ ...formData, vendorId: vendor.id });
+      alert("Product published successfully! It is now live for customers.");
     }
     navigate('/vendor/products');
   };
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-text-main mb-6">{isEditing ? 'Edit Product' : 'Add New Product'}</h1>
+      <h1 className="text-3xl font-bold text-text-main mb-6">{isEditing ? 'Edit Product' : 'Publish New Product'}</h1>
       <GlassmorphicCard className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
             <div><label className="block text-sm font-medium text-text-secondary">Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} /></div>
@@ -144,7 +142,7 @@ const VendorProductFormPage: React.FC = () => {
             <div><label className="block text-sm font-medium text-text-secondary">Specifications (format: Key: Value)</label><textarea name="specifications" value={specString} onChange={handleSpecChange} rows={5} className={inputClasses} placeholder="e.g.&#10;Color: Black&#10;Material: Aluminum"></textarea></div>
             <div className="flex justify-end gap-4 pt-4">
                 <button type="button" onClick={() => navigate('/vendor/products')} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
-                <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Update Product' : 'Submit for Approval'}</button>
+                <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Save Changes' : 'Publish Product'}</button>
             </div>
         </form>
       </GlassmorphicCard>

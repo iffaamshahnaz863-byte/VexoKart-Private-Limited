@@ -127,7 +127,15 @@ const CheckoutPage: React.FC = () => {
           <div className="border-t border-gray-700 my-3"></div><div className="flex justify-between items-center text-lg font-bold"><span className="text-text-main">Total:</span><span className="text-accent">₹{cartTotal.toFixed(2)}</span></div>
         </GlassmorphicCard>
       </div>
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t border-gray-700/50"><button onClick={handlePlaceOrder} className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50 transform hover:scale-105 hover:shadow-accent/40" disabled={!selectedAddress}>{paymentMethod === 'cod' ? `Place Order (COD)` : `Pay ₹${cartTotal.toFixed(2)}`}</button></div>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t border-gray-700/50">
+        <button 
+          onClick={handlePlaceOrder} 
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50 transform hover:scale-105 hover:shadow-orange-500/40" 
+          disabled={!selectedAddress}
+        >
+          {paymentMethod === 'cod' ? `Place Order (COD)` : `Pay ₹${cartTotal.toFixed(2)}`}
+        </button>
+      </div>
     </div>
   );
 };

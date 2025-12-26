@@ -6,6 +6,8 @@ export interface Review {
   comment: string;
 }
 
+export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected'; // Kept pending/rejected for type compatibility but they won't be used for new products
+
 export interface Product {
   id: number;
   name: string;
@@ -24,9 +26,11 @@ export interface Product {
   returnPolicy?: string;
   warranty?: string;
   videoUrl?: string;
-  // NEW - Multi-vendor fields
-  vendorId: string; // ID of the vendor who owns the product
-  status: 'pending_approval' | 'live' | 'rejected' | 'archived';
+  vendorId: string;
+  status: ProductStatus;
+  rejectionReason?: string;
+  approved_by?: string;
+  approved_at?: string;
 }
 
 export interface Category {
@@ -88,7 +92,6 @@ export interface User {
   recentlyViewed: number[];
 }
 
-// NEW - Vendor-specific types
 export interface KYCDetails {
   pan: string;
   gst: string;
@@ -97,8 +100,8 @@ export interface KYCDetails {
 }
 
 export interface Vendor {
-  id: string; // Unique vendor ID
-  userId: string; // Email of the user account
+  id: string;
+  userId: string;
   storeName: string;
   storeLogo: string;
   status: 'pending' | 'approved' | 'rejected' | 'suspended';
@@ -108,7 +111,6 @@ export interface Vendor {
   rejectionReason?: string;
 }
 
-// NEW - Admin Code type
 export interface AdminCode {
   id: string;
   code: string;
@@ -117,6 +119,14 @@ export interface AdminCode {
   expiresAt: string | null;
   maxUsage: number;
   usageCount: number;
-  usedBy: string | null; // Will store the vendor's user email
+  usedBy: string | null;
   note: string;
+}
+
+export interface Banner {
+  id: string;
+  imageUrl: string;
+  status: 'active' | 'inactive';
+  displayOrder: number;
+  createdAt: string;
 }

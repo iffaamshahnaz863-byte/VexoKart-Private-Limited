@@ -5,9 +5,13 @@ import { Product } from '../types';
 interface ProductContextType {
   products: Product[];
   getProduct: (id: number) => Product | undefined;
-  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>, bySuperAdmin?: boolean) => void;
+  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: number) => void;
+  toggleProductStatus: (productId: number) => void;
+  approveProduct: (productId: number, approvedBy?: string) => void;
+  rejectProduct: (productId: number, reason: string) => void;
+  disableProduct: (productId: number) => void;
 }
 
 export const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -20,16 +24,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (Array.isArray(parsedData)) {
         parsedData = parsedData.map((p: any) => {
-          // Backward compatibility: migrate 'features' to 'highlights'
-          if (p.features && !p.highlights) {
-            p.highlights = p.features;
-          }
-          // Backward compatibility: add vendorId and status for multi-vendor
-          if (!p.vendorId) {
-            p.vendorId = 'vexokart_internal'; // Assign to internal store
-          }
-          if (!p.status) {
-            p.status = 'live'; // Assume existing products are live
+          if (p.features && !p.highlights) p.highlights = p.features;
+          if (!p.vendorId) p.vendorId = 'vexokart_internal';
+          
+          // Migration: Since we removed the approval gating, we ensure 
+          // ALL existing products are set to 'approved' so they are visible to users.
+          if (!p.status || p.status === 'pending' || p.status === 'rejected' || p.status === 'live') {
+            p.status = 'approved';
           }
           return p;
         });
@@ -50,7 +51,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     return products.find(p => p.id === id);
   }
 
-  const addProduct = (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>, bySuperAdmin: boolean = false) => {
+  const addProduct = (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>) => {
     setProducts(prevProducts => {
       const newId = prevProducts.length > 0 ? Math.max(...prevProducts.map(p => p.id)) + 1 : 1;
       const newProduct: Product = { 
@@ -59,7 +60,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         rating: 4.5,
         reviewCount: 0,
         reviews: [],
-        status: bySuperAdmin ? 'live' : 'pending_approval',
+        status: 'approved',
         stock: productData.stock || 0,
         highlights: productData.highlights || [],
         specifications: productData.specifications || {},
@@ -82,8 +83,51 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     setProducts(prevProducts => prevProducts.filter(p => p.id !== productId));
   };
 
+  const toggleProductStatus = (productId: number) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return { ...p, status: p.status === 'approved' ? 'disabled' : 'approved' };
+      }
+      return p;
+    }));
+  };
+
+  const approveProduct = (productId: number, approvedBy?: string) => {
+    setProducts(prev => prev.map(p => 
+      p.id === productId 
+        ? { ...p, status: 'approved', approved_by: approvedBy, approved_at: new Date().toISOString(), rejectionReason: undefined } 
+        : p
+    ));
+  };
+
+  const rejectProduct = (productId: number, reason: string) => {
+    setProducts(prev => prev.map(p => 
+      p.id === productId 
+        ? { ...p, status: 'rejected', rejectionReason: reason } 
+        : p
+    ));
+  };
+
+  const disableProduct = (productId: number) => {
+    setProducts(prev => prev.map(p => 
+      p.id === productId 
+        ? { ...p, status: 'disabled' } 
+        : p
+    ));
+  };
+
   return (
-    <ProductContext.Provider value={{ products, getProduct, addProduct, updateProduct, deleteProduct }}>
+    <ProductContext.Provider value={{ 
+      products, 
+      getProduct, 
+      addProduct, 
+      updateProduct, 
+      deleteProduct, 
+      toggleProductStatus,
+      approveProduct,
+      rejectProduct,
+      disableProduct
+    }}>
       {children}
     </ProductContext.Provider>
   );
