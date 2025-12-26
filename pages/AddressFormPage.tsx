@@ -47,11 +47,11 @@ const AddressFormPage: React.FC = () => {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 p-4 bg-navy-charcoal flex items-center shadow-md">
+      <div className="sticky top-0 z-10 p-4 bg-background flex items-center shadow-md">
         <button onClick={() => navigate('/addresses')} className="p-2 -ml-2 mr-2">
-          <ChevronLeftIcon className="h-6 w-6 text-white" />
+          <ChevronLeftIcon className="h-6 w-6 text-text-main" />
         </button>
-        <h1 className="text-xl font-bold text-white">{isEditing ? 'Edit Address' : 'Add New Address'}</h1>
+        <h1 className="text-xl font-bold text-text-main">{isEditing ? 'Edit Address' : 'Add New Address'}</h1>
       </div>
       
       <div className="p-4">
@@ -59,7 +59,7 @@ const AddressFormPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {Object.keys(formData).map((key) => (
               <div key={key}>
-                <label className="text-sm font-medium text-gray-300 capitalize" htmlFor={key}>
+                <label className="text-sm font-medium text-text-secondary capitalize" htmlFor={key}>
                   {key.replace(/([A-Z])/g, ' $1')}
                 </label>
                 <input
@@ -69,13 +69,13 @@ const AddressFormPage: React.FC = () => {
                   value={(formData as any)[key]}
                   onChange={handleChange}
                   required
-                  className="w-full mt-1 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-accent focus:ring-accent rounded-lg p-3 transition"
+                  className="w-full mt-1 bg-surface/70 text-text-main placeholder-text-muted border border-gray-700 focus:border-accent focus:ring-accent rounded-lg p-3 transition"
                 />
               </div>
             ))}
             <button
               type="submit"
-              className="w-full mt-4 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg"
+              className="w-full mt-4 bg-gradient-to-r from-accent to-accent-secondary text-white font-bold py-3 rounded-lg shadow-lg"
             >
               Save Address
             </button>

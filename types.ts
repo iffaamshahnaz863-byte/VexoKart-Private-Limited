@@ -17,15 +17,16 @@ export interface Product {
   images: string[];
   description: string;
   reviews: Review[];
-  // Replaced 'features' with 'highlights' for better clarity
   highlights?: string[];
-  // NEW - Advanced Product Details
   stock?: number;
   specifications?: { [key: string]: string };
   sellerInfo?: string;
   returnPolicy?: string;
   warranty?: string;
   videoUrl?: string;
+  // NEW - Multi-vendor fields
+  vendorId: string; // ID of the vendor who owns the product
+  status: 'pending_approval' | 'live' | 'rejected' | 'archived';
 }
 
 export interface Category {
@@ -81,9 +82,41 @@ export interface Address {
 export interface User {
   name: string;
   email: string;
-  role: 'USER' | 'ADMIN';
+  role: 'USER' | 'VENDOR' | 'SUPER_ADMIN';
   addresses: Address[];
   wishlist: number[];
-  // NEW - Recently Viewed Items
   recentlyViewed: number[];
+}
+
+// NEW - Vendor-specific types
+export interface KYCDetails {
+  pan: string;
+  gst: string;
+  addressProofUrl: string;
+  status: 'pending' | 'verified' | 'rejected';
+}
+
+export interface Vendor {
+  id: string; // Unique vendor ID
+  userId: string; // Email of the user account
+  storeName: string;
+  storeLogo: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  kycDetails: KYCDetails;
+  commissionRate?: number;
+  createdAt: string;
+  rejectionReason?: string;
+}
+
+// NEW - Admin Code type
+export interface AdminCode {
+  id: string;
+  code: string;
+  status: 'unused' | 'used' | 'revoked';
+  createdAt: string;
+  expiresAt: string | null;
+  maxUsage: number;
+  usageCount: number;
+  usedBy: string | null; // Will store the vendor's user email
+  note: string;
 }

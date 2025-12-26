@@ -16,6 +16,8 @@ const AdminCategoryFormPage: React.FC = () => {
     image: '',
   });
 
+  const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
+
   useEffect(() => {
     if (isEditing) {
       const categoryToEdit = getCategory(parseInt(id));
@@ -57,19 +59,19 @@ const AdminCategoryFormPage: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-white mb-6">{isEditing ? 'Edit Category' : 'Add New Category'}</h1>
+      <h1 className="text-3xl font-bold text-text-main mb-6">{isEditing ? 'Edit Category' : 'Add New Category'}</h1>
       <GlassmorphicCard className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-gray-300">Name</label>
-                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full mt-1 input-style" />
+                <label className="block text-sm font-medium text-text-secondary">Name</label>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} />
             </div>
             
             <div>
-                <label className="block text-sm font-medium text-gray-300">Image</label>
+                <label className="block text-sm font-medium text-text-secondary">Image</label>
                 <div className="mt-2">
                     <input type="file" id="imageUpload" accept="image/*" onChange={handleImageChange} className="hidden" />
-                    <label htmlFor="imageUpload" className="cursor-pointer bg-navy-light text-white font-semibold py-2 px-4 rounded-lg border border-gray-600 hover:bg-gray-700">Choose File</label>
+                    <label htmlFor="imageUpload" className="cursor-pointer bg-surface text-text-main font-semibold py-2 px-4 rounded-lg border border-gray-600 hover:bg-gray-700">Choose File</label>
                 </div>
                 {formData.image && (
                     <div className="mt-4">
@@ -80,25 +82,10 @@ const AdminCategoryFormPage: React.FC = () => {
 
             <div className="flex justify-end gap-4 pt-4">
                 <button type="button" onClick={() => navigate('/admin/categories')} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
-                <button type="submit" className="bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600">{isEditing ? 'Update Category' : 'Create Category'}</button>
+                <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Update Category' : 'Create Category'}</button>
             </div>
         </form>
       </GlassmorphicCard>
-       <style>{`
-          .input-style {
-            background-color: #1f2937;
-            color: white;
-            border: 1px solid #4b5563;
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-          }
-          .input-style:focus {
-            outline: none;
-            border-color: #2dd4bf;
-            box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.5);
-          }
-        `}</style>
     </div>
   );
 };

@@ -63,12 +63,12 @@ const AdminOrdersPage: React.FC = () => {
           onClose={() => setHistoryModalOpen(false)}
         />
       )}
-      <h1 className="text-3xl font-bold text-white mb-6">Manage Orders</h1>
+      <h1 className="text-3xl font-bold text-text-main mb-6">Manage Orders</h1>
       <GlassmorphicCard>
         <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-700 text-gray-400">
+              <tr className="border-b border-gray-700 text-text-muted">
                 <th className="p-4 font-semibold">Order ID</th>
                 <th className="p-4 font-semibold">Date</th>
                 <th className="p-4 font-semibold">Customer</th>
@@ -80,8 +80,8 @@ const AdminOrdersPage: React.FC = () => {
             </thead>
             <tbody>
               {orders.map(order => (
-                <tr key={order.id} className="border-b border-gray-800 hover:bg-navy-light/50">
-                  <td className="p-4 text-white font-mono">#{order.id}</td>
+                <tr key={order.id} className="border-b border-gray-800 hover:bg-surface/50">
+                  <td className="p-4 text-text-main font-mono">#{order.id}</td>
                   <td className="p-4">{new Date(order.date).toLocaleDateString()}</td>
                   <td className="p-4">{order.userEmail}</td>
                   <td className="p-4 font-semibold">₹{order.total.toFixed(2)}</td>
@@ -94,7 +94,7 @@ const AdminOrdersPage: React.FC = () => {
                      <select 
                         value={order.status} 
                         onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
-                        className="bg-navy-light border border-gray-600 rounded-md p-1.5 text-white focus:ring-accent focus:border-accent"
+                        className="bg-surface border border-gray-600 rounded-md p-1.5 text-text-main focus:ring-accent focus:border-accent"
                      >
                         {ALL_STATUSES.map(status => (
                             <option key={status} value={status}>{status}</option>
@@ -110,7 +110,7 @@ const AdminOrdersPage: React.FC = () => {
               ))}
             </tbody>
           </table>
-          {orders.length === 0 && <p className="text-center p-8 text-gray-500">No orders have been placed yet.</p>}
+          {orders.length === 0 && <p className="text-center p-8 text-text-muted">No orders have been placed yet.</p>}
         </div>
       </GlassmorphicCard>
     </div>

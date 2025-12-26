@@ -25,6 +25,18 @@ const ProfilePage: React.FC = () => {
   if (!user) {
     return null; // Or a loading spinner
   }
+  
+  const ManagementPanelLink = () => {
+    if (user.role === 'SUPER_ADMIN') {
+        return { link: '/admin', text: 'Super Admin Panel', iconColor: 'text-orange-400' };
+    }
+    if (user.role === 'VENDOR') {
+        return { link: '/vendor', text: 'Vendor Dashboard', iconColor: 'text-accent' };
+    }
+    return null;
+  }
+  
+  const panelLink = ManagementPanelLink();
 
   return (
     <div>
@@ -33,31 +45,31 @@ const ProfilePage: React.FC = () => {
         <GlassmorphicCard className="p-6 flex items-center space-x-4">
           <img src="https://picsum.photos/seed/avatar/100" alt="User Avatar" className="w-20 h-20 rounded-full border-2 border-accent" />
           <div>
-            <h2 className="text-xl font-bold text-white">{user.name}</h2>
-            <p className="text-gray-400">{user.email}</p>
+            <h2 className="text-xl font-bold text-text-main">{user.name}</h2>
+            <p className="text-text-muted">{user.email}</p>
           </div>
         </GlassmorphicCard>
 
-        {user.role === 'ADMIN' && (
-            <Link to="/admin" className="block">
-                <GlassmorphicCard className="p-4 flex items-center hover:bg-navy-light/70 transition hover:border-accent/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        {panelLink && (
+            <Link to={panelLink.link} className="block">
+                <GlassmorphicCard className="p-4 flex items-center hover:bg-surface/70 transition hover:border-accent/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${panelLink.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286zm0 13.036h.008v.008h-.008v-.008z" />
                     </svg>
-                    <span className="ml-4 font-bold text-white">Admin Panel</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    <span className="ml-4 font-bold text-text-main">{panelLink.text}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-text-muted ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </GlassmorphicCard>
             </Link>
         )}
 
         <GlassmorphicCard>
           {menuItems.map((item, index) => (
-             <Link to={item.link} key={item.name} className={`flex items-center p-4 cursor-pointer hover:bg-navy-light/50 ${index !== menuItems.length - 1 ? 'border-b border-gray-700/50' : ''}`}>
+             <Link to={item.link} key={item.name} className={`flex items-center p-4 cursor-pointer hover:bg-surface/50 ${index !== menuItems.length - 1 ? 'border-b border-border' : ''}`}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
               </svg>
-              <span className="ml-4 text-white">{item.name}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <span className="ml-4 text-text-main">{item.name}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-text-muted ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>

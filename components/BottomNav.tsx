@@ -13,7 +13,7 @@ const BottomNav: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
   const activeLinkClass = 'text-accent';
-  const inactiveLinkClass = 'text-gray-400 hover:text-white';
+  const inactiveLinkClass = 'text-text-muted hover:text-text-main';
   const profileLink = isAuthenticated ? '/profile' : '/login';
 
   const NavItem: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
@@ -23,7 +23,7 @@ const BottomNav: React.FC = () => {
   );
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-navy-light/80 backdrop-blur-md border-t border-gray-700/50 shadow-t-lg z-50">
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-md border-t border-gray-700/50 shadow-t-lg z-50">
       <div className="flex justify-around items-center h-full max-w-lg mx-auto">
         <NavItem to="/">
           <div className="flex flex-col items-center justify-center">
@@ -41,7 +41,7 @@ const BottomNav: React.FC = () => {
           <div className="relative flex flex-col items-center justify-center">
             <CartIcon className="h-6 w-6" />
             {cartCount > 0 && (
-              <span className="absolute -top-1 -right-2.5 bg-teal-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              <span className="absolute -top-1 -right-2.5 bg-accent text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                 {cartCount}
               </span>
             )}

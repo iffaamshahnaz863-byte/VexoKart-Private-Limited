@@ -1,6 +1,9 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { User, Address } from '../types';
+import { User, Address, Vendor } from '../types';
+// FIX: Replaced unused `useVendors` import with `VendorContext` to resolve type errors.
+import { VendorContext } from './VendorContext';
+import { AdminCodeContext } from './AdminCodeContext';
 
 interface AuthContextType {
   user: User | null;
@@ -8,8 +11,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
+  signupAsVendor: (name: string, email: string, pass: string, storeName: string, adminCode: string) => Promise<void>;
   logout: () => void;
-  addUser: (userData: { name: string; email: string; pass: string; role: 'USER' | 'ADMIN' }) => Promise<void>;
+  addUser: (userData: { name: string; email: string; pass: string; role: 'USER' | 'VENDOR' | 'SUPER_ADMIN' }) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   updateAddress: (address: Address) => void;
   deleteAddress: (addressId: string) => void;
@@ -17,7 +21,6 @@ interface AuthContextType {
   addToWishlist: (productId: number) => void;
   removeFromWishlist: (productId: number) => void;
   isInWishlist: (productId: number) => boolean;
-  // Expose user session update for other contexts
   updateUserSession: (userData: User) => void;
 }
 
@@ -28,11 +31,11 @@ const getUsersFromStorage = () => {
         const users = localStorage.getItem('vexokart-users');
         const parsedUsers = users ? JSON.parse(users) : {};
         if (!parsedUsers['admin@vexokart.com']) {
-            parsedUsers['admin@vexokart.com'] = { name: 'Admin', password: 'admin123', role: 'ADMIN', addresses: [], wishlist: [], recentlyViewed: [] };
+            parsedUsers['admin@vexokart.com'] = { name: 'Super Admin', password: 'admin123', role: 'SUPER_ADMIN', addresses: [], wishlist: [], recentlyViewed: [] };
         }
         return parsedUsers;
     } catch (error) {
-        return { 'admin@vexokart.com': { name: 'Admin', password: 'admin123', role: 'ADMIN', addresses: [], wishlist: [], recentlyViewed: [] } };
+        return { 'admin@vexokart.com': { name: 'Super Admin', password: 'admin123', role: 'SUPER_ADMIN', addresses: [], wishlist: [], recentlyViewed: [] } };
     }
 };
 
@@ -43,6 +46,9 @@ const saveUsersToStorage = (users: any) => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  // We need vendor context to create a vendor profile on signup
+  const vendorContext = useContext(VendorContext);
+  const adminCodeContext = useContext(AdminCodeContext);
 
   const updateUserList = () => {
     const usersData = getUsersFromStorage();
@@ -116,13 +122,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return Promise.resolve();
   };
 
-  const addUser = async (userData: { name: string; email: string; pass: string; role: 'USER' | 'ADMIN' }) => {
+  const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, adminCode: string) => {
+    const validationResult = adminCodeContext?.validateAndUseCode(adminCode, email);
+
+    if (!validationResult || !validationResult.isValid) {
+        return Promise.reject(new Error(validationResult?.message || 'Invalid Admin Code.'));
+    }
+
+    const users = getUsersFromStorage();
+    if (users[email]) {
+        // If user exists, we should probably revert the code usage, but for this simulation we'll just error out.
+        // A real backend would use a transaction here.
+        return Promise.reject(new Error('An account with this email already exists.'));
+    }
+    
+    // Create the user with VENDOR role
+    users[email] = { name, password: pass, role: 'VENDOR', addresses: [], wishlist: [], recentlyViewed: [] };
+    saveUsersToStorage(users);
+
+    // Create the corresponding vendor profile
+    vendorContext?.addVendor({ userId: email, storeName });
+
+    const userData: User = { name, email, role: 'VENDOR', addresses: [], wishlist: [], recentlyViewed: [] };
+    updateUserSession(userData);
+    return Promise.resolve();
+  }
+
+  const addUser = async (userData: { name: string; email: string; pass: string; role: 'USER' | 'VENDOR' | 'SUPER_ADMIN' }) => {
     const users = getUsersFromStorage();
     if (users[userData.email]) {
         return Promise.reject(new Error('An account with this email already exists.'));
     }
     users[userData.email] = { name: userData.name, password: userData.pass, role: userData.role, addresses: [], wishlist: [], recentlyViewed: [] };
     saveUsersToStorage(users);
+    
+    if (userData.role === 'VENDOR') {
+        vendorContext?.addVendor({ userId: userData.email, storeName: `${userData.name}'s Store`});
+    }
+
     updateUserList();
     return Promise.resolve();
   }
@@ -155,7 +192,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteUser = (email: string) => {
       if (email === 'admin@vexokart.com') {
-          alert("Cannot delete the primary admin account.");
+          alert("Cannot delete the primary super admin account.");
           return;
       }
       const users = getUsersFromStorage();
@@ -184,7 +221,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, users: allUsers, isAuthenticated, login, signup, logout, addUser, addAddress, updateAddress, deleteAddress, deleteUser, addToWishlist, removeFromWishlist, isInWishlist, updateUserSession }}>
+    <AuthContext.Provider value={{ user, users: allUsers, isAuthenticated, login, signup, logout, addUser, addAddress, updateAddress, deleteAddress, deleteUser, addToWishlist, removeFromWishlist, isInWishlist, updateUserSession, signupAsVendor }}>
       {children}
     </AuthContext.Provider>
   );

@@ -18,7 +18,6 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
       const localData = localStorage.getItem('vexokart-categories');
       return localData ? JSON.parse(localData) : [];
     } catch (error) {
-// Fix: Added curly braces to the catch block to correctly handle errors and define the block's scope.
       console.error("Could not parse category data from localStorage", error);
       return [];
     }

@@ -8,7 +8,7 @@ interface GlassmorphicCardProps {
 
 const GlassmorphicCard: React.FC<GlassmorphicCardProps> = ({ children, className = '' }) => {
   return (
-    <div className={`bg-navy-light/50 backdrop-blur-sm border border-gray-700/50 rounded-xl shadow-lg overflow-hidden ${className}`}>
+    <div className={`bg-surface/70 backdrop-blur-sm border border-border rounded-xl shadow-lg overflow-hidden ${className}`}>
       {children}
     </div>
   );

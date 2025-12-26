@@ -27,7 +27,7 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({ status, history }) => {
   const currentStatusIndex = ALL_STATUSES.indexOf(status);
 
   return (
-    <div className="p-4 bg-navy-light/50 border border-gray-700/50 rounded-xl overflow-x-auto">
+    <div className="p-4 bg-surface/50 border border-gray-700/50 rounded-xl overflow-x-auto">
         <div className="flex" style={{ minWidth: '500px' }}>
             {ALL_STATUSES.map((step, index) => {
                 const isCompleted = currentStatusIndex > index;
@@ -39,14 +39,14 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({ status, history }) => {
                         <div className="flex flex-col items-center flex-shrink-0" style={{width: '16.66%'}}>
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${isCompleted || isActive ? 'bg-accent border-accent' : 'bg-gray-600 border-gray-500'}`}>
                                 {isCompleted ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-text-main" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                                 ) : (
-                                    <span className={`w-3 h-3 rounded-full ${isActive ? 'bg-white animate-pulse' : 'bg-gray-400'}`}></span>
+                                    <span className={`w-3 h-3 rounded-full ${isActive ? 'bg-text-main animate-pulse' : 'bg-gray-400'}`}></span>
                                 )}
                             </div>
                             <div className="text-center mt-2">
-                                <p className={`text-xs font-semibold ${isCompleted || isActive ? 'text-white' : 'text-gray-400'}`}>{step}</p>
-                                {timestamp && <p className="text-[10px] text-gray-500">{new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>}
+                                <p className={`text-xs font-semibold ${isCompleted || isActive ? 'text-text-main' : 'text-text-muted'}`}>{step}</p>
+                                {timestamp && <p className="text-[10px] text-text-muted opacity-80">{new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>}
                             </div>
                         </div>
                         {index < ALL_STATUSES.length - 1 && (

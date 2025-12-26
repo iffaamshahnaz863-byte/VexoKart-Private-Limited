@@ -15,19 +15,19 @@ const WishlistPage: React.FC = () => {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 p-4 bg-navy-charcoal flex items-center shadow-md">
+      <div className="sticky top-0 z-10 p-4 bg-background flex items-center shadow-md">
         <button onClick={() => navigate('/profile')} className="p-2 -ml-2 mr-2">
-            <ChevronLeftIcon className="h-6 w-6 text-white" />
+            <ChevronLeftIcon className="h-6 w-6 text-text-main" />
         </button>
-        <h1 className="text-xl font-bold text-white">My Wishlist</h1>
+        <h1 className="text-xl font-bold text-text-main">My Wishlist</h1>
       </div>
       
       <div className="p-4">
         {wishlistedProducts.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 text-lg">Your wishlist is empty.</p>
-            <p className="text-gray-500 text-sm mt-2">Tap the heart on products to save them here.</p>
-            <button onClick={() => navigate('/products')} className="mt-6 bg-teal-500 text-white font-bold py-2 px-6 rounded-lg">
+            <p className="text-text-muted text-lg">Your wishlist is empty.</p>
+            <p className="text-text-muted text-sm mt-2">Tap the heart on products to save them here.</p>
+            <button onClick={() => navigate('/products')} className="mt-6 bg-accent text-white font-bold py-2 px-6 rounded-lg">
               Find Products
             </button>
           </div>

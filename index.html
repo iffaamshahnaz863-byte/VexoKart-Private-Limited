@@ -13,34 +13,43 @@
         theme: {
           extend: {
             colors: {
-              'navy-charcoal': '#111827', // gray-900
-              'navy-light': '#1f2937',    // gray-800
-              'accent': '#2dd4bf',        // teal-400
+              'background': '#0D1117',        // Very dark charcoal (near black)
+              'surface': '#161B22',           // Dark charcoal for cards
+              'border': '#30363D',            // Subtle border color
+              'accent': '#3882F6',             // Professional Blue
+              'accent-secondary': '#8957E5',   // Muted Purple for gradients
+              'text-main': '#E6EDF3',          // Soft off-white
+              'text-secondary': '#8D96A0',     // Softer gray
+              'text-muted': '#6E7681',         // Muted gray for placeholders
             },
             backdropBlur: {
               'xs': '2px',
+            },
+            keyframes: {
+              shimmer: {
+                '100%': { transform: 'translateX(100%)' },
+              }
             }
           }
         }
       }
     </script>
     <style>
-      /* For custom scrollbar styling if needed */
+      /* For custom scrollbar styling */
       ::-webkit-scrollbar {
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #1f2937; 
+        background: #161B22; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #4b5563; 
+        background: #30363D; 
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #6b7280;
+        background: #6E7681;
       }
       /* --- Professional UI Enhancements --- */
-      /* Add smooth transitions to all interactive elements */
       button, a, input, select, textarea, [role="button"], [role="link"] {
         transition: all 0.2s ease-in-out;
       }
@@ -56,7 +65,7 @@
 }
 </script>
 </head>
-  <body class="bg-navy-charcoal">
+  <body class="bg-background overflow-x-hidden">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

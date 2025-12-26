@@ -5,7 +5,7 @@ import { Product } from '../types';
 interface ProductContextType {
   products: Product[];
   getProduct: (id: number) => Product | undefined;
-  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>, bySuperAdmin?: boolean) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: number) => void;
 }
@@ -18,11 +18,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       const localData = localStorage.getItem('vexokart-products');
       let parsedData = localData ? JSON.parse(localData) : [];
       
-      // Backward compatibility: migrate 'features' to 'highlights'
       if (Array.isArray(parsedData)) {
         parsedData = parsedData.map((p: any) => {
+          // Backward compatibility: migrate 'features' to 'highlights'
           if (p.features && !p.highlights) {
             p.highlights = p.features;
+          }
+          // Backward compatibility: add vendorId and status for multi-vendor
+          if (!p.vendorId) {
+            p.vendorId = 'vexokart_internal'; // Assign to internal store
+          }
+          if (!p.status) {
+            p.status = 'live'; // Assume existing products are live
           }
           return p;
         });
@@ -43,16 +50,16 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     return products.find(p => p.id === id);
   }
 
-  const addProduct = (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => {
+  const addProduct = (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>, bySuperAdmin: boolean = false) => {
     setProducts(prevProducts => {
       const newId = prevProducts.length > 0 ? Math.max(...prevProducts.map(p => p.id)) + 1 : 1;
       const newProduct: Product = { 
         ...productData, 
         id: newId,
-        // Ensure new fields have default values for consistency
         rating: 4.5,
         reviewCount: 0,
         reviews: [],
+        status: bySuperAdmin ? 'live' : 'pending_approval',
         stock: productData.stock || 0,
         highlights: productData.highlights || [],
         specifications: productData.specifications || {},

@@ -5,65 +5,54 @@ import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { Product } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { useVendors } from '../../context/VendorContext';
 
-const AdminProductFormPage: React.FC = () => {
+const VendorProductFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const { getProduct, addProduct, updateProduct } = useProducts();
   const { categories } = useCategories();
-  
+  const { user } = useAuth();
+  const { getVendorByUserId } = useVendors();
+
+  const vendor = user ? getVendorByUserId(user.email) : null;
   const isEditing = id !== undefined;
   
-  // FIX: Added missing vendorId and status fields to the initial state to match the Product type.
-  const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount'>>({
+  const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount' | 'status' | 'vendorId'>>({
     name: '',
     category: categories[0]?.name || '',
     price: 0,
     originalPrice: 0,
     images: [],
     description: '',
-    vendorId: 'vexokart_internal',
-    status: 'live',
     highlights: [],
     stock: 10,
     specifications: {},
-    sellerInfo: 'VexoKart Direct',
+    sellerInfo: vendor?.storeName || '',
     returnPolicy: '30-Day Money Back Guarantee',
     warranty: '1 Year Standard Warranty',
     videoUrl: ''
   });
-
+  
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
 
   useEffect(() => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
-      if (productToEdit) {
-        // FIX: Ensured all required fields, including vendorId and status, are set when editing a product.
-        setFormData({
-            name: productToEdit.name,
-            category: productToEdit.category,
-            price: productToEdit.price,
-            originalPrice: productToEdit.originalPrice,
-            images: productToEdit.images,
-            description: productToEdit.description,
-            vendorId: productToEdit.vendorId,
-            status: productToEdit.status,
-            highlights: productToEdit.highlights || [],
-            stock: productToEdit.stock || 0,
-            specifications: productToEdit.specifications || {},
-            sellerInfo: productToEdit.sellerInfo,
-            returnPolicy: productToEdit.returnPolicy,
-            warranty: productToEdit.warranty,
-            videoUrl: productToEdit.videoUrl
-        });
+      // Security check: ensure vendor owns this product
+      if (productToEdit && vendor && productToEdit.vendorId === vendor.id) {
+        setFormData({ ...productToEdit });
+      } else {
+        // Redirect if trying to edit a product they don't own
+        navigate('/vendor/products');
       }
     } else {
         if (categories.length > 0) {
-            setFormData(prev => ({...prev, category: categories[0].name}));
+            setFormData(prev => ({...prev, category: categories[0].name, sellerInfo: vendor?.storeName || ''}));
         }
     }
-  }, [id, isEditing, getProduct, categories]);
+  }, [id, isEditing, getProduct, categories, vendor, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -95,10 +84,10 @@ const AdminProductFormPage: React.FC = () => {
       for (const file of e.target.files) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          setFormData(prev => ({
-            ...prev,
-            images: [...prev.images, reader.result as string]
-          }));
+            setFormData(prev => ({
+                ...prev,
+                images: [...prev.images, reader.result as string]
+            }));
         };
         reader.readAsDataURL(file);
       }
@@ -111,22 +100,22 @@ const AdminProductFormPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!vendor) {
+        alert("Vendor information not found. Cannot save product.");
+        return;
+    }
     if(formData.images.length === 0) {
         alert("Please upload at least one image for the product.");
         return;
     }
     if (isEditing) {
       const existingProduct = getProduct(parseInt(id));
-      const updatedData = { ...existingProduct, ...formData, id: parseInt(id) } as Product;
+      const updatedData: Product = { ...existingProduct!, ...formData, id: parseInt(id) };
       updateProduct(updatedData);
     } else {
-      // FIX: Correctly call addProduct by destructuring the 'status' property (which is set by the context)
-      // and passing the 'bySuperAdmin' flag.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { status, ...productData } = formData;
-      addProduct(productData, true);
+      addProduct({ ...formData, vendorId: vendor.id });
     }
-    navigate('/admin/products');
+    navigate('/vendor/products');
   };
 
   return (
@@ -142,7 +131,6 @@ const AdminProductFormPage: React.FC = () => {
                  <div><label className="block text-sm font-medium text-text-secondary">Stock</label><input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} /></div>
             </div>
             <div><label className="block text-sm font-medium text-text-secondary">Description</label><textarea name="description" value={formData.description} onChange={handleChange} required rows={4} className={inputClasses}></textarea></div>
-            
             <div>
                 <label className="block text-sm font-medium text-text-secondary">Images</label>
                 <div className="mt-2"><input type="file" id="imageUpload" multiple accept="image/*" onChange={handleImageChange} className="hidden" /><label htmlFor="imageUpload" className="cursor-pointer bg-surface text-text-main font-semibold py-2 px-4 rounded-lg border border-gray-600 hover:bg-gray-700">Choose Files</label></div>
@@ -152,18 +140,11 @@ const AdminProductFormPage: React.FC = () => {
                     ))}
                 </div>
             </div>
-
             <div><label className="block text-sm font-medium text-text-secondary">Highlights (one per line)</label><textarea name="highlights" value={formData.highlights?.join('\n')} onChange={handleArrayChange} rows={4} className={inputClasses}></textarea></div>
             <div><label className="block text-sm font-medium text-text-secondary">Specifications (format: Key: Value)</label><textarea name="specifications" value={specString} onChange={handleSpecChange} rows={5} className={inputClasses} placeholder="e.g.&#10;Color: Black&#10;Material: Aluminum"></textarea></div>
-            <div><label className="block text-sm font-medium text-text-secondary">Video URL (optional)</label><input type="url" name="videoUrl" value={formData.videoUrl} onChange={handleChange} className={inputClasses} /></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><label className="block text-sm font-medium text-text-secondary">Seller Info</label><input type="text" name="sellerInfo" value={formData.sellerInfo} onChange={handleChange} className={inputClasses} /></div>
-              <div><label className="block text-sm font-medium text-text-secondary">Return Policy</label><input type="text" name="returnPolicy" value={formData.returnPolicy} onChange={handleChange} className={inputClasses} /></div>
-              <div><label className="block text-sm font-medium text-text-secondary">Warranty</label><input type="text" name="warranty" value={formData.warranty} onChange={handleChange} className={inputClasses} /></div>
-            </div>
             <div className="flex justify-end gap-4 pt-4">
-                <button type="button" onClick={() => navigate('/admin/products')} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
-                <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Update Product' : 'Create Product'}</button>
+                <button type="button" onClick={() => navigate('/vendor/products')} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
+                <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Update Product' : 'Submit for Approval'}</button>
             </div>
         </form>
       </GlassmorphicCard>
@@ -171,4 +152,4 @@ const AdminProductFormPage: React.FC = () => {
   );
 };
 
-export default AdminProductFormPage;
+export default VendorProductFormPage;

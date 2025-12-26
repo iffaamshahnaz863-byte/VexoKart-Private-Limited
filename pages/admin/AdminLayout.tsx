@@ -22,15 +22,17 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { name: 'Categories', path: '/admin/categories' },
     { name: 'Orders', path: '/admin/orders' },
     { name: 'Users', path: '/admin/users' },
+    { name: 'Vendors', path: '/admin/vendors' },
+    { name: 'Admin Codes', path: '/admin/codes' },
   ];
 
-  const activeLinkClass = 'bg-teal-500 text-white';
-  const inactiveLinkClass = 'text-gray-300 hover:bg-navy-charcoal hover:text-white';
+  const activeLinkClass = 'bg-accent text-white';
+  const inactiveLinkClass = 'text-text-secondary hover:bg-background hover:text-text-main';
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-64 bg-navy-light p-4 flex flex-col">
-        <h1 className="text-2xl font-bold text-white mb-8">VexoKart Admin</h1>
+      <aside className="w-64 bg-surface p-4 flex flex-col">
+        <h1 className="text-2xl font-bold text-text-main mb-8">VexoKart Super Admin</h1>
         <nav className="flex-grow">
           <ul>
             {menuItems.map(item => (
@@ -50,7 +52,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
            <button onClick={handleLogout} className="w-full text-left py-2 px-4 rounded-md text-red-400 hover:bg-red-500/20">Logout</button>
         </div>
       </aside>
-      <main className="flex-grow p-8 bg-navy-charcoal overflow-auto">
+      <main className="flex-grow p-8 bg-background overflow-auto">
         {children}
       </main>
     </div>
