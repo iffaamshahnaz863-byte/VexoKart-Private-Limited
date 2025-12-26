@@ -17,7 +17,15 @@ export interface Product {
   images: string[];
   description: string;
   reviews: Review[];
-  features?: string[];
+  // Replaced 'features' with 'highlights' for better clarity
+  highlights?: string[];
+  // NEW - Advanced Product Details
+  stock?: number;
+  specifications?: { [key: string]: string };
+  sellerInfo?: string;
+  returnPolicy?: string;
+  warranty?: string;
+  videoUrl?: string;
 }
 
 export interface Category {
@@ -38,11 +46,26 @@ export interface OrderItem {
     image: string;
 }
 
+export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+
+export interface StatusHistory {
+    status: OrderStatus;
+    timestamp: string;
+}
+
 export interface Order {
     id: string;
     date: string;
     items: OrderItem[];
     total: number;
+    status: OrderStatus;
+    userEmail: string;
+    shippingAddress: Address;
+    paymentMethod: string;
+    paymentId?: string;
+    statusHistory: StatusHistory[];
+    courierName?: string;
+    trackingId?: string;
 }
 
 export interface Address {
@@ -60,4 +83,7 @@ export interface User {
   email: string;
   role: 'USER' | 'ADMIN';
   addresses: Address[];
+  wishlist: number[];
+  // NEW - Recently Viewed Items
+  recentlyViewed: number[];
 }

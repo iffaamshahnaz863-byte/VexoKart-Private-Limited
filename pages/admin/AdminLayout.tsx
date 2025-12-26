@@ -19,12 +19,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const menuItems = [
     { name: 'Dashboard', path: '/admin', exact: true },
     { name: 'Products', path: '/admin/products' },
-    // { name: 'Orders', path: '/admin/orders' },
-    // { name: 'Users', path: '/admin/users' },
+    { name: 'Categories', path: '/admin/categories' },
+    { name: 'Orders', path: '/admin/orders' },
+    { name: 'Users', path: '/admin/users' },
   ];
 
-  const activeLinkClass = 'bg-purple-600 text-white';
-  const inactiveLinkClass = 'text-gray-300 hover:bg-navy-light hover:text-white';
+  const activeLinkClass = 'bg-teal-500 text-white';
+  const inactiveLinkClass = 'text-gray-300 hover:bg-navy-charcoal hover:text-white';
 
   return (
     <div className="flex min-h-screen">

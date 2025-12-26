@@ -33,11 +33,11 @@ const LoginPage: React.FC = () => {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-navy-charcoal via-gray-900 to-blue-900/50">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-navy-charcoal">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-white">VexoKart</h1>
-            <p className="text-purple-300">Shop Online, Shop Smart</p>
+            <p className="text-gray-400">Shop Online, Shop Smart</p>
         </div>
         <GlassmorphicCard className="p-8">
           <h2 className="text-2xl font-bold text-center text-white mb-6">Welcome Back</h2>
@@ -51,7 +51,7 @@ const LoginPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full mt-2 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-purple-400 focus:ring-purple-400 rounded-lg p-3 transition"
+                className="w-full mt-2 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-accent focus:ring-accent rounded-lg p-3 transition"
                 placeholder="you@example.com"
               />
             </div>
@@ -63,20 +63,20 @@ const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full mt-2 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-purple-400 focus:ring-purple-400 rounded-lg p-3 transition"
+                className="w-full mt-2 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-accent focus:ring-accent rounded-lg p-3 transition"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 rounded-lg shadow-lg transform hover:scale-105 transition-transform"
+              className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg transform hover:scale-105 transition-transform"
             >
               Login
             </button>
           </form>
           <p className="text-center text-sm text-gray-400 mt-6">
             Don't have an account?{' '}
-            <Link to="/signup" className="font-medium text-purple-400 hover:underline">
+            <Link to="/signup" className="font-medium text-accent hover:underline">
               Sign Up
             </Link>
           </p>

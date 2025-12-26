@@ -69,13 +69,13 @@ const AddressFormPage: React.FC = () => {
                   value={(formData as any)[key]}
                   onChange={handleChange}
                   required
-                  className="w-full mt-1 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-purple-400 focus:ring-purple-400 rounded-lg p-3 transition"
+                  className="w-full mt-1 bg-navy-light/70 text-white placeholder-gray-400 border border-gray-700 focus:border-accent focus:ring-accent rounded-lg p-3 transition"
                 />
               </div>
             ))}
             <button
               type="submit"
-              className="w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 rounded-lg shadow-lg"
+              className="w-full mt-4 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold py-3 rounded-lg shadow-lg"
             >
               Save Address
             </button>

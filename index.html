@@ -13,8 +13,9 @@
         theme: {
           extend: {
             colors: {
-              'navy-charcoal': '#1a202c',
-              'navy-light': '#2d3748',
+              'navy-charcoal': '#111827', // gray-900
+              'navy-light': '#1f2937',    // gray-800
+              'accent': '#2dd4bf',        // teal-400
             },
             backdropBlur: {
               'xs': '2px',
@@ -29,14 +30,19 @@
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #2d3748; 
+        background: #1f2937; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #4a5568; 
+        background: #4b5563; 
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #718096;
+        background: #6b7280;
+      }
+      /* --- Professional UI Enhancements --- */
+      /* Add smooth transitions to all interactive elements */
+      button, a, input, select, textarea, [role="button"], [role="link"] {
+        transition: all 0.2s ease-in-out;
       }
     </style>
   <script type="importmap">
@@ -44,7 +50,7 @@
   "imports": {
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^6.25.1",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }

@@ -1,27 +1,37 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Product } from '../types';
-import { PRODUCTS as initialProducts } from '../constants';
 
 interface ProductContextType {
   products: Product[];
   getProduct: (id: number) => Product | undefined;
-  addProduct: (product: Omit<Product, 'id'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (productId: number) => void;
 }
 
-// FIX: Export ProductContext so it can be imported by the dedicated hook file.
 export const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const localData = localStorage.getItem('vexokart-products');
-      // If there's data, use it. Otherwise, seed with initial data.
-      return localData ? JSON.parse(localData) : initialProducts;
+      let parsedData = localData ? JSON.parse(localData) : [];
+      
+      // Backward compatibility: migrate 'features' to 'highlights'
+      if (Array.isArray(parsedData)) {
+        parsedData = parsedData.map((p: any) => {
+          if (p.features && !p.highlights) {
+            p.highlights = p.features;
+          }
+          return p;
+        });
+      }
+      return parsedData;
+
     } catch (error) {
       console.error("Could not parse product data from localStorage", error);
-      return initialProducts;
+      return [];
     }
   });
 
@@ -33,10 +43,24 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     return products.find(p => p.id === id);
   }
 
-  const addProduct = (productData: Omit<Product, 'id'>) => {
+  const addProduct = (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews'>) => {
     setProducts(prevProducts => {
       const newId = prevProducts.length > 0 ? Math.max(...prevProducts.map(p => p.id)) + 1 : 1;
-      const newProduct: Product = { ...productData, id: newId };
+      const newProduct: Product = { 
+        ...productData, 
+        id: newId,
+        // Ensure new fields have default values for consistency
+        rating: 4.5,
+        reviewCount: 0,
+        reviews: [],
+        stock: productData.stock || 0,
+        highlights: productData.highlights || [],
+        specifications: productData.specifications || {},
+        sellerInfo: productData.sellerInfo || 'VexoKart Direct',
+        returnPolicy: productData.returnPolicy || '30-Day Returns',
+        warranty: productData.warranty || '1 Year Manufacturer Warranty',
+        videoUrl: productData.videoUrl || '',
+      };
       return [...prevProducts, newProduct];
     });
   };

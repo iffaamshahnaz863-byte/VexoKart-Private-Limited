@@ -43,7 +43,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ banners }) => {
             key={index}
             onClick={() => goToSlide(index)}
             className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              currentIndex === index ? 'bg-purple-400 p-1' : 'bg-gray-500/50'
+              currentIndex === index ? 'bg-accent p-1' : 'bg-gray-500/50'
             }`}
           />
         ))}

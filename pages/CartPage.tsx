@@ -16,7 +16,7 @@ const CartPage: React.FC = () => {
         {cartItems.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg">Your cart is empty.</p>
-            <button onClick={() => navigate('/products')} className="mt-4 bg-purple-600 text-white font-bold py-2 px-6 rounded-lg">
+            <button onClick={() => navigate('/products')} className="mt-4 bg-teal-500 text-white font-bold py-2 px-6 rounded-lg">
               Shop Now
             </button>
           </div>
@@ -27,7 +27,7 @@ const CartPage: React.FC = () => {
                 <img src={item.images[0]} alt={item.name} className="w-20 h-20 object-cover rounded-md"/>
                 <div className="flex-grow">
                   <h3 className="font-semibold text-white">{item.name}</h3>
-                  <p className="text-purple-400 font-bold">₹{item.price.toFixed(2)}</p>
+                  <p className="text-accent font-bold">₹{item.price.toFixed(2)}</p>
                    <div className="flex items-center mt-2">
                     <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 bg-navy-light rounded">-</button>
                     <span className="w-10 text-center">{item.quantity}</span>
@@ -54,14 +54,14 @@ const CartPage: React.FC = () => {
               <div className="border-t border-gray-700 my-4"></div>
               <div className="flex justify-between items-center text-xl font-bold">
                 <span className="text-white">Total:</span>
-                <span className="text-purple-400">₹{cartTotal.toFixed(2)}</span>
+                <span className="text-accent">₹{cartTotal.toFixed(2)}</span>
               </div>
             </GlassmorphicCard>
 
             <div className="mt-6">
               <button
                 onClick={() => navigate('/checkout')}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-105 transition-transform"
+                className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold py-3 rounded-xl shadow-lg transform hover:scale-105 transition-transform"
               >
                 Proceed to Checkout
               </button>

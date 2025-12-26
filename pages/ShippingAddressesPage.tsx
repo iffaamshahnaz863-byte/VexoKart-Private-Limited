@@ -29,8 +29,8 @@ const ShippingAddressesPage: React.FC = () => {
                         <p>Phone: {address.phone}</p>
                     </div>
                     <div className="flex space-x-4 mt-3 pt-3 border-t border-gray-700/50 text-sm font-semibold">
-                        <button onClick={() => navigate(`/addresses/edit/${address.id}`)} className="text-purple-400">Edit</button>
-                        <button onClick={() => deleteAddress(address.id)} className="text-red-400">Remove</button>
+                        <button onClick={() => navigate(`/addresses/edit/${address.id}`)} className="text-accent hover:text-teal-300">Edit</button>
+                        <button onClick={() => deleteAddress(address.id)} className="text-red-400 hover:text-red-300">Remove</button>
                     </div>
                 </GlassmorphicCard>
             ))
@@ -40,7 +40,7 @@ const ShippingAddressesPage: React.FC = () => {
          
          <button 
             onClick={() => navigate('/addresses/new')}
-            className="w-full bg-purple-600/20 backdrop-blur-sm border border-purple-500/50 text-purple-400 font-bold py-3 rounded-xl hover:bg-purple-600/40 transition">
+            className="w-full bg-teal-500/10 backdrop-blur-sm border border-teal-500/50 text-accent font-bold py-3 rounded-xl hover:bg-teal-500/20 transition">
           Add New Address
         </button>
       </div>

@@ -4,29 +4,35 @@ import { User, Address } from '../types';
 
 interface AuthContextType {
   user: User | null;
+  users: User[];
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
   logout: () => void;
+  addUser: (userData: { name: string; email: string; pass: string; role: 'USER' | 'ADMIN' }) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => void;
   updateAddress: (address: Address) => void;
   deleteAddress: (addressId: string) => void;
+  deleteUser: (email: string) => void;
+  addToWishlist: (productId: number) => void;
+  removeFromWishlist: (productId: number) => void;
+  isInWishlist: (productId: number) => boolean;
+  // Expose user session update for other contexts
+  updateUserSession: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to get users from localStorage
 const getUsersFromStorage = () => {
     try {
         const users = localStorage.getItem('vexokart-users');
         const parsedUsers = users ? JSON.parse(users) : {};
-        // Ensure admin user exists
         if (!parsedUsers['admin@vexokart.com']) {
-            parsedUsers['admin@vexokart.com'] = { name: 'Admin', password: 'admin123', role: 'ADMIN', addresses: [] };
+            parsedUsers['admin@vexokart.com'] = { name: 'Admin', password: 'admin123', role: 'ADMIN', addresses: [], wishlist: [], recentlyViewed: [] };
         }
         return parsedUsers;
     } catch (error) {
-        return { 'admin@vexokart.com': { name: 'Admin', password: 'admin123', role: 'ADMIN', addresses: [] } };
+        return { 'admin@vexokart.com': { name: 'Admin', password: 'admin123', role: 'ADMIN', addresses: [], wishlist: [], recentlyViewed: [] } };
     }
 };
 
@@ -36,6 +42,20 @@ const saveUsersToStorage = (users: any) => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  const updateUserList = () => {
+    const usersData = getUsersFromStorage();
+    const usersArray = Object.entries(usersData).map(([email, data]: [string, any]) => ({
+        email,
+        name: data.name,
+        role: data.role || 'USER',
+        addresses: data.addresses || [],
+        wishlist: data.wishlist || [],
+        recentlyViewed: data.recentlyViewed || [],
+    }));
+    setAllUsers(usersArray);
+  }
 
   useEffect(() => {
     try {
@@ -47,19 +67,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Could not parse user session data from localStorage", error);
       localStorage.removeItem('vexokart-session');
     }
+    updateUserList();
   }, []);
 
   const updateUserSession = (userData: User) => {
     localStorage.setItem('vexokart-session', JSON.stringify(userData));
     setUser(userData);
     
-    // Also update the user in the main user list
     const users = getUsersFromStorage();
     const existingUser = users[userData.email];
     if (existingUser) {
         users[userData.email] = { ...existingUser, ...userData, password: existingUser.password };
         saveUsersToStorage(users);
     }
+    updateUserList();
   }
 
   const login = async (email: string, pass: string) => {
@@ -71,7 +92,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: existingUser.name, 
         email: email,
         role: existingUser.role || 'USER',
-        addresses: existingUser.addresses || []
+        addresses: existingUser.addresses || [],
+        wishlist: existingUser.wishlist || [],
+        recentlyViewed: existingUser.recentlyViewed || []
       };
       updateUserSession(userData);
       return Promise.resolve();
@@ -85,13 +108,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return Promise.reject(new Error('An account with this email already exists.'));
     }
 
-    users[email] = { name, password: pass, role: 'USER', addresses: [] };
+    users[email] = { name, password: pass, role: 'USER', addresses: [], wishlist: [], recentlyViewed: [] };
     saveUsersToStorage(users);
 
-    const userData: User = { name, email, role: 'USER', addresses: [] };
+    const userData: User = { name, email, role: 'USER', addresses: [], wishlist: [], recentlyViewed: [] };
     updateUserSession(userData);
     return Promise.resolve();
   };
+
+  const addUser = async (userData: { name: string; email: string; pass: string; role: 'USER' | 'ADMIN' }) => {
+    const users = getUsersFromStorage();
+    if (users[userData.email]) {
+        return Promise.reject(new Error('An account with this email already exists.'));
+    }
+    users[userData.email] = { name: userData.name, password: userData.pass, role: userData.role, addresses: [], wishlist: [], recentlyViewed: [] };
+    saveUsersToStorage(users);
+    updateUserList();
+    return Promise.resolve();
+  }
 
   const logout = () => {
     localStorage.removeItem('vexokart-session');
@@ -119,10 +153,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updateUserSession(updatedUser);
   };
 
+  const deleteUser = (email: string) => {
+      if (email === 'admin@vexokart.com') {
+          alert("Cannot delete the primary admin account.");
+          return;
+      }
+      const users = getUsersFromStorage();
+      delete users[email];
+      saveUsersToStorage(users);
+      updateUserList();
+  }
+  
+  const addToWishlist = (productId: number) => {
+    if (!user) return;
+    if (user.wishlist.includes(productId)) return;
+    const updatedUser = { ...user, wishlist: [...user.wishlist, productId] };
+    updateUserSession(updatedUser);
+  };
+
+  const removeFromWishlist = (productId: number) => {
+    if (!user) return;
+    const updatedUser = { ...user, wishlist: user.wishlist.filter(id => id !== productId) };
+    updateUserSession(updatedUser);
+  };
+
+  const isInWishlist = (productId: number): boolean => {
+    return user?.wishlist.includes(productId) || false;
+  };
+
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, signup, logout, addAddress, updateAddress, deleteAddress }}>
+    <AuthContext.Provider value={{ user, users: allUsers, isAuthenticated, login, signup, logout, addUser, addAddress, updateAddress, deleteAddress, deleteUser, addToWishlist, removeFromWishlist, isInWishlist, updateUserSession }}>
       {children}
     </AuthContext.Provider>
   );
