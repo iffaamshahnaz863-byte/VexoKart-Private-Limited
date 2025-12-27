@@ -16,14 +16,14 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 const DEFAULT_SETTINGS: NotificationSettings = {
   emailEnabled: true,
   smsEnabled: true,
-  smtpHost: 'smtp.sendgrid.net',
+  smtpHost: 'api.sendgrid.com',
   smtpUser: '',
   smtpPass: '',
   emailFrom: 'VexoKart Support <support@vexokart.com>',
   smsApiKey: '',
   smsSenderId: 'VXKART',
   smsTemplateId: '',
-  testMode: false, // PRODUCTION MODE BY DEFAULT
+  testMode: true, // Switched to true by default for safe browser previewing
 };
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -59,12 +59,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const notifyOrderUpdate = async (order: Order, user: User) => {
-    // Only proceed if enabled or in test mode
     if (!settings.emailEnabled && !settings.smsEnabled && !settings.testMode) return;
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     
-    // 1. Generate High-Quality Message Content
     let aiContent = { email: '', sms: '' };
     try {
       const response = await ai.models.generateContent({
@@ -74,11 +72,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         Order ID: #${order.id}
         Status: ${order.status}
         Total Amount: ₹${order.total}
-        Shipping To: ${order.shippingAddress.city}
         
         Output JSON with:
-        "emailBody": (Professional Markdown, include order summary, support link: vexokart.com/support)
-        "smsBody": (Strictly max 150 chars, must start with "VexoKart: ")`,
+        "emailBody": (Professional HTML/Markdown)
+        "smsBody": (Strictly max 150 chars, start with "VexoKart: ")`,
         config: { responseMimeType: 'application/json' }
       });
       
@@ -86,11 +83,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       aiContent.email = parsed.emailBody;
       aiContent.sms = parsed.smsBody;
     } catch (err) {
-      aiContent.email = `Your order #${order.id} has been ${order.status.toLowerCase()}. Thank you for shopping with VexoKart.`;
-      aiContent.sms = `VexoKart: Order #${order.id} is ${order.status.toLowerCase()}. Track at vexokart.com/orders`;
+      aiContent.email = `Order #${order.id} is ${order.status}. Thank you!`;
+      aiContent.sms = `VexoKart: Order #${order.id} is ${order.status}.`;
     }
 
-    // 2. Internal Retry Helper (Exponential Backoff)
     const sendWithRetry = async (
         channel: 'email' | 'sms', 
         sendFn: () => Promise<any>, 
@@ -100,9 +96,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       while (attempts <= maxRetries) {
         try {
           if (settings.testMode) {
-            // Simulated delay for realistic test feel
-            await new Promise(r => setTimeout(r, 800));
-            addLog({ userId: user.email, orderId: order.id, channel, status: 'sent', response: 'Test Mode Simulation Success', type: order.status, retryCount: attempts });
+            await new Promise(r => setTimeout(r, 600));
+            addLog({ userId: user.email, orderId: order.id, channel, status: 'sent', response: 'Sandbox Simulation Success', type: order.status, retryCount: attempts });
             return;
           }
 
@@ -111,22 +106,29 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           return result;
         } catch (error: any) {
           attempts++;
+          
+          // Handle common browser restriction errors (CORS/Network)
+          let errorMsg = error.message || 'Unknown Error';
+          if (errorMsg === 'Failed to fetch') {
+            errorMsg = 'CORS Restriction: Production APIs (SendGrid/SMS) must be called from a server-side proxy, not directly from a browser.';
+          }
+
           if (attempts > maxRetries) {
-            addLog({ userId: user.email, orderId: order.id, channel, status: 'failed', response: error.message || 'Unknown Provider Error', type: order.status, retryCount: attempts - 1 });
-            console.error(`Production ${channel} failure after ${maxRetries} retries:`, error);
+            addLog({ userId: user.email, orderId: order.id, channel, status: 'failed', response: errorMsg, type: order.status, retryCount: attempts - 1 });
+            console.error(`[Production] ${channel} failed: ${errorMsg}`);
           } else {
-            await new Promise(r => setTimeout(r, Math.pow(2, attempts) * 1000));
+            await new Promise(r => setTimeout(r, 1000));
           }
         }
       }
     };
 
-    // 3. Execute Production Email Sending (Logic for SendGrid/Mailgun)
     if (settings.emailEnabled) {
       await sendWithRetry('email', async () => {
-        // In a real production environment, this would hit your server's proxy or SendGrid's v3 API
-        // For security, keys are assumed to be handled by the environment
+        // NOTE: Standard browser 'fetch' to SendGrid will fail due to CORS.
+        // In real production, this call must be made via a backend API endpoint (Node/Express/Next.js).
         const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          mode: 'cors',
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${settings.smtpPass}`,
@@ -134,19 +136,17 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           },
           body: JSON.stringify({
             personalizations: [{ to: [{ email: user.email }] }],
-            from: { email: settings.emailFrom.match(/<(.+)>/)?.[1] || 'support@vexokart.com', name: 'VexoKart' },
-            subject: `Your VexoKart order has been ${order.status}`,
+            from: { email: 'support@vexokart.com', name: 'VexoKart' },
+            subject: `Order Update: #${order.id}`,
             content: [{ type: 'text/html', value: aiContent.email }]
           })
         });
-        if (!response.ok && !settings.testMode) throw new Error(`Email provider returned ${response.status}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
       });
     }
 
-    // 4. Execute Production SMS Sending (Logic for Fast2SMS/Twilio)
     if (settings.smsEnabled && order.shippingAddress.phone) {
       await sendWithRetry('sms', async () => {
-        // Example for Fast2SMS Transactional API
         const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
           method: 'POST',
           headers: {
@@ -160,7 +160,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             numbers: order.shippingAddress.phone,
           })
         });
-        if (!response.ok && !settings.testMode) throw new Error(`SMS gateway returned ${response.status}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
       });
     }
   };

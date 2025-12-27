@@ -76,6 +76,8 @@ export interface Order {
     statusHistory: StatusHistory[];
     courierName?: string;
     trackingId?: string;
+    shippingLabelUrl?: string;
+    labelGeneratedAt?: string;
 }
 
 export interface Address {
@@ -109,6 +111,8 @@ export interface Vendor {
   userId: string;
   storeName: string;
   storeLogo: string;
+  storeAddress?: string;
+  storePhone?: string;
   status: 'pending' | 'approved' | 'rejected' | 'suspended';
   kycDetails: KYCDetails;
   commissionRate?: number;

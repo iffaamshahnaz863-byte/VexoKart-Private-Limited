@@ -9,6 +9,7 @@ interface OrderContextType {
   addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory'>) => string;
   updateOrderStatus: (orderId: string, status: OrderStatus, details?: { courierName?: string; trackingId?: string }) => void;
   updateOrderPaymentDetails: (orderId: string, paymentId: string) => void;
+  updateOrderLabelInfo: (orderId: string, labelUrl: string) => void;
   getOrderById: (orderId: string) => Order | undefined;
 }
 
@@ -96,11 +97,21 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
     saveOrders(updated);
   };
+
+  const updateOrderLabelInfo = (orderId: string, labelUrl: string) => {
+    const updated = orders.map(o => {
+      if (o.id === orderId) {
+        return { ...o, shippingLabelUrl: labelUrl, labelGeneratedAt: new Date().toISOString() };
+      }
+      return o;
+    });
+    saveOrders(updated);
+  };
   
   const getOrderById = (orderId: string) => orders.find(o => o.id === orderId);
 
   return (
-    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, getOrderById, updateOrderPaymentDetails }}>
+    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, getOrderById, updateOrderPaymentDetails, updateOrderLabelInfo }}>
       {children}
     </OrderContext.Provider>
   );

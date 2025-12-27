@@ -7,6 +7,7 @@ import { useVendors } from '../../context/VendorContext';
 import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
 import ShippingDetailsModal from '../../components/admin/ShippingDetailsModal';
+import ShippingLabelModal from '../../components/vendor/ShippingLabelModal';
 
 const VENDOR_UPDATABLE_STATUSES: OrderStatus[] = ['Packed', 'Shipped', 'Out for Delivery'];
 
@@ -14,11 +15,12 @@ const VendorOrdersPage: React.FC = () => {
     const { user } = useAuth();
     const { getVendorByUserId } = useVendors();
     const { products } = useProducts();
-    const { orders, updateOrderStatus } = useOrders();
+    const { orders, updateOrderStatus, updateOrderLabelInfo } = useOrders();
     
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isShippingModalOpen, setShippingModalOpen] = useState(false);
+    const [labelOrder, setLabelOrder] = useState<Order | null>(null);
 
     const vendor = user ? getVendorByUserId(user.email) : null;
     const vendorProducts = vendor ? products.filter(p => p.vendorId === vendor.id) : [];
@@ -52,6 +54,13 @@ const VendorOrdersPage: React.FC = () => {
         setShippingModalOpen(false);
         setSelectedOrder(null);
     };
+
+    const handleLabelGenerated = (url: string) => {
+      if (labelOrder) {
+        updateOrderLabelInfo(labelOrder.id, url);
+      }
+      setLabelOrder(null);
+    };
   
     return (
         <div className="space-y-6">
@@ -59,6 +68,15 @@ const VendorOrdersPage: React.FC = () => {
                 <ShippingDetailsModal
                     onClose={() => setShippingModalOpen(false)}
                     onSubmit={handleShippingSubmit}
+                />
+            )}
+
+            {labelOrder && vendor && (
+                <ShippingLabelModal
+                  order={labelOrder}
+                  vendor={vendor}
+                  onClose={() => setLabelOrder(null)}
+                  onGenerated={handleLabelGenerated}
                 />
             )}
 
@@ -90,7 +108,7 @@ const VendorOrdersPage: React.FC = () => {
                                 <th className="p-6">Customer</th>
                                 <th className="p-6">Line Items</th>
                                 <th className="p-6">Current Status</th>
-                                <th className="p-6 text-right">Update Progression</th>
+                                <th className="p-6 text-right">Fulfillment</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -124,19 +142,31 @@ const VendorOrdersPage: React.FC = () => {
                                         </span>
                                     </td>
                                     <td className="p-6 text-right">
-                                        {['Cancelled', 'Delivered'].includes(order.status) ? (
-                                            <span className="text-[10px] text-text-muted italic uppercase font-bold tracking-tight">Locked</span>
-                                        ) : (
-                                            <select
-                                                value=""
-                                                onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
-                                                className="bg-surface border border-white/10 rounded-lg py-1.5 px-3 text-[10px] font-black uppercase tracking-widest text-text-main focus:ring-accent focus:border-accent"
-                                            >
-                                                <option value="" disabled>Set Status</option>
-                                                {VENDOR_UPDATABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                                                <option value="Delivered">Mark Delivered</option>
-                                            </select>
-                                        )}
+                                        <div className="flex items-center justify-end gap-4">
+                                            {['Confirmed', 'Packed'].includes(order.status) && (
+                                                <button 
+                                                  onClick={() => setLabelOrder(order)}
+                                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase transition-all ${order.shippingLabelUrl ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-surface text-text-main border-border hover:border-accent'}`}
+                                                >
+                                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                                                   {order.shippingLabelUrl ? 'Label Ready' : 'Get Label'}
+                                                </button>
+                                            )}
+
+                                            {['Cancelled', 'Delivered'].includes(order.status) ? (
+                                                <span className="text-[10px] text-text-muted italic uppercase font-bold tracking-tight">Locked</span>
+                                            ) : (
+                                                <select
+                                                    value=""
+                                                    onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
+                                                    className="bg-surface border border-white/10 rounded-lg py-1.5 px-3 text-[10px] font-black uppercase tracking-widest text-text-main focus:ring-accent focus:border-accent"
+                                                >
+                                                    <option value="" disabled>Set Status</option>
+                                                    {VENDOR_UPDATABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    <option value="Delivered">Mark Delivered</option>
+                                                </select>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

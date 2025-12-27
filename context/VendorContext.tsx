@@ -6,7 +6,7 @@ interface VendorContextType {
   vendors: Vendor[];
   addVendor: (vendorData: { userId: string; storeName: string }) => void;
   updateVendorStatus: (vendorId: string, status: 'approved' | 'rejected' | 'suspended', reason?: string) => void;
-  updateVendorProfile: (vendorId: string, profileData: { storeName: string; storeLogo: string }) => void;
+  updateVendorProfile: (vendorId: string, profileData: Partial<Vendor>) => void;
   getVendorByUserId: (userId: string) => Vendor | undefined;
   getVendorById: (vendorId: string) => Vendor | undefined;
 }
@@ -59,7 +59,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     saveVendors(updated);
   };
 
-  const updateVendorProfile = (vendorId: string, profileData: { storeName: string; storeLogo: string }) => {
+  const updateVendorProfile = (vendorId: string, profileData: Partial<Vendor>) => {
     const updated = vendors.map(v => v.id === vendorId ? { ...v, ...profileData } : v);
     saveVendors(updated);
   };
