@@ -135,3 +135,28 @@ export interface Banner {
   displayOrder: number;
   createdAt: string;
 }
+
+export interface NotificationLog {
+  id: string;
+  userId: string;
+  orderId: string;
+  channel: 'email' | 'sms';
+  status: 'sent' | 'failed';
+  response: string;
+  createdAt: string;
+  type: OrderStatus;
+  retryCount?: number;
+}
+
+export interface NotificationSettings {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  smtpHost: string;
+  smtpUser: string;
+  smtpPass: string;
+  emailFrom: string;
+  smsApiKey: string;
+  smsSenderId: string;
+  smsTemplateId: string;
+  testMode: boolean;
+}

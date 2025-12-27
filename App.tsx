@@ -25,6 +25,7 @@ import { RecentlyViewedProvider } from './context/RecentlyViewedContext';
 import { VendorProvider, useVendors } from './context/VendorContext';
 import { AdminCodeProvider } from './context/AdminCodeContext';
 import { BannerProvider } from './context/BannerContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 // Auth Pages
 import VendorSignupPage from './pages/VendorSignupPage';
@@ -41,6 +42,7 @@ import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage';
 import AdminVendorsPage from './pages/admin/AdminVendorsPage';
 import AdminCodesPage from './pages/admin/AdminCodesPage';
 import AdminBannersPage from './pages/admin/AdminBannersPage';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 
 // Vendor Imports
 import VendorLayout from './pages/vendor/VendorLayout';
@@ -146,6 +148,7 @@ const AppContent: React.FC = () => {
             <Route path="categories/edit/:id" element={<AdminCategoryFormPage />} />
             <Route path="vendors" element={<AdminVendorsPage />} />
             <Route path="codes" element={<AdminCodesPage />} />
+            <Route path="notifications" element={<AdminNotificationsPage />} />
           </Route>
 
           {/* Vendor Routes */}
@@ -170,21 +173,23 @@ const App: React.FC = () => {
     <AdminCodeProvider>
       <VendorProvider>
         <AuthProvider>
-          <ProductProvider>
-            <CategoryProvider>
-              <BannerProvider>
-                <CartProvider>
-                  <OrderProvider>
-                    <RecentlyViewedProvider>
-                      <HashRouter>
-                        <AppContent />
-                      </HashRouter>
-                    </RecentlyViewedProvider>
-                  </OrderProvider>
-                </CartProvider>
-              </BannerProvider>
-            </CategoryProvider>
-          </ProductProvider>
+          <NotificationProvider>
+            <ProductProvider>
+              <CategoryProvider>
+                <BannerProvider>
+                  <CartProvider>
+                    <OrderProvider>
+                      <RecentlyViewedProvider>
+                        <HashRouter>
+                          <AppContent />
+                        </HashRouter>
+                      </RecentlyViewedProvider>
+                    </OrderProvider>
+                  </CartProvider>
+                </BannerProvider>
+              </CategoryProvider>
+            </ProductProvider>
+          </NotificationProvider>
         </AuthProvider>
       </VendorProvider>
     </AdminCodeProvider>

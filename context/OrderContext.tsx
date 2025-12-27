@@ -1,6 +1,8 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Order, OrderStatus } from '../types';
+import { useNotifications } from './NotificationContext';
+import { useAuth } from './AuthContext';
 
 interface OrderContextType {
   orders: Order[];
@@ -13,6 +15,8 @@ interface OrderContextType {
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { notifyOrderUpdate } = useNotifications();
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
       const localData = localStorage.getItem('vexokart-orders');
@@ -37,10 +41,19 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         statusHistory: [{ status: 'Placed', timestamp }]
     };
     saveOrders([newOrder, ...orders]);
+    
+    // Trigger notification
+    if (user) {
+      notifyOrderUpdate(newOrder, user);
+    }
+    
     return newOrder.id;
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus, details: { courierName?: string; trackingId?: string } = {}) => {
+    const orderToUpdate = orders.find(o => o.id === orderId);
+    if (!orderToUpdate) return;
+
     const updated = orders.map(o => {
       if (o.id === orderId) {
         if (o.status === status) return o;
@@ -55,6 +68,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return o;
     });
     saveOrders(updated);
+
+    // Trigger notification on status change
+    const updatedOrder = updated.find(o => o.id === orderId);
+    if (updatedOrder && user) {
+        notifyOrderUpdate(updatedOrder, user);
+    }
   };
 
   const updateOrderPaymentDetails = (orderId: string, paymentId: string) => {
@@ -64,7 +83,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const newStatusHistory = o.status === 'Placed' 
             ? [...o.statusHistory, { status: newStatus, timestamp: new Date().toISOString() }] 
             : o.statusHistory;
-        return { ...o, paymentId, status: newStatus, statusHistory: newStatusHistory };
+        const updatedOrder = { ...o, paymentId, status: newStatus, statusHistory: newStatusHistory };
+        
+        // Notify Confirmed
+        if (user) {
+          notifyOrderUpdate(updatedOrder, user);
+        }
+        
+        return updatedOrder;
       }
       return o;
     });

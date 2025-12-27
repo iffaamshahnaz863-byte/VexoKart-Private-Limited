@@ -23,6 +23,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { name: 'Users', path: '/admin/users' },
     { name: 'Vendors', path: '/admin/vendors' },
     { name: 'Admin Codes', path: '/admin/codes' },
+    { name: 'Notification Hub', path: '/admin/notifications' },
   ];
 
   const activeLinkClass = 'bg-accent text-white shadow-lg shadow-accent/20';
