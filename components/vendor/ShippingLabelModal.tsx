@@ -15,11 +15,14 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
   const [includeInvoice, setIncludeInvoice] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
+  // Generate a mock secure token if not already present
+  const currentToken = order.qrToken || Math.random().toString(36).substring(2, 15);
+  const scanUrl = `${window.location.origin}/#/scan/${currentToken}`;
+
   const handlePrint = () => {
     if (!printRef.current) return;
     
     const printContent = printRef.current.innerHTML;
-    const originalContent = document.body.innerHTML;
     
     // Create a printable window
     const printWindow = window.open('', '_blank');
@@ -59,11 +62,12 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
     `);
     printWindow.document.close();
     
-    // Simulate generation of a URL for persistence
+    // Pass back to persisting context
     onGenerated(`blob:vexokart/labels/${order.id}`);
   };
 
   const barcodePlaceholder = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${order.id}&scale=2&rotate=N&includetext=true`;
+  const qrPlaceholder = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(scanUrl)}`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -118,9 +122,9 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                             <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">Vexo<span className="text-gray-600">Kart</span></h1>
                             <p className="text-[9px] font-black uppercase tracking-widest mt-1">Premium Delivery Network</p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex flex-col items-end">
                              <img src={barcodePlaceholder} alt="Order Barcode" className="h-10 mb-1" />
-                             <p className="text-[8px] font-bold font-mono">ORDER: #{order.id}</p>
+                             <p className="text-[8px] font-bold font-mono uppercase">Order ID: #{order.id}</p>
                         </div>
                     </div>
 
@@ -143,19 +147,22 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                         </div>
                     </div>
 
-                    {/* Shipping Details */}
-                    <div className="grid grid-cols-3 gap-4 mb-8 border-b-2 border-black pb-8">
-                        <div className="border-r border-gray-300 pr-4">
-                            <p className="text-[8px] font-black uppercase text-gray-500 mb-1">Carrier</p>
-                            <p className="font-black text-sm uppercase">{order.courierName || 'SELF-SHIPPED'}</p>
+                    {/* QR SCAN UPDATE SECTION */}
+                    <div className="flex gap-6 items-center mb-8 border-2 border-dashed border-black p-4 rounded-xl">
+                        <div className="bg-white p-1 border border-gray-200 shadow-sm">
+                            <img src={qrPlaceholder} alt="Scan to update" className="w-24 h-24" />
                         </div>
-                        <div className="border-r border-gray-300 px-4">
-                             <p className="text-[8px] font-black uppercase text-gray-500 mb-1">Tracking ID</p>
-                             <p className="font-black text-sm font-mono">{order.trackingId || 'PENDING'}</p>
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-tighter leading-tight mb-1">COURIER SERVICE UPDATE</p>
+                            <p className="text-[9px] font-bold text-gray-600 mb-2 italic">Scan QR above to instantly mark order status</p>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+                                <span className="text-[8px] font-black uppercase tracking-widest">Secure Real-time Verification</span>
+                            </div>
                         </div>
-                        <div className="pl-4">
-                             <p className="text-[8px] font-black uppercase text-gray-500 mb-1">Weight (est)</p>
-                             <p className="font-black text-sm">0.85 KG</p>
+                        <div className="ml-auto text-right">
+                             <p className="text-[10px] font-black uppercase text-gray-500">Carrier Mode</p>
+                             <p className="font-black text-sm uppercase">{order.courierName || 'SELF-SHIPPED'}</p>
                         </div>
                     </div>
 

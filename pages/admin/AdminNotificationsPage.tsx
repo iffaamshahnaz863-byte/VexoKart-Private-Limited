@@ -37,6 +37,18 @@ const AdminNotificationsPage: React.FC = () => {
         </div>
       </div>
 
+      {!settings.testMode && (
+          <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex gap-4 items-start animate-in fade-in slide-in-from-top-2">
+              <div className="p-2 bg-blue-500 rounded-lg text-white">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div>
+                  <p className="text-sm font-bold text-blue-900">Architecture Note: Browser-Side Production</p>
+                  <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">External APIs like SendGrid block direct browser requests via CORS for security. In this demo, "Live" calls will be gracefully simulated if blocked. For a real launch, connect these fields to a Node.js or Serverless backend.</p>
+              </div>
+          </div>
+      )}
+
       {activeTab === 'settings' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <GlassmorphicCard className="p-6 space-y-6">
@@ -131,7 +143,6 @@ const AdminNotificationsPage: React.FC = () => {
                   <th className="p-4">Medium</th>
                   <th className="p-4">Order</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">Retries</th>
                   <th className="p-4">Gateway Response</th>
                 </tr>
               </thead>
@@ -151,12 +162,11 @@ const AdminNotificationsPage: React.FC = () => {
                         <span className={`text-[10px] font-black uppercase ${log.status === 'sent' ? 'text-green-600' : 'text-red-600'}`}>{log.status}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-xs font-bold text-text-secondary">{log.retryCount || 0}</td>
-                    <td className="p-4 text-xs italic text-text-muted max-w-[200px] truncate">{log.response}</td>
+                    <td className="p-4 text-xs italic text-text-muted max-w-[300px] truncate" title={log.response}>{log.response}</td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={6} className="p-20 text-center text-text-muted italic">No delivery attempts recorded in this session.</td>
+                    <td colSpan={5} className="p-20 text-center text-text-muted italic">No delivery attempts recorded in this session.</td>
                   </tr>
                 )}
               </tbody>

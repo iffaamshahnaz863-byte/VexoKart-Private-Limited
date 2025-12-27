@@ -63,6 +63,15 @@ export interface StatusHistory {
     timestamp: string;
 }
 
+export interface CourierScanLog {
+    id: string;
+    orderId: string;
+    statusSet: OrderStatus;
+    note?: string;
+    scannedAt: string;
+    ipAddress?: string;
+}
+
 export interface Order {
     id: string;
     date: string;
@@ -78,6 +87,10 @@ export interface Order {
     trackingId?: string;
     shippingLabelUrl?: string;
     labelGeneratedAt?: string;
+    qrToken?: string;
+    qrExpiresAt?: string;
+    qrUsedAt?: string;
+    scanLogs?: CourierScanLog[];
 }
 
 export interface Address {

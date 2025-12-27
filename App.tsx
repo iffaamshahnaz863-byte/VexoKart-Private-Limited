@@ -53,6 +53,9 @@ import VendorOrdersPage from './pages/vendor/VendorOrdersPage';
 import VendorProfilePage from './pages/vendor/VendorProfilePage';
 import VendorStatusPage from './pages/vendor/VendorStatusPage';
 
+// Logistics/Courier Imports
+import CourierScanPage from './pages/CourierScanPage';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -105,8 +108,9 @@ const AppContent: React.FC = () => {
   const isAuthPage = ['/login', '/signup', '/vendor/signup'].includes(location.pathname);
   const isAdminPage = location.pathname.startsWith('/admin');
   const isVendorPage = location.pathname.startsWith('/vendor');
+  const isLogisticsPage = location.pathname.startsWith('/scan');
   
-  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !['/checkout'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
+  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
 
   if (isInitializing) {
     return <SplashScreen onFinish={() => setIsInitializing(false)} />;
@@ -124,6 +128,9 @@ const AppContent: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/vendor/signup" element={<VendorSignupPage />} />
+          
+          {/* Logistics Route (QR Scan) */}
+          <Route path="/scan/:token" element={<CourierScanPage />} />
 
           {/* Protected User Routes */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
