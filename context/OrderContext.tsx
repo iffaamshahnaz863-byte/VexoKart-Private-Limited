@@ -18,14 +18,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const localData = localStorage.getItem('vexokart-orders');
       return localData ? JSON.parse(localData) : [];
     } catch (error) {
-      console.error("Could not parse order data from localStorage", error);
       return [];
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem('vexokart-orders', JSON.stringify(orders));
-  }, [orders]);
+  const saveOrders = (updatedOrders: Order[]) => {
+    localStorage.setItem('vexokart-orders', JSON.stringify(updatedOrders));
+    setOrders(updatedOrders);
+  };
 
   const addOrder = (orderData: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory'>): string => {
     const timestamp = new Date().toISOString();
@@ -36,52 +36,42 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         status: 'Placed',
         statusHistory: [{ status: 'Placed', timestamp }]
     };
-    setOrders(prevOrders => [newOrder, ...prevOrders]);
+    saveOrders([newOrder, ...orders]);
     return newOrder.id;
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus, details: { courierName?: string; trackingId?: string } = {}) => {
-    setOrders(prevOrders => prevOrders.map(o => {
+    const updated = orders.map(o => {
       if (o.id === orderId) {
-        const newHistoryEntry = { status, timestamp: new Date().toISOString() };
-        // Avoid duplicate history entries if status hasn't changed
         if (o.status === status) return o;
         return { 
           ...o, 
           status, 
-          statusHistory: [...o.statusHistory, newHistoryEntry],
+          statusHistory: [...o.statusHistory, { status, timestamp: new Date().toISOString() }],
           courierName: details.courierName || o.courierName,
           trackingId: details.trackingId || o.trackingId,
         };
       }
       return o;
-    }));
-  }
+    });
+    saveOrders(updated);
+  };
 
   const updateOrderPaymentDetails = (orderId: string, paymentId: string) => {
-    setOrders(prevOrders => prevOrders.map(o => {
-        if (o.id === orderId) {
-            const newStatus: OrderStatus = 'Confirmed';
-            const newHistoryEntry = { status: newStatus, timestamp: new Date().toISOString() };
-            // Only add Confirmed step if it was previously Placed
-            const newStatusHistory = o.status === 'Placed' 
-                ? [...o.statusHistory, newHistoryEntry] 
-                : o.statusHistory;
-            
-            return {
-                ...o,
-                paymentId,
-                status: newStatus,
-                statusHistory: newStatusHistory
-            };
-        }
-        return o;
-    }));
-  }
+    const updated = orders.map(o => {
+      if (o.id === orderId) {
+        const newStatus: OrderStatus = 'Confirmed';
+        const newStatusHistory = o.status === 'Placed' 
+            ? [...o.statusHistory, { status: newStatus, timestamp: new Date().toISOString() }] 
+            : o.statusHistory;
+        return { ...o, paymentId, status: newStatus, statusHistory: newStatusHistory };
+      }
+      return o;
+    });
+    saveOrders(updated);
+  };
   
-  const getOrderById = (orderId: string) => {
-    return orders.find(o => o.id === orderId);
-  }
+  const getOrderById = (orderId: string) => orders.find(o => o.id === orderId);
 
   return (
     <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, getOrderById, updateOrderPaymentDetails }}>
@@ -93,7 +83,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 export const useOrders = () => {
   const context = useContext(OrderContext);
   if (context === undefined) {
-    throw new Error('useOrders must be used within an OrderProvider');
+    throw new Error('useOrders must be used within a OrderProvider');
   }
   return context;
 };

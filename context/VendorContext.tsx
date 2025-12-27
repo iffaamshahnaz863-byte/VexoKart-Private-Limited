@@ -19,14 +19,14 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const localData = localStorage.getItem('vexokart-vendors');
       return localData ? JSON.parse(localData) : [];
     } catch (error) {
-      console.error("Could not parse vendor data from localStorage", error);
       return [];
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem('vexokart-vendors', JSON.stringify(vendors));
-  }, [vendors]);
+  const saveVendors = (updatedVendors: Vendor[]) => {
+    localStorage.setItem('vexokart-vendors', JSON.stringify(updatedVendors));
+    setVendors(updatedVendors);
+  };
 
   const addVendor = (vendorData: { userId: string; storeName: string }) => {
     const newVendor: Vendor = {
@@ -43,47 +43,29 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       },
       createdAt: new Date().toISOString()
     };
-    setVendors(prev => [...prev, newVendor]);
+    saveVendors([...vendors, newVendor]);
   };
 
   const updateVendorStatus = (vendorId: string, status: 'approved' | 'rejected' | 'suspended', reason?: string) => {
-    setVendors(prev => prev.map(v => {
-      if (v.id !== vendorId) {
-        return v;
-      }
-
-      // This is the vendor to update.
+    const updated = vendors.map(v => {
+      if (v.id !== vendorId) return v;
       if (status === 'rejected' && reason) {
-        // Return a new object with the rejection reason.
-        return {
-          ...v,
-          status: 'rejected',
-          rejectionReason: reason,
-        };
+        return { ...v, status: 'rejected' as const, rejectionReason: reason };
       } else {
-        // For any other status, return a new object *without* the rejection reason.
-        // We do this by destructuring it out and then spreading the rest.
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { rejectionReason, ...vendorWithoutReason } = v;
-        return {
-          ...vendorWithoutReason,
-          status: status,
-        };
+        return { ...vendorWithoutReason, status };
       }
-    }));
+    });
+    saveVendors(updated);
   };
 
   const updateVendorProfile = (vendorId: string, profileData: { storeName: string; storeLogo: string }) => {
-    setVendors(prev => prev.map(v => v.id === vendorId ? { ...v, ...profileData } : v));
+    const updated = vendors.map(v => v.id === vendorId ? { ...v, ...profileData } : v);
+    saveVendors(updated);
   };
   
-  const getVendorByUserId = (userId: string) => {
-    return vendors.find(v => v.userId === userId);
-  };
-  
-  const getVendorById = (vendorId: string) => {
-    return vendors.find(v => v.id === vendorId);
-  }
+  const getVendorByUserId = (userId: string) => vendors.find(v => v.userId === userId);
+  const getVendorById = (vendorId: string) => vendors.find(v => v.id === vendorId);
 
   return (
     <VendorContext.Provider value={{ vendors, addVendor, updateVendorStatus, getVendorByUserId, getVendorById, updateVendorProfile }}>

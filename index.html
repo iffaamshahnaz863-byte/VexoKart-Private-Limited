@@ -13,17 +13,23 @@
         theme: {
           extend: {
             colors: {
-              'background': '#020204',        // Deep Obsidian Black
-              'surface': '#0d0d14',           // Rich Dark Surface
-              'border': '#1f2937',            // Subtle border color
-              'accent': '#3882F6',             // Professional Blue
-              'accent-secondary': '#8957E5',   // Muted Purple for gradients
-              'text-main': '#F9FAFB',          // High contrast white
-              'text-secondary': '#9CA3AF',     // Softer gray
-              'text-muted': '#6B7280',         // Muted gray for placeholders
+              'background': '#FFFFFF',        // Pure White
+              'surface': '#F7F7F7',           // Light Gray Surface
+              'border': '#EDEDED',            // Soft Border
+              'accent': '#FF8A00',            // Warm Orange
+              'accent-secondary': '#FFD6B0',  // Soft Peach
+              'text-main': '#222222',         // Dark Charcoal
+              'text-secondary': '#666666',    // Soft Gray
+              'text-muted': '#999999',        // Muted Gray
             },
-            backdropBlur: {
-              'xs': '2px',
+            boxShadow: {
+              'premium': '0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 10px -2px rgba(0, 0, 0, 0.02)',
+              'premium-hover': '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.03)',
+            },
+            borderRadius: {
+              'xl': '12px',
+              '2xl': '16px',
+              '3xl': '24px',
             },
             keyframes: {
               shimmer: {
@@ -35,23 +41,46 @@
       }
     </script>
     <style>
-      /* For custom scrollbar styling */
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+      
+      body {
+        font-family: 'Inter', sans-serif;
+        color: #222222;
+      }
+
+      /* Custom scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #020204; 
+        background: #F7F7F7; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #1f2937; 
-        border-radius: 4px;
+        background: #D1D5DB; 
+        border-radius: 10px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #374151;
+        background: #9CA3AF;
       }
-      /* --- Professional UI Enhancements --- */
-      button, a, input, select, textarea, [role="button"], [role="link"] {
-        transition: all 0.2s ease-in-out;
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      button, a, input, select, textarea {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      .scale-in-center {
+        animation: scale-in-center 0.3s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
+      }
+      @keyframes scale-in-center {
+        0% { transform: scale(0.95); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
       }
     </style>
   <script type="importmap">

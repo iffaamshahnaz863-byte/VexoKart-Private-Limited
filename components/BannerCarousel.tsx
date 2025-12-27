@@ -22,9 +22,9 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ banners }) => {
   };
 
   return (
-    <div className="relative w-full h-48 md:h-64 overflow-hidden rounded-xl shadow-2xl">
+    <div className="relative w-full h-40 md:h-56 overflow-hidden rounded-2xl shadow-sm border border-border">
       <div
-        className="flex transition-transform duration-700 ease-in-out h-full"
+        className="flex transition-transform duration-700 cubic-bezier(0.4, 0, 0.2, 1) h-full"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
         {banners.map((banner, index) => (
@@ -37,13 +37,13 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ banners }) => {
         ))}
       </div>
 
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+      <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
         {banners.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              currentIndex === index ? 'bg-accent p-1' : 'bg-gray-500/50'
+            className={`transition-all duration-300 rounded-full ${
+              currentIndex === index ? 'w-6 h-1.5 bg-accent' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white'
             }`}
           />
         ))}

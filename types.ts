@@ -1,12 +1,17 @@
 
 export interface Review {
-  id: number;
+  id: string;
   author: string;
+  userId: string;
+  orderId: string;
   rating: number;
   comment: string;
+  date: string;
+  images?: string[];
+  vendorReply?: string;
 }
 
-export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected'; // Kept pending/rejected for type compatibility but they won't be used for new products
+export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected';
 
 export interface Product {
   id: number;

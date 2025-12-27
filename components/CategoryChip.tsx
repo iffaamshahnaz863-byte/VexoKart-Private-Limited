@@ -9,17 +9,15 @@ interface CategoryChipProps {
 }
 
 const CategoryChip: React.FC<CategoryChipProps> = ({ category, isSelected = false, onClick }) => {
-  const baseClasses = "flex-shrink-0 text-center p-4 rounded-lg transition-all duration-300 transform hover:scale-105";
-  const selectedClasses = "bg-gradient-to-br from-accent to-accent-secondary shadow-lg";
-  const unselectedClasses = "bg-surface/70 backdrop-blur-sm border border-gray-700/50";
-  
   return (
     <div
       onClick={() => onClick && onClick()}
-      className={`${baseClasses} ${isSelected ? selectedClasses : unselectedClasses} cursor-pointer`}
+      className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300 cursor-pointer transform hover:scale-105 ${isSelected ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-surface border-border text-text-secondary hover:border-accent/50'}`}
     >
-      <img src={category.image} alt={category.name} className="w-16 h-16 object-cover rounded-full mx-auto mb-2 border-2 border-accent/50" />
-      <span className="font-semibold text-sm text-text-main">{category.name}</span>
+      <div className={`w-6 h-6 rounded-full overflow-hidden border ${isSelected ? 'border-white/50' : 'border-border'}`}>
+        <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+      </div>
+      <span className="font-bold text-xs uppercase tracking-tight">{category.name}</span>
     </div>
   );
 };

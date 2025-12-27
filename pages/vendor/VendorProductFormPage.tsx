@@ -34,6 +34,9 @@ const VendorProductFormPage: React.FC = () => {
     warranty: '1 Year Standard Warranty',
     videoUrl: ''
   });
+
+  const [highlightsText, setHighlightsText] = useState('');
+  const [specsText, setSpecsText] = useState('');
   
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
 
@@ -42,6 +45,8 @@ const VendorProductFormPage: React.FC = () => {
       const productToEdit = getProduct(parseInt(id));
       if (productToEdit && vendor && productToEdit.vendorId === vendor.id) {
         setFormData({ ...productToEdit });
+        setHighlightsText((productToEdit.highlights || []).join('\n'));
+        setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
       } else {
         navigate('/vendor/products');
       }
@@ -56,24 +61,6 @@ const VendorProductFormPage: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: ['price', 'originalPrice', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
   };
-
-  const handleArrayChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const { name, value } = e.target;
-      setFormData(prev => ({...prev, [name]: value.split('\n').map(s => s.trim()).filter(Boolean)}));
-  }
-
-  const handleSpecChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const specs: { [key: string]: string } = {};
-    e.target.value.split('\n').forEach(line => {
-      const parts = line.split(':');
-      if (parts.length === 2) {
-        specs[parts[0].trim()] = parts[1].trim();
-      }
-    });
-    setFormData(prev => ({ ...prev, specifications: specs }));
-  };
-
-  const specString = Object.entries(formData.specifications || {}).map(([key, value]) => `${key}: ${value}`).join('\n');
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -104,13 +91,29 @@ const VendorProductFormPage: React.FC = () => {
         alert("Please upload at least one image for the product.");
         return;
     }
+
+    const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
+    const finalSpecs: { [key: string]: string } = {};
+    specsText.split('\n').forEach(line => {
+      const parts = line.split(':');
+      if (parts.length === 2) {
+        finalSpecs[parts[0].trim()] = parts[1].trim();
+      }
+    });
+
+    const finalData = { 
+        ...formData, 
+        highlights: finalHighlights, 
+        specifications: finalSpecs 
+    };
+
     if (isEditing) {
       const existingProduct = getProduct(parseInt(id));
-      const updatedData: Product = { ...existingProduct!, ...formData, id: parseInt(id) };
+      const updatedData: Product = { ...existingProduct!, ...finalData, id: parseInt(id) };
       updateProduct(updatedData);
       alert("Product updated successfully!");
     } else {
-      addProduct({ ...formData, vendorId: vendor.id });
+      addProduct({ ...finalData, vendorId: vendor.id });
       alert("Product published successfully! It is now live for customers.");
     }
     navigate('/vendor/products');
@@ -138,8 +141,8 @@ const VendorProductFormPage: React.FC = () => {
                     ))}
                 </div>
             </div>
-            <div><label className="block text-sm font-medium text-text-secondary">Highlights (one per line)</label><textarea name="highlights" value={formData.highlights?.join('\n')} onChange={handleArrayChange} rows={4} className={inputClasses}></textarea></div>
-            <div><label className="block text-sm font-medium text-text-secondary">Specifications (format: Key: Value)</label><textarea name="specifications" value={specString} onChange={handleSpecChange} rows={5} className={inputClasses} placeholder="e.g.&#10;Color: Black&#10;Material: Aluminum"></textarea></div>
+            <div><label className="block text-sm font-medium text-text-secondary">Highlights (one per line)</label><textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={4} className={inputClasses} placeholder="e.g.&#10;High Quality&#10;Durable"></textarea></div>
+            <div><label className="block text-sm font-medium text-text-secondary">Specifications (format: Key: Value)</label><textarea value={specsText} onChange={(e) => setSpecsText(e.target.value)} rows={5} className={inputClasses} placeholder="e.g.&#10;Color: Black&#10;Material: Aluminum"></textarea></div>
             <div className="flex justify-end gap-4 pt-4">
                 <button type="button" onClick={() => navigate('/vendor/products')} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
                 <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Save Changes' : 'Publish Product'}</button>

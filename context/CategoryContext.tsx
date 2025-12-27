@@ -22,53 +22,45 @@ const INITIAL_CATEGORIES: Category[] = [
 ];
 
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { products } = useProducts();
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const localData = localStorage.getItem('vexokart-categories');
       return localData ? JSON.parse(localData) : INITIAL_CATEGORIES;
     } catch (error) {
-      console.error("Could not parse category data from localStorage", error);
       return INITIAL_CATEGORIES;
     }
   });
 
-  const { products } = useProducts();
-
-  useEffect(() => {
-    localStorage.setItem('vexokart-categories', JSON.stringify(categories));
-  }, [categories]);
+  const saveCategories = (updatedCategories: Category[]) => {
+    localStorage.setItem('vexokart-categories', JSON.stringify(updatedCategories));
+    setCategories(updatedCategories);
+  };
 
   const addCategory = (categoryData: Omit<Category, 'id'>) => {
-    setCategories(prev => {
-      const newId = prev.length > 0 ? Math.max(...prev.map(c => c.id)) + 1 : 1;
-      return [...prev, { ...categoryData, id: newId }];
-    });
+    const newId = categories.length > 0 ? Math.max(...categories.map(c => c.id)) + 1 : 1;
+    saveCategories([...categories, { ...categoryData, id: newId }]);
   };
 
   const updateCategory = (updatedCategory: Category) => {
-    setCategories(prev =>
-      prev.map(c => (c.id === updatedCategory.id ? updatedCategory : c))
-    );
+    const updated = categories.map(c => (c.id === updatedCategory.id ? updatedCategory : c));
+    saveCategories(updated);
   };
 
   const deleteCategory = (categoryId: number) => {
     const categoryToDelete = categories.find(c => c.id === categoryId);
     if (!categoryToDelete) return;
-
     const isCategoryInUse = products.some(p => p.category === categoryToDelete.name);
     if (isCategoryInUse) {
       alert('This category is in use by one or more products and cannot be deleted.');
       return;
     }
-
     if(window.confirm(`Are you sure you want to delete the category "${categoryToDelete.name}"?`)){
-        setCategories(prev => prev.filter(c => c.id !== categoryId));
+        saveCategories(categories.filter(c => c.id !== categoryId));
     }
   };
 
-  const getCategory = (id: number) => {
-      return categories.find(c => c.id === id);
-  }
+  const getCategory = (id: number) => categories.find(c => c.id === id);
 
   return (
     <CategoryContext.Provider value={{ categories, addCategory, updateCategory, deleteCategory, getCategory }}>
