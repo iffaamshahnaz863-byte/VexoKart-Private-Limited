@@ -44,6 +44,23 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
           const cat = categories.find(c => c.id === item.category_id);
+          
+          let productImages: string[] = [];
+          if (Array.isArray(item.images) && item.images.length > 0) {
+            productImages = item.images;
+          } else if (item.images && typeof item.images === 'string') {
+             try {
+                const parsed = JSON.parse(item.images);
+                if (Array.isArray(parsed)) productImages = parsed;
+             } catch(e) {
+                productImages = [item.images];
+             }
+          } else if (item.image) {
+            productImages = [item.image];
+          } else if (item.image_url) {
+            productImages = [item.image_url];
+          }
+
           return {
             id: item.id,
             name: item.name || 'Untitled Product',
@@ -51,7 +68,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             price: Number(item.price) || 0,
             originalPrice: Number(item.original_price || item.price || 0),
             stock: Number(item.stock) || 0,
-            images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
+            images: productImages,
             category: cat ? cat.name : (item.category || 'General'),
             vendorId: item.vendor_id ? item.vendor_id.toString() : 'internal',
             status: item.status || 'approved',
@@ -90,6 +107,41 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const getProduct = (id: number) => products.find(p => p.id === id);
 
+  /**
+   * Helper to perform Supabase operations with an automatic fallback 
+   * for the 'images' jsonb column if it's missing in the schema.
+   */
+  const safeSupabaseSave = async (url: string, method: string, payload: any) => {
+    const response = await fetch(url, {
+      method,
+      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    
+    // PGRST204: Column not found in schema cache
+    if (!response.ok && result.code === 'PGRST204' && payload.images) {
+        console.warn("[ProductContext] 'images' column missing. Falling back to legacy 'image' column.");
+        const { images, ...fallbackPayload } = payload;
+        
+        const fallbackResponse = await fetch(url, {
+            method,
+            headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+            body: JSON.stringify(fallbackPayload)
+        });
+        
+        if (!fallbackResponse.ok) {
+            const fallbackErr = await fallbackResponse.json();
+            throw new Error(fallbackErr.message || 'Legacy fallback failed');
+        }
+        return await fallbackResponse.json();
+    }
+
+    if (!response.ok) throw new Error(result.message || 'Request failed');
+    return result;
+  };
+
   const addProduct = async (productData: any) => {
     const matchedCategory = categories.find(c => c.name === productData.category);
     const categoryId = matchedCategory ? matchedCategory.id : null;
@@ -99,7 +151,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       description: productData.description,
       price: productData.price,
       stock: productData.stock || 0,
-      image: productData.images?.[0] || '',
+      image: productData.images?.[0] || '', 
+      images: productData.images || [], 
       status: 'approved',
       vendor_id: productData.vendor_id, 
       created_at: new Date().toISOString(),
@@ -109,17 +162,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     if (categoryId) supabasePayload.category_id = categoryId;
     
-    const response = await fetch(`${BASE_API_URL}/products`, {
-      method: 'POST',
-      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-      body: JSON.stringify(supabasePayload)
-    });
-
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(`Database Error: ${JSON.stringify(err)}`);
-    }
-
+    await safeSupabaseSave(`${BASE_API_URL}/products`, 'POST', supabasePayload);
     await refreshProducts();
   };
 
@@ -134,23 +177,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       stock: product.stock,
       status: 'approved',
       image: product.images?.[0] || '',
+      images: product.images || [],
       allow_online: product.allow_online,
       allow_cod: product.allow_cod
     };
 
     if (categoryId) supabaseUpdate.category_id = categoryId;
 
-    const response = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify(supabaseUpdate)
-    });
-
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(`Update Failed: ${JSON.stringify(err)}`);
-    }
-
+    await safeSupabaseSave(`${BASE_API_URL}/products?id=eq.${product.id}`, 'PATCH', supabaseUpdate);
     await refreshProducts();
   };
 
