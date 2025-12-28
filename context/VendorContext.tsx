@@ -44,55 +44,54 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const fetchCurrentVendor = async (email: string) => {
-    if (!email) return;
+    // GUARD: Prevents 'vendors?email=eq.' queries
+    if (!email || email.trim() === '') {
+      console.warn("[VendorSync] Fetch blocked: Email is empty.");
+      setIsVendorLoading(false);
+      return;
+    }
     
     console.log(`[VendorSync] Initializing profile fetch for: ${email}`);
     setIsVendorLoading(true);
     setVendorError(null);
     
     try {
-      // Step 2: Fetch vendor profile ONLY by email as requested
       const url = `${BASE_API_URL}/vendors?email=eq.${encodeURIComponent(email)}&select=*`;
       const res = await fetch(url, {
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
       });
       
       const data = await res.json();
-      console.log(`[VendorSync] Response received:`, data);
+      console.log(`[VendorSync] Response for ${email}:`, data);
 
       if (!res.ok) {
-        throw new Error(data.message || 'Supabase API error');
+        throw new Error(data.message || `Supabase error (${res.status})`);
       }
 
       if (Array.isArray(data) && data.length > 0) {
-        const vendor = data[0];
-        console.log(`[VendorSync] Profile found. Status: ${vendor.status}`);
-        
-        // We save the vendor data regardless of status so we can show appropriate status pages
-        setCurrentVendor(vendor);
-        
-        if (vendor.status !== 'approved') {
-          setVendorError(`Access Restricted: Your store status is currently '${vendor.status}'.`);
-        }
+        setCurrentVendor(data[0]);
       } else {
-        console.warn(`[VendorSync] No vendor record found for email: ${email}`);
+        console.warn(`[VendorSync] No record found for: ${email}`);
         setCurrentVendor(null);
         setVendorError("Vendor profile not found. Please contact admin.");
       }
     } catch (error: any) {
       console.error("[VendorSync] Critical fetch error:", error);
-      setVendorError(`Connection Error: ${error.message || 'Failed to connect to fulfillment services.'}`);
+      setVendorError(`Sync Failed: ${error.message || 'Check your connection and try again.'}`);
     } finally {
+      // ALWAYS stop loading, no matter what
       setIsVendorLoading(false);
-      console.log(`[VendorSync] Fetch operation completed. Loading: false`);
     }
   };
 
   useEffect(() => {
+    // Only fetch the full list if we are an admin or it's needed for public view.
+    // For specific vendor sync, we use fetchCurrentVendor.
     fetchVendors();
   }, []);
 
   const getVendorByEmailDirect = async (email: string): Promise<Vendor | null> => {
+    if (!email) return null;
     try {
       const res = await fetch(`${BASE_API_URL}/vendors?select=*&email=eq.${encodeURIComponent(email)}&status=eq.approved`, {
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }

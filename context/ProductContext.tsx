@@ -34,17 +34,16 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         setProducts(data);
       } else {
         console.error("Products sync failed: API response is not an array", data);
-        setProducts([]);
       }
     } catch (error) {
       console.error("Error fetching products:", error);
-      setProducts([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    // Only fire the initial fetch once
     refreshProducts();
   }, []);
 
