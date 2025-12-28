@@ -81,18 +81,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, pass: string) => {
     try {
-      const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`, { headers: API_HEADERS });
+      // Step 1: Attempt direct login with exact email/password match
+      const query = `email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`;
+      const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       const data = await res.json();
+      
       if (Array.isArray(data) && data.length > 0) {
         const loggedUser = data[0];
         setUser(loggedUser);
         localStorage.setItem('vexokart-user', JSON.stringify(loggedUser));
         return;
       }
+      
+      // Step 2: Extra check - maybe password is wrong or user doesn't exist
+      const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+      const checkData = await checkRes.json();
+      
+      if (Array.isArray(checkData) && checkData.length === 0) {
+          throw new Error('User not found. Please register first.');
+      }
+      
       throw new Error('Invalid email or password');
-    } catch (err) {
-      console.error("Login failed:", err);
-      throw new Error('Invalid email or password');
+    } catch (err: any) {
+      console.error("Login attempt failed:", err);
+      throw new Error(err.message || 'Authentication error');
     }
   };
 
@@ -112,12 +124,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       body: JSON.stringify(newUser)
     });
     
-    if (!res.ok) throw new Error('Signup failed');
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Signup failed. Please try again.');
+    }
     await fetchUsers();
   };
 
   const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
-     throw new Error("Direct vendor signup is currently handled by administration.");
+     throw new Error("Direct vendor signup is managed via admin panel.");
   };
 
   const logout = () => {

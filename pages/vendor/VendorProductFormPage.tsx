@@ -14,10 +14,8 @@ const VendorProductFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { getProduct, addProduct, updateProduct } = useProducts();
   const { categories } = useCategories();
-  const { getVendorByUserId } = useVendors();
+  const { currentVendor, fetchCurrentVendor } = useVendors();
   const { user } = useAuth();
-
-  const currentVendor = user ? getVendorByUserId(user.id.toString()) : null;
 
   const isEditing = id !== undefined;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,6 +45,13 @@ const VendorProductFormPage: React.FC = () => {
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
     setToast({ show: true, message, type });
   };
+
+  // Ensure vendor is loaded
+  useEffect(() => {
+      if (user?.email && !currentVendor) {
+          fetchCurrentVendor(user.email);
+      }
+  }, [user, currentVendor]);
 
   useEffect(() => {
     if (isEditing) {
@@ -90,6 +95,11 @@ const VendorProductFormPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!currentVendor) {
+        alert("Your vendor profile is not fully loaded. Please refresh the page.");
+        return;
+    }
+
     if(formData.images.length === 0) {
         alert("Please upload at least one image.");
         return;
@@ -108,7 +118,7 @@ const VendorProductFormPage: React.FC = () => {
 
         const finalData = { 
             ...formData, 
-            vendor_id: currentVendor?.id.toString(),
+            vendor_id: currentVendor.id,
             highlights: finalHighlights, 
             specifications: finalSpecs 
         };
@@ -125,8 +135,9 @@ const VendorProductFormPage: React.FC = () => {
         
         setTimeout(() => navigate('/vendor/products'), 1500);
     } catch (err: any) {
-        console.error("Product submission failed:", err);
-        alert(err.message || "Failed to save product listing.");
+        console.error("Vendor Product Submission Error Detail:", err);
+        // Show detailed error message from context
+        alert(err.message || "Failed to save product. Please check your network or database schema.");
     } finally {
         setIsSubmitting(false);
     }
