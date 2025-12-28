@@ -36,6 +36,8 @@ export interface Product {
   rejectionReason?: string;
   approved_by?: string;
   approved_at?: string;
+  allow_online: boolean;
+  allow_cod: boolean;
 }
 
 export interface Category {
@@ -57,6 +59,7 @@ export interface OrderItem {
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+export type PaymentStatus = 'paid' | 'cod_pending' | 'failed';
 
 export interface StatusHistory {
     status: OrderStatus;
@@ -78,9 +81,10 @@ export interface Order {
     items: OrderItem[];
     total: number;
     status: OrderStatus;
+    payment_status: PaymentStatus;
+    payment_method: 'Online Payment' | 'Cash on Delivery';
     userEmail: string;
     shippingAddress: Address;
-    paymentMethod: string;
     paymentId?: string;
     statusHistory: StatusHistory[];
     courierName?: string;
@@ -151,7 +155,6 @@ export interface AdminCode {
   note: string;
 }
 
-// Added NotificationSettings interface to resolve import error
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -165,7 +168,6 @@ export interface NotificationSettings {
   testMode: boolean;
 }
 
-// Added NotificationLog interface to resolve import error
 export interface NotificationLog {
   id: string;
   createdAt: string;

@@ -34,7 +34,9 @@ const VendorProductFormPage: React.FC = () => {
     sellerInfo: '',
     returnPolicy: '30-Day Money Back Guarantee',
     warranty: '1 Year Standard Warranty',
-    videoUrl: ''
+    videoUrl: '',
+    allow_online: true,
+    allow_cod: true
   });
 
   const [highlightsText, setHighlightsText] = useState('');
@@ -69,8 +71,12 @@ const VendorProductFormPage: React.FC = () => {
   }, [id, isEditing, getProduct, categories]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: ['price', 'originalPrice', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
+    const { name, value, type } = e.target as any;
+    if (type === 'checkbox') {
+        setFormData(prev => ({ ...prev, [name]: (e.target as any).checked }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: ['price', 'originalPrice', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,6 +111,11 @@ const VendorProductFormPage: React.FC = () => {
         return;
     }
 
+    if (!formData.allow_online && !formData.allow_cod) {
+        alert("Select at least one payment method (Online or COD).");
+        return;
+    }
+
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
@@ -125,19 +136,18 @@ const VendorProductFormPage: React.FC = () => {
 
         if (isEditing) {
           const existingProduct = getProduct(parseInt(id));
-          const updatedData: Product = { ...existingProduct!, ...finalData as any, id: parseInt(id) };
+          const updatedData: Product = { ...existingProduct!, ...finalData as any, id: parseInt(id), status: 'approved' };
           await updateProduct(updatedData);
-          showToast("Product updated successfully!");
+          showToast("Product updated and live!");
         } else {
-          await addProduct(finalData);
+          await addProduct({ ...finalData, status: 'approved' });
           showToast("Product published successfully!");
         }
         
         setTimeout(() => navigate('/vendor/products'), 1500);
     } catch (err: any) {
         console.error("Vendor Product Submission Error Detail:", err);
-        // Show detailed error message from context
-        alert(err.message || "Failed to save product. Please check your network or database schema.");
+        alert(err.message || "Failed to save product.");
     } finally {
         setIsSubmitting(false);
     }
@@ -202,6 +212,38 @@ const VendorProductFormPage: React.FC = () => {
             </div>
 
             <div>
+                <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Configuration</label>
+                <div className="flex flex-wrap gap-6">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                            type="checkbox" 
+                            name="allow_online"
+                            checked={formData.allow_online}
+                            onChange={handleChange}
+                            className="w-5 h-5 rounded border-gray-600 text-accent focus:ring-accent bg-surface"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-main group-hover:text-accent transition-colors">Digital Transaction</span>
+                            <span className="text-[10px] text-text-muted uppercase font-black tracking-widest">Card, UPI, NetBanking</span>
+                        </div>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                            type="checkbox" 
+                            name="allow_cod"
+                            checked={formData.allow_cod}
+                            onChange={handleChange}
+                            className="w-5 h-5 rounded border-gray-600 text-accent focus:ring-accent bg-surface"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-main group-hover:text-accent transition-colors">Cash On Delivery</span>
+                            <span className="text-[10px] text-text-muted uppercase font-black tracking-widest">Pay at doorstep</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div>
                 <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Catalog Description</label>
                 <textarea name="description" value={formData.description} onChange={handleChange} required rows={4} className={`${inputClasses} resize-none`} placeholder="Tell customers about your product..."></textarea>
             </div>
@@ -224,7 +266,7 @@ const VendorProductFormPage: React.FC = () => {
                     disabled={isSubmitting}
                     className="bg-accent text-white px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/30 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50"
                 >
-                    {isSubmitting ? 'Syncing...' : (isEditing ? 'Update Listing' : 'Publish to Marketplace')}
+                    {isSubmitting ? 'Syncing...' : (isEditing ? 'Update & Live' : 'Publish & Go Live')}
                 </button>
             </div>
         </form>

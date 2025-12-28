@@ -9,7 +9,8 @@ import { useOrders } from '../../context/OrderContext';
 import ShippingDetailsModal from '../../components/admin/ShippingDetailsModal';
 import ShippingLabelModal from '../../components/vendor/ShippingLabelModal';
 
-const VENDOR_UPDATABLE_STATUSES: OrderStatus[] = ['Packed', 'Shipped', 'Out for Delivery'];
+// Progression rule for vendors: they drive the order towards shipping
+const VENDOR_STAGES: OrderStatus[] = ['Confirmed', 'Packed', 'Shipped'];
 
 const VendorOrdersPage: React.FC = () => {
     const { user } = useAuth();
@@ -107,8 +108,8 @@ const VendorOrdersPage: React.FC = () => {
                                 <th className="p-6">Order Reference</th>
                                 <th className="p-6">Customer</th>
                                 <th className="p-6">Line Items</th>
-                                <th className="p-6">Current Status</th>
-                                <th className="p-6 text-right">Fulfillment</th>
+                                <th className="p-6">Payment Mode</th>
+                                <th className="p-6">Fulfillment</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -123,48 +124,39 @@ const VendorOrdersPage: React.FC = () => {
                                         <p className="text-[10px] text-text-muted">{order.userEmail}</p>
                                     </td>
                                     <td className="p-6">
-                                        <div className="flex -space-x-2">
-                                          {order.items.slice(0, 3).map((item, idx) => (
-                                            <img key={idx} src={item.image} className="w-8 h-8 rounded-full border border-background object-cover bg-surface" />
-                                          ))}
-                                          {order.items.length > 3 && (
-                                            <div className="w-8 h-8 rounded-full border border-background bg-surface flex items-center justify-center text-[8px] font-bold text-text-muted">+{order.items.length - 3}</div>
-                                          )}
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-text-main font-bold">{order.items.length} items</span>
+                                          <span className="text-accent font-black">₹{order.total.toLocaleString()}</span>
                                         </div>
                                     </td>
                                     <td className="p-6">
                                         <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${
-                                          order.status === 'Cancelled' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                          order.status === 'Delivered' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
-                                          'bg-accent/10 text-accent border-accent/20'
+                                          order.payment_method === 'Cash on Delivery' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20'
                                         }`}>
-                                          {order.status}
+                                          {order.payment_method}
                                         </span>
                                     </td>
                                     <td className="p-6 text-right">
-                                        <div className="flex items-center justify-end gap-4">
-                                            {['Confirmed', 'Packed'].includes(order.status) && (
-                                                <button 
-                                                  onClick={() => setLabelOrder(order)}
-                                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase transition-all ${order.shippingLabelUrl ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-surface text-text-main border-border hover:border-accent'}`}
-                                                >
-                                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                                                   {order.shippingLabelUrl ? 'Label Ready' : 'Get Label'}
-                                                </button>
-                                            )}
-
-                                            {['Cancelled', 'Delivered'].includes(order.status) ? (
-                                                <span className="text-[10px] text-text-muted italic uppercase font-bold tracking-tight">Locked</span>
+                                        <div className="flex items-center justify-end gap-3">
+                                            {order.status === 'Cancelled' ? (
+                                                <span className="text-red-500 font-black uppercase text-[10px]">Cancelled</span>
+                                            ) : order.status === 'Delivered' ? (
+                                                <span className="text-green-500 font-black uppercase text-[10px]">Delivered</span>
                                             ) : (
-                                                <select
-                                                    value=""
-                                                    onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
-                                                    className="bg-surface border border-white/10 rounded-lg py-1.5 px-3 text-[10px] font-black uppercase tracking-widest text-text-main focus:ring-accent focus:border-accent"
-                                                >
-                                                    <option value="" disabled>Set Status</option>
-                                                    {VENDOR_UPDATABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                                                    <option value="Delivered">Mark Delivered</option>
-                                                </select>
+                                                <div className="flex gap-2">
+                                                    {order.status === 'Placed' && (
+                                                        <button onClick={() => handleStatusChange(order, 'Confirmed')} className="bg-accent text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-accent/20">Confirm</button>
+                                                    )}
+                                                    {order.status === 'Confirmed' && (
+                                                        <button onClick={() => handleStatusChange(order, 'Packed')} className="bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20">Pack Items</button>
+                                                    )}
+                                                    {order.status === 'Packed' && (
+                                                        <button onClick={() => handleStatusChange(order, 'Shipped')} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-blue-500/20">Mark Shipped</button>
+                                                    )}
+                                                    {['Shipped', 'Out for Delivery'].includes(order.status) && (
+                                                        <span className="text-blue-400 font-black uppercase text-[10px] animate-pulse">In Transit</span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </td>

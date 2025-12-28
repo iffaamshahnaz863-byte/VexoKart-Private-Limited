@@ -192,9 +192,9 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                          <div className="flex justify-between items-center">
                             <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Service Mode</p>
-                                <p className="text-xl font-black italic tracking-tighter uppercase">{order.paymentMethod}</p>
+                                <p className="text-xl font-black italic tracking-tighter uppercase">{order.payment_method}</p>
                             </div>
-                            {order.paymentMethod === 'Cash on Delivery' && (
+                            {order.payment_method === 'Cash on Delivery' && (
                                 <div className="text-right p-4 border-2 border-black rounded-xl">
                                     <p className="text-[10px] font-black uppercase tracking-widest mb-1">Collect COD Amount</p>
                                     <p className="text-3xl font-black">₹{order.total.toLocaleString()}</p>

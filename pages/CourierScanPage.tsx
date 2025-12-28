@@ -89,14 +89,10 @@ const CourierScanPage: React.FC = () => {
 
                     <div className="space-y-4 text-sm font-medium text-text-secondary border-t border-border pt-4">
                         <div className="flex justify-between">
-                            <span>Recipient</span>
-                            <span className="text-text-main font-bold">{order?.shippingAddress.fullName}</span>
-                        </div>
-                        <div className="flex justify-between">
                             <span>Method</span>
-                            <span className="text-text-main font-bold">{order?.paymentMethod}</span>
+                            <span className="text-text-main font-bold">{order?.payment_method}</span>
                         </div>
-                         {order?.paymentMethod === 'Cash on Delivery' && (
+                         {order?.payment_method === 'Cash on Delivery' && (
                             <div className="flex justify-between items-center p-3 bg-red-50 text-red-600 rounded-xl border border-red-100">
                                 <span className="text-xs font-black uppercase">Collect COD</span>
                                 <span className="text-lg font-black tracking-tighter">₹{order.total.toLocaleString()}</span>

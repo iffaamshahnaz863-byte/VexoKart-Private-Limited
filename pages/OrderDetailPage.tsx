@@ -9,7 +9,16 @@ import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import OrderTracker from '../components/OrderTracker';
 import InvoiceModal from '../components/InvoiceModal';
 import RateProductModal from '../components/RateProductModal';
-import { OrderItem } from '../types';
+import { OrderItem, PaymentStatus } from '../types';
+
+const getPaymentStatusColor = (status: PaymentStatus) => {
+    switch(status) {
+        case 'paid': return 'text-green-500 bg-green-500/10 border-green-500/20';
+        case 'cod_pending': return 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20';
+        case 'failed': return 'text-red-500 bg-red-500/10 border-red-500/20';
+        default: return 'text-gray-500 bg-gray-500/10 border-gray-500/20';
+    }
+}
 
 const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,8 +61,6 @@ const OrderDetailPage: React.FC = () => {
   
   const handleReviewSubmit = (rating: number, comment: string) => {
     if (ratingItem && user) {
-      // FIX: Removed 'productId' from the review object as it's not part of the Review type.
-      // The productId is already passed as the first argument to addReview.
       addReview(ratingItem.id, {
         userId: user.email,
         orderId: order.id,
@@ -113,15 +120,20 @@ const OrderDetailPage: React.FC = () => {
               <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Receipt ID</p>
               <p className="font-bold text-text-main font-mono">#{order.id}</p>
             </div>
-             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-text-muted text-right mb-1">Placed On</p>
-              <p className="font-bold text-text-main">{new Date(order.date).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+             <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Status</p>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${getPaymentStatusColor(order.payment_status)}`}>
+                {order.payment_status === 'cod_pending' ? 'COD Pending' : order.payment_status.toUpperCase()}
+              </span>
             </div>
           </div>
         </GlassmorphicCard>
 
         <section>
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-3 ml-1">Live Tracking</h2>
+          <div className="flex justify-between items-center mb-3 px-1">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted">Live Tracking</h2>
+            <p className="text-[10px] font-bold text-text-muted">{new Date(order.date).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+          </div>
           <OrderTracker status={order.status} history={order.statusHistory} />
         </section>
 
@@ -189,18 +201,18 @@ const OrderDetailPage: React.FC = () => {
             </div>
             
             <div className="mt-8 pt-4 border-t border-white/5 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-text-muted">Payment Type</span><span className="text-text-main font-bold">{order.paymentMethod}</span></div>
+                <div className="flex justify-between"><span className="text-text-muted">Payment Type</span><span className="text-text-main font-bold">{order.payment_method}</span></div>
                 <div className="flex justify-between"><span className="text-text-muted">Address Detail</span><span className="text-text-main text-right font-medium max-w-[200px] truncate">{address.fullName}, {address.city}</span></div>
                 <div className="flex justify-between pt-2"><span className="text-text-main font-black uppercase tracking-widest text-[11px]">Final Total</span><span className="text-accent font-black text-lg italic">₹{order.total.toFixed(2)}</span></div>
             </div>
 
-            {order.paymentId && order.status !== 'Cancelled' && (
+            {order.paymentId || order.payment_method === 'Cash on Delivery' ? (
                 <div className="mt-4 pt-4 border-t border-white/5">
                     <button onClick={() => setShowInvoice(true)} className="w-full bg-surface border border-white/10 text-text-main font-black uppercase tracking-widest text-[10px] py-3 rounded-xl hover:bg-white/5 transition">
                         View Digital Invoice
                     </button>
                 </div>
-            )}
+            ) : null}
         </GlassmorphicCard>
 
       </div>

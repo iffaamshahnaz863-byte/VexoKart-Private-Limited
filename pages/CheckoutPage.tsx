@@ -1,27 +1,41 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
-import { Address } from '../types';
+import { Address, Order } from '../types';
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const { addOrder, updateOrderPaymentDetails, updateOrderStatus } = useOrders();
   const navigate = useNavigate();
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  
+  // Calculate if all items allow specific methods
+  const canPayOnline = useMemo(() => cartItems.every(item => item.allow_online ?? true), [cartItems]);
+  const canPayCOD = useMemo(() => cartItems.every(item => item.allow_cod ?? true), [cartItems]);
+
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>(canPayOnline ? 'card' : 'cod');
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
   useEffect(() => {
-    if (user?.addresses && user.addresses.length > 0) {
+    if (user?.addresses && Array.isArray(user.addresses) && user.addresses.length > 0) {
       setSelectedAddress(user.addresses[0]);
     }
   }, [user]);
+
+  // Adjust default selection if restrictions change
+  useEffect(() => {
+    if (!canPayOnline && paymentMethod === 'card') {
+        setPaymentMethod('cod');
+    } else if (!canPayCOD && paymentMethod === 'cod') {
+        setPaymentMethod('card');
+    }
+  }, [canPayOnline, canPayCOD, paymentMethod]);
 
   const showSuccessAndNavigate = () => {
     setOrderPlaced(true);
@@ -31,14 +45,23 @@ const CheckoutPage: React.FC = () => {
     }, 3000);
   }
 
-  // Fixed: Made handlePlaceOrder async to allow awaiting addOrder
   const handlePlaceOrder = async () => {
     if (!selectedAddress || !user) {
       alert("Please select a shipping address.");
       return;
     }
     
-    const orderPayload = {
+    // Final check for payment availability
+    if (paymentMethod === 'card' && !canPayOnline) {
+        alert("Digital payment is not available for one or more items in your cart.");
+        return;
+    }
+    if (paymentMethod === 'cod' && !canPayCOD) {
+        alert("Cash on delivery is not available for one or more items in your cart.");
+        return;
+    }
+    
+    const orderPayload: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory' | 'payment_status'> = {
         userEmail: user.email,
         items: cartItems.map(item => ({
             id: item.id,
@@ -49,42 +72,40 @@ const CheckoutPage: React.FC = () => {
         })),
         total: cartTotal,
         shippingAddress: selectedAddress,
-        paymentMethod: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'
+        payment_method: (paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment') as "Online Payment" | "Cash on Delivery"
     };
     
-    // Fixed: Added await to correctly obtain the orderId string
-    const newOrderId = await addOrder(orderPayload);
-
     if (paymentMethod === 'cod') {
+      const newOrderId = await addOrder(orderPayload);
       await updateOrderStatus(newOrderId, 'Confirmed');
       showSuccessAndNavigate();
       return;
     }
 
+    // Online Payment logic
+    const newOrderId = await addOrder(orderPayload);
     const options = {
       key: 'rzp_test_RvSXZKknVfrNUA',
-      amount: cartTotal * 100,
+      amount: Math.round(cartTotal * 100),
       currency: 'INR',
       name: 'VexoKart',
       description: `Order #${newOrderId}`,
       image: 'https://picsum.photos/seed/logo/128/128',
-      order_id: '', // Can be used with server-side order creation
-      // Fixed: Made handler async and added await
       handler: async (response: any) => {
         await updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
         showSuccessAndNavigate();
       },
       prefill: {
-        name: user?.name || 'John Doe',
-        email: user?.email || 'john.doe@example.com',
-        contact: selectedAddress.phone || '9999999999',
+        name: user?.name || 'Customer',
+        email: user?.email || '',
+        contact: selectedAddress.phone || '',
       },
-      theme: { color: '#2dd4bf' },
+      theme: { color: '#FF8A00' },
     };
 
     const paymentObject = new (window as any).Razorpay(options);
     paymentObject.on('payment.failed', (response: any) => {
-      alert(`Payment failed. The order has been saved as Placed. Error: ${response.error.description}`);
+      alert(`Payment failed. Error: ${response.error.description}`);
       navigate('/orders');
     });
     paymentObject.open();
@@ -94,49 +115,128 @@ const CheckoutPage: React.FC = () => {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-green-400 mb-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <h1 className="text-2xl font-bold text-text-main">Order Confirmed!</h1>
-            <p className="text-text-muted mt-2">A confirmation has been sent to your email.</p>
+            <h1 className="text-2xl font-bold text-text-main uppercase italic">Order Confirmed!</h1>
+            <p className="text-text-muted mt-2 font-medium">Redirecting you to the home page...</p>
         </div>
     );
   }
 
+  const addresses = (user?.addresses && Array.isArray(user.addresses)) ? user.addresses : [];
+
   return (
-    <div>
-      <div className="sticky top-0 z-10 p-4 bg-background flex items-center"><button onClick={() => navigate('/cart')} className="p-2 -ml-2 mr-2"><ChevronLeftIcon className="h-6 w-6 text-text-main" /></button><h1 className="text-xl font-bold text-text-main">Checkout</h1></div>
-      <div className="p-4 space-y-6 pb-24">
-        <GlassmorphicCard className="p-4">
-          <h2 className="font-semibold text-lg mb-2">Shipping Address</h2>
-          {user?.addresses && user.addresses.length > 0 ? (
-            <div className="space-y-2">
-              {user.addresses.map(address => (
-                <div key={address.id} onClick={() => setSelectedAddress(address)} className={`p-3 rounded-lg border-2 cursor-pointer ${selectedAddress?.id === address.id ? 'border-accent bg-surface' : 'border-gray-700'}`}>
-                  <p className="font-semibold">{address.fullName}</p>
-                  <p className="text-sm text-text-muted">{address.street}, {address.city}, {address.state} {address.zip}</p>
+    <div className="bg-surface min-h-screen">
+      <div className="sticky top-0 z-10 p-4 bg-white/80 backdrop-blur-md flex items-center border-b border-border shadow-sm">
+        <button onClick={() => navigate('/cart')} className="p-2 -ml-2 mr-2">
+          <ChevronLeftIcon className="h-6 w-6 text-text-main" />
+        </button>
+        <h1 className="text-xl font-black text-text-main italic tracking-tight uppercase">Checkout</h1>
+      </div>
+
+      <div className="p-4 space-y-6 pb-24 max-w-2xl mx-auto">
+        <GlassmorphicCard className="p-6">
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Delivery Identity</h2>
+          {addresses.length > 0 ? (
+            <div className="space-y-3">
+              {addresses.map(address => (
+                <div 
+                  key={address.id} 
+                  onClick={() => setSelectedAddress(address)} 
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${selectedAddress?.id === address.id ? 'border-accent bg-accent/5' : 'border-border bg-white hover:border-accent/30'}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <p className="font-bold text-text-main">{address.fullName}</p>
+                    {selectedAddress?.id === address.id && (
+                        <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-secondary mt-1">{address.street}, {address.city}, {address.state} {address.zip}</p>
+                  <p className="text-[10px] font-bold text-accent mt-2 uppercase tracking-widest">{address.phone}</p>
                 </div>
               ))}
             </div>
           ) : (
-             <p className="text-text-muted text-sm">No addresses found.</p>
+             <div className="text-center py-6 bg-surface rounded-xl border border-dashed border-border">
+                <p className="text-text-muted text-xs font-bold italic uppercase">No shipping destinations found</p>
+             </div>
           )}
-          <button onClick={() => navigate('/addresses/new')} className="text-accent text-sm mt-3 font-semibold">Add New Address</button>
+          <button onClick={() => navigate('/addresses/new')} className="w-full mt-4 text-accent text-[10px] font-black uppercase tracking-widest border border-accent/20 py-3 rounded-xl hover:bg-accent/5 transition-all">
+            Add New Destination
+          </button>
         </GlassmorphicCard>
-        <GlassmorphicCard className="p-4">
-          <h2 className="font-semibold text-lg mb-3">Payment Method</h2>
-          <div className="space-y-3"><div onClick={() => setPaymentMethod('card')} className={`p-3 rounded-lg border-2 cursor-pointer ${paymentMethod === 'card' ? 'border-accent bg-surface' : 'border-gray-700'}`}><p className="font-semibold">Pay Online</p><p className="text-xs text-text-muted">Card, UPI, Wallet</p></div><div onClick={() => setPaymentMethod('cod')} className={`p-3 rounded-lg border-2 cursor-pointer ${paymentMethod === 'cod' ? 'border-accent bg-surface' : 'border-gray-700'}`}><p className="font-semibold">Cash on Delivery (COD)</p></div></div>
+
+        <GlassmorphicCard className="p-6">
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Payment Method</h2>
+          {!canPayOnline && !canPayCOD ? (
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-center">
+                  <p className="text-xs font-bold text-red-600">Conflicting payment requirements in cart. One or more items are restricted to incompatible modes. Please check individual item availability.</p>
+              </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+                {canPayOnline && (
+                    <div 
+                        onClick={() => setPaymentMethod('card')} 
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
+                    >
+                        <div>
+                            <p className="font-bold text-text-main">Digital Transaction</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Card, UPI, NetBanking</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
+                            {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
+                        </div>
+                    </div>
+                )}
+                {canPayCOD && (
+                    <div 
+                        onClick={() => setPaymentMethod('cod')} 
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
+                    >
+                        <div>
+                            <p className="font-bold text-text-main">Cash On Delivery</p>
+                            <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Pay at your doorstep</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
+                            {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
+                        </div>
+                    </div>
+                )}
+            </div>
+          )}
         </GlassmorphicCard>
-        <GlassmorphicCard className="p-4">
-          <h2 className="font-semibold text-lg mb-2">Order Summary</h2>
-          <div className="space-y-2 text-sm">{cartItems.map(item => (<div key={item.id} className="flex justify-between"><span className="text-text-secondary w-3/4 truncate">{item.name} x{item.quantity}</span><span className="text-text-muted">₹{(item.price * item.quantity).toFixed(2)}</span></div>))}</div>
-          <div className="border-t border-gray-700 my-3"></div><div className="flex justify-between items-center text-lg font-bold"><span className="text-text-main">Total:</span><span className="text-accent">₹{cartTotal.toFixed(2)}</span></div>
+
+        <GlassmorphicCard className="p-6 mb-10">
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Final Summary</h2>
+          <div className="space-y-3">
+            {cartItems.map(item => (
+                <div key={item.id} className="flex flex-col gap-1">
+                    <div className="flex justify-between text-xs font-bold">
+                        <span className="text-text-secondary truncate pr-4">{item.name} <span className="text-accent">x{item.quantity}</span></span>
+                        <span className="text-text-main shrink-0">₹{(item.price * item.quantity).toLocaleString()}</span>
+                    </div>
+                    <div className="flex gap-2">
+                        {!item.allow_online && <span className="text-[8px] font-black uppercase text-orange-500">COD ONLY</span>}
+                        {!item.allow_cod && <span className="text-[8px] font-black uppercase text-blue-500">ONLINE ONLY</span>}
+                    </div>
+                </div>
+            ))}
+          </div>
+          <div className="border-t border-dashed border-border my-4"></div>
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Net Total</span>
+            <span className="text-2xl font-black text-text-main italic tracking-tighter">₹{cartTotal.toLocaleString()}</span>
+          </div>
         </GlassmorphicCard>
       </div>
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t border-gray-700/50">
+
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-20">
         <button 
           onClick={handlePlaceOrder} 
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50 transform hover:scale-105 hover:shadow-orange-500/40" 
-          disabled={!selectedAddress}
+          className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50" 
+          disabled={!selectedAddress || (!canPayOnline && !canPayCOD)}
         >
-          {paymentMethod === 'cod' ? `Place Order (COD)` : `Pay ₹${cartTotal.toFixed(2)}`}
+          {(!canPayOnline && !canPayCOD) ? 'Cart Restriction' : paymentMethod === 'cod' ? `Finalize Order (COD)` : `Pay Securely ₹${cartTotal.toLocaleString()}`}
         </button>
       </div>
     </div>

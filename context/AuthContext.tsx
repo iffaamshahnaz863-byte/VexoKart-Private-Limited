@@ -27,6 +27,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Helper to ensure a user object has all required array properties
+ * to prevent 'not iterable' errors.
+ */
+const sanitizeUser = (u: any): User => ({
+  ...u,
+  addresses: Array.isArray(u.addresses) ? u.addresses : [],
+  wishlist: Array.isArray(u.wishlist) ? u.wishlist : [],
+  recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : []
+});
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -41,7 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       const data = await response.json();
       if (Array.isArray(data)) {
-        setAllUsers(data);
+        setAllUsers(data.map(sanitizeUser));
       } else {
         setAllUsers([]);
       }
@@ -63,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(parsed.email)}&select=*`, { headers: API_HEADERS });
           const userData = await res.json();
           if (Array.isArray(userData) && userData.length > 0) {
-            setUser(userData[0]);
+            setUser(sanitizeUser(userData[0]));
           }
         } catch (e) {
           console.error("Session restoration failed:", e);
@@ -75,25 +86,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const updateUserSession = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('vexokart-user', JSON.stringify(userData));
+    const safeUser = sanitizeUser(userData);
+    setUser(safeUser);
+    localStorage.setItem('vexokart-user', JSON.stringify(safeUser));
   };
 
   const login = async (email: string, pass: string) => {
     try {
-      // Step 1: Attempt direct login with exact email/password match
       const query = `email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       const data = await res.json();
       
       if (Array.isArray(data) && data.length > 0) {
-        const loggedUser = data[0];
+        const loggedUser = sanitizeUser(data[0]);
         setUser(loggedUser);
         localStorage.setItem('vexokart-user', JSON.stringify(loggedUser));
         return;
       }
       
-      // Step 2: Extra check - maybe password is wrong or user doesn't exist
       const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
       const checkData = await checkRes.json();
       
@@ -162,7 +172,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const createdUsers = await res.json();
     if (!res.ok) throw new Error(createdUsers.message || 'Failed to create user record');
 
-    const createdUser = createdUsers[0];
+    const createdUser = sanitizeUser(createdUsers[0]);
 
     if (userData.role === 'vendor' && vendorContext) {
         try {
@@ -187,7 +197,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addAddress = async (address: Omit<Address, 'id'>) => {
     if (!user) return;
     const newAddress = { ...address, id: Date.now().toString() };
-    const updatedAddresses = [...user.addresses, newAddress];
+    const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
+    const updatedAddresses = [...currentAddresses, newAddress];
+    
     await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
@@ -198,7 +210,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateAddress = async (address: Address) => {
     if (!user) return;
-    const updatedAddresses = user.addresses.map(a => a.id === address.id ? address : a);
+    const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
+    const updatedAddresses = currentAddresses.map(a => a.id === address.id ? address : a);
+    
     await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
@@ -209,7 +223,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteAddress = async (addressId: string) => {
     if (!user) return;
-    const updatedAddresses = user.addresses.filter(a => a.id !== addressId);
+    const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
+    const updatedAddresses = currentAddresses.filter(a => a.id !== addressId);
+    
     await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
@@ -225,8 +241,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addToWishlist = async (productId: number) => {
-    if (!user || user.wishlist.includes(productId)) return;
-    const updated = [...user.wishlist, productId];
+    if (!user) return;
+    const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
+    if (currentWishlist.includes(productId)) return;
+    
+    const updated = [...currentWishlist, productId];
     await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
@@ -237,7 +256,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const removeFromWishlist = async (productId: number) => {
     if (!user) return;
-    const updated = user.wishlist.filter(id => id !== productId);
+    const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
+    const updated = currentWishlist.filter(id => id !== productId);
+    
     await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
@@ -246,7 +267,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser({ ...user, wishlist: updated });
   };
 
-  const isInWishlist = (productId: number) => user?.wishlist.includes(productId) || false;
+  const isInWishlist = (productId: number) => {
+    if (!user) return false;
+    const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
+    return currentWishlist.includes(productId);
+  };
 
   return (
     <AuthContext.Provider value={{ 

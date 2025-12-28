@@ -46,7 +46,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         const mappedProducts: Product[] = data.map((item: any) => {
           const cat = categories.find(c => c.id === item.category_id);
           // Standardizing Database response to Frontend Product model
-          // providing safe defaults for columns that might be missing in your Supabase schema
           return {
             id: item.id,
             name: item.name || 'Untitled Product',
@@ -56,6 +55,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             stock: Number(item.stock) || 0,
             images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
             category: cat ? cat.name : (item.category || 'General'),
+            // Ensure vendorId is a string for consistent filtering
             vendorId: item.vendor_id ? item.vendor_id.toString() : 'internal',
             status: item.status || 'approved',
             rating: Number(item.rating) || 0,
@@ -69,7 +69,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             videoUrl: item.video_url || '',
             approved_at: item.approved_at,
             approved_by: item.approved_by,
-            rejectionReason: item.rejection_reason
+            rejectionReason: item.rejection_reason,
+            allow_online: item.allow_online ?? true,
+            allow_cod: item.allow_cod ?? true
           };
         });
         setProducts(mappedProducts);
@@ -96,21 +98,23 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const categoryId = matchedCategory ? matchedCategory.id : null;
     
     /**
-     * ULTRA SAFE PAYLOAD:
-     * Stripping original_price, highlights, and specifications 
-     * to avoid PGRST204 "Column not found" errors.
+     * FIXED PAYLOAD:
+     * Explicitly including vendor_id to associate product with its owner.
+     * Auto-approving product as per new requirement.
      */
     const supabasePayload: any = {
       name: productData.name,
       description: productData.description,
       price: productData.price,
       stock: productData.stock || 0,
-      image: productData.images?.[0] || '', // Use primary 'image' column
-      status: 'pending',
-      created_at: new Date().toISOString()
+      image: productData.images?.[0] || '',
+      status: 'approved', // Auto-approved on creation
+      vendor_id: productData.vendor_id, 
+      created_at: new Date().toISOString(),
+      allow_online: productData.allow_online ?? true,
+      allow_cod: productData.allow_cod ?? true
     };
 
-    // Only add relational ID if it's confirmed
     if (categoryId) supabasePayload.category_id = categoryId;
     
     const response = await fetch(`${BASE_API_URL}/products`, {
@@ -121,9 +125,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     if (!response.ok) {
         const err = await response.json();
-        const errorDetail = JSON.stringify(err);
-        console.error("Supabase Add Error:", errorDetail);
-        throw new Error(`Database Error: ${errorDetail}`);
+        throw new Error(`Database Error: ${JSON.stringify(err)}`);
     }
 
     await refreshProducts();
@@ -133,14 +135,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const matchedCategory = categories.find(c => c.name === product.category);
     const categoryId = matchedCategory ? matchedCategory.id : null;
 
-    // Standardized minimal update payload
     const supabaseUpdate: any = {
       name: product.name,
       description: product.description,
       price: product.price,
       stock: product.stock,
-      status: product.status,
-      image: product.images?.[0] || ''
+      status: 'approved', // Force approved status on update too
+      image: product.images?.[0] || '',
+      allow_online: product.allow_online,
+      allow_cod: product.allow_cod
     };
 
     if (categoryId) supabaseUpdate.category_id = categoryId;
@@ -153,8 +156,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     if (!response.ok) {
         const err = await response.json();
-        const errorDetail = JSON.stringify(err);
-        throw new Error(`Update Failed: ${errorDetail}`);
+        throw new Error(`Update Failed: ${JSON.stringify(err)}`);
     }
 
     await refreshProducts();

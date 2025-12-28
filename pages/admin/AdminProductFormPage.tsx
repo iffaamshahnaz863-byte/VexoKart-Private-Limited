@@ -14,6 +14,7 @@ const AdminProductFormPage: React.FC = () => {
   
   const isEditing = id !== undefined;
   
+  // Added missing allow_online and allow_cod properties to satisfy Product type requirements
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount'>>({
     name: '',
     category: categories[0]?.name || '',
@@ -29,7 +30,9 @@ const AdminProductFormPage: React.FC = () => {
     sellerInfo: 'VexoKart Direct',
     returnPolicy: '30-Day Money Back Guarantee',
     warranty: '1 Year Standard Warranty',
-    videoUrl: ''
+    videoUrl: '',
+    allow_online: true,
+    allow_cod: true
   });
 
   // Local states for textareas to allow seamless typing
@@ -42,6 +45,7 @@ const AdminProductFormPage: React.FC = () => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
       if (productToEdit) {
+        // Added allow_online and allow_cod to state update from existing product
         setFormData({
             name: productToEdit.name,
             category: productToEdit.category,
@@ -57,7 +61,9 @@ const AdminProductFormPage: React.FC = () => {
             sellerInfo: productToEdit.sellerInfo || 'VexoKart Direct',
             returnPolicy: productToEdit.returnPolicy || '30-Day Money Back Guarantee',
             warranty: productToEdit.warranty || '1 Year Standard Warranty',
-            videoUrl: productToEdit.videoUrl || ''
+            videoUrl: productToEdit.videoUrl || '',
+            allow_online: productToEdit.allow_online ?? true,
+            allow_cod: productToEdit.allow_cod ?? true
         });
         setHighlightsText((productToEdit.highlights || []).join('\n'));
         setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
@@ -69,9 +75,14 @@ const AdminProductFormPage: React.FC = () => {
     }
   }, [id, isEditing, getProduct, categories]);
 
+  // Updated handleChange to handle checkbox inputs for allow_online and allow_cod
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: ['price', 'originalPrice', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
+    const { name, value, type } = e.target as any;
+    if (type === 'checkbox') {
+        setFormData(prev => ({ ...prev, [name]: (e.target as any).checked }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: ['price', 'originalPrice', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +108,11 @@ const AdminProductFormPage: React.FC = () => {
     e.preventDefault();
     if(formData.images.length === 0) {
         alert("Please upload at least one image for the product.");
+        return;
+    }
+
+    if (!formData.allow_online && !formData.allow_cod) {
+        alert("Select at least one payment method (Online or COD).");
         return;
     }
 
@@ -149,6 +165,39 @@ const AdminProductFormPage: React.FC = () => {
                     {formData.images.map((image, index) => (
                         <div key={index} className="relative"><img src={image} alt={`preview ${index}`} className="w-full h-24 object-cover rounded-lg"/><button type="button" onClick={() => removeImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">&times;</button></div>
                     ))}
+                </div>
+            </div>
+
+            {/* Added Payment Configuration section to allow controlling payment methods from Admin panel */}
+            <div>
+                <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Configuration</label>
+                <div className="flex flex-wrap gap-6">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                            type="checkbox" 
+                            name="allow_online"
+                            checked={formData.allow_online}
+                            onChange={handleChange}
+                            className="w-5 h-5 rounded border-gray-600 text-accent focus:ring-accent bg-surface"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-main group-hover:text-accent transition-colors">Digital Transaction</span>
+                            <span className="text-[10px] text-text-muted uppercase font-black tracking-widest">Card, UPI, NetBanking</span>
+                        </div>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                            type="checkbox" 
+                            name="allow_cod"
+                            checked={formData.allow_cod}
+                            onChange={handleChange}
+                            className="w-5 h-5 rounded border-gray-600 text-accent focus:ring-accent bg-surface"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-main group-hover:text-accent transition-colors">Cash On Delivery</span>
+                            <span className="text-[10px] text-text-muted uppercase font-black tracking-widest">Pay at doorstep</span>
+                        </div>
+                    </label>
                 </div>
             </div>
 

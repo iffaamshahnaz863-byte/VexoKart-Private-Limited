@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, PaymentStatus } from '../types';
 import { useNotifications } from './NotificationContext';
 import { useAuth } from './AuthContext';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -8,7 +8,7 @@ import { BASE_API_URL, API_HEADERS } from '../constants';
 interface OrderContextType {
   orders: Order[];
   isLoading: boolean;
-  addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory'>) => Promise<string>;
+  addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory' | 'payment_status'>) => Promise<string>;
   updateOrderStatus: (orderId: string, status: OrderStatus, details?: { courierName?: string; trackingId?: string }) => Promise<void>;
   updateOrderPaymentDetails: (orderId: string, paymentId: string) => Promise<void>;
   updateOrderLabelInfo: (orderId: string, labelUrl: string) => Promise<string>;
@@ -28,26 +28,24 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const refreshOrders = async () => {
     try {
-      // Removed the order parameter which often causes 400 if column names or permissions aren't exact
-      const response = await fetch(`${BASE_API_URL}/orders?select=*`, { headers: API_HEADERS });
+      // Use created_at for ordering to align with Supabase default schema
+      const response = await fetch(`${BASE_API_URL}/orders?select=*&order=created_at.desc`, { headers: API_HEADERS });
       const data = await response.json();
       
       if (!response.ok) {
-        // Detailed logging of the actual error message from Supabase to help debugging
-        const errorMessage = data?.message || data?.error || 'Unknown Supabase Error';
-        console.error(`Supabase API Error (Orders): ${response.status}`, errorMessage);
+        console.error(`Supabase API Error (Orders): ${response.status}`, data?.message);
         setOrders([]);
         return;
       }
 
       if (Array.isArray(data)) {
-        // Sort manually in the browser to ensure stability across environments
-        const sortedData = [...data].sort((a, b) => 
-            new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
-        );
-        setOrders(sortedData);
+        // Map created_at to date for frontend compatibility
+        const mappedData = data.map((o: any) => ({
+            ...o,
+            date: o.created_at || o.date || new Date().toISOString()
+        }));
+        setOrders(mappedData);
       } else {
-        console.warn("Orders fetch returned non-array data. Check if table 'orders' exists and has correct permissions.", data);
         setOrders([]);
       }
     } catch (e) {
@@ -65,11 +63,17 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addOrder = async (orderData: any): Promise<string> => {
     const orderId = Math.random().toString(36).substr(2, 9).toUpperCase();
     const timestamp = new Date().toISOString();
+    
+    // Logic for initial payment status
+    const paymentStatus: PaymentStatus = orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'paid';
+
+    // Align with Supabase column naming convention (created_at instead of date)
     const newOrder = {
       ...orderData,
       id: orderId,
-      date: timestamp,
+      created_at: timestamp, 
       status: 'Placed',
+      payment_status: paymentStatus,
       statusHistory: [{ status: 'Placed', timestamp }]
     };
 
@@ -81,13 +85,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     if (!response.ok) {
       const errData = await response.json();
-      console.error("Failed to create order in Supabase:", errData);
       throw new Error(errData.message || 'Fulfillment service unavailable');
     }
     
     await refreshOrders();
     const orderUser = users.find(u => u.email === orderData.userEmail);
-    if (orderUser) notifyOrderUpdate(newOrder as any, orderUser);
+    if (orderUser) notifyOrderUpdate({ ...newOrder, date: timestamp } as any, orderUser);
     
     return orderId;
   };
@@ -97,12 +100,19 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!order || order.status === status) return;
 
     const updatedHistory = [...order.statusHistory, { status, timestamp: new Date().toISOString() }];
-    const updateBody = { 
+    
+    const updateBody: any = { 
       status, 
       statusHistory: updatedHistory,
       courierName: details.courierName || order.courierName,
-      trackingId: details.trackingId || order.trackingId
+      trackingId: details.trackingId || order.trackingId,
+      updated_at: new Date().toISOString()
     };
+
+    // If marked delivered, payment is definitely received
+    if (status === 'Delivered') {
+      updateBody.payment_status = 'paid';
+    }
 
     const response = await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
@@ -125,7 +135,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
-      body: JSON.stringify({ paymentId, status: 'Confirmed' })
+      body: JSON.stringify({ 
+          paymentId, 
+          payment_status: 'paid', 
+          status: 'Confirmed',
+          updated_at: new Date().toISOString()
+      })
     });
     await refreshOrders();
   };
@@ -142,7 +157,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         shippingLabelUrl: labelUrl, 
         labelGeneratedAt: new Date().toISOString(),
         qrToken: token,
-        qrExpiresAt: expiry.toISOString()
+        qrExpiresAt: expiry.toISOString(),
+        updated_at: new Date().toISOString()
       })
     });
     await refreshOrders();
@@ -156,19 +172,26 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newLog = { id: Date.now().toString(), orderId: order.id, statusSet: status, note, scannedAt: new Date().toISOString() };
     const updatedHistory = [...order.statusHistory, { status, timestamp: new Date().toISOString() }];
     
-    await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(order.id)}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ 
+    const patchBody: any = { 
         status, 
         statusHistory: updatedHistory,
         qrUsedAt: new Date().toISOString(),
-        scanLogs: [...(order.scanLogs || []), newLog]
-      })
+        scanLogs: [...(order.scanLogs || []), newLog],
+        updated_at: new Date().toISOString()
+    };
+
+    if (status === 'Delivered') {
+        patchBody.payment_status = 'paid';
+    }
+
+    await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(order.id)}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify(patchBody)
     });
 
     await refreshOrders();
-    return { success: true, message: 'Status updated' };
+    return { success: true, message: `Order marked as ${status} and payment status updated.` };
   };
 
   const getOrderById = (id: string) => orders.find(o => o.id === id);
