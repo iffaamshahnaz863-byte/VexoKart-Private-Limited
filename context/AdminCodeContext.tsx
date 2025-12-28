@@ -16,9 +16,19 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [adminCodes, setAdminCodes] = useState<AdminCode[]>([]);
 
   const fetchCodes = async () => {
-    const res = await fetch(`${BASE_API_URL}/admin_codes?select=*`, { headers: API_HEADERS });
-    const data = await res.json();
-    setAdminCodes(data);
+    try {
+      const res = await fetch(`${BASE_API_URL}/admin_codes?select=*`, { headers: API_HEADERS });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setAdminCodes(data);
+      } else {
+        console.error("Admin codes fetch failed: API response is not an array", data);
+        setAdminCodes([]);
+      }
+    } catch (error) {
+      console.error("Error fetching admin codes:", error);
+      setAdminCodes([]);
+    }
   };
 
   useEffect(() => {

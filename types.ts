@@ -104,12 +104,16 @@ export interface Address {
 }
 
 export interface User {
+  id: number;
   name: string;
   email: string;
-  role: 'USER' | 'VENDOR' | 'SUPER_ADMIN';
+  phone: string;
+  // Added additional role strings to match usage in components
+  role: 'user' | 'admin' | 'SUPER_ADMIN' | 'VENDOR' | 'USER';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
+  created_at: string;
 }
 
 export interface KYCDetails {

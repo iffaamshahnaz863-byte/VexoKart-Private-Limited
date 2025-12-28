@@ -8,25 +8,27 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { login, user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err.message || 'Failed to log in. Please check your credentials.');
+      setError('Invalid email or password');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   React.useEffect(() => {
     if (user) {
-      if (user.role === 'SUPER_ADMIN') {
+      if (user.role === 'admin') {
         navigate('/admin');
-      } else if (user.role === 'VENDOR') {
-        navigate('/vendor');
       } else {
         navigate('/profile');
       }
@@ -50,7 +52,7 @@ const LoginPage: React.FC = () => {
         </div>
         <GlassmorphicCard className="p-8 border-white/5">
           <h2 className="text-2xl font-bold text-center text-text-main mb-6">Welcome Back</h2>
-          {error && <p className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl mb-6">{error}</p>}
+          {error && <p className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl mb-6 font-bold">{error}</p>}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="text-xs font-black uppercase tracking-wider text-text-muted" htmlFor="email">Email Address</label>
@@ -60,6 +62,7 @@ const LoginPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isSubmitting}
                 className="w-full mt-2 bg-background/50 text-text-main placeholder-text-muted border border-white/5 focus:border-accent focus:ring-1 focus:ring-accent/20 rounded-xl p-3.5 transition-all"
                 placeholder="alex@example.com"
               />
@@ -72,15 +75,17 @@ const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isSubmitting}
                 className="w-full mt-2 bg-background/50 text-text-main placeholder-text-muted border border-white/5 focus:border-accent focus:ring-1 focus:ring-accent/20 rounded-xl p-3.5 transition-all"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-xl shadow-accent/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all"
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-xl shadow-accent/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              Secure Login
+              {isSubmitting ? 'Authenticating...' : 'Secure Login'}
             </button>
           </form>
           <div className="text-center text-sm text-text-muted mt-8 space-y-3">
@@ -88,13 +93,6 @@ const LoginPage: React.FC = () => {
               New to VexoKart?{' '}
               <Link to="/signup" className="font-bold text-accent hover:text-accent-secondary transition-colors underline underline-offset-4">
                 Create Account
-              </Link>
-            </p>
-             <div className="h-px bg-white/5 w-full my-4"></div>
-             <p className="text-xs">
-              Interested in selling?{' '}
-              <Link to="/vendor/signup" className="font-bold text-text-main hover:text-accent transition-colors">
-                Become a Partner
               </Link>
             </p>
           </div>

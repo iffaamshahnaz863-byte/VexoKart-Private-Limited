@@ -31,7 +31,8 @@ const CheckoutPage: React.FC = () => {
     }, 3000);
   }
 
-  const handlePlaceOrder = () => {
+  // Fixed: Made handlePlaceOrder async to allow awaiting addOrder
+  const handlePlaceOrder = async () => {
     if (!selectedAddress || !user) {
       alert("Please select a shipping address.");
       return;
@@ -51,10 +52,11 @@ const CheckoutPage: React.FC = () => {
         paymentMethod: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'
     };
     
-    const newOrderId = addOrder(orderPayload);
+    // Fixed: Added await to correctly obtain the orderId string
+    const newOrderId = await addOrder(orderPayload);
 
     if (paymentMethod === 'cod') {
-      updateOrderStatus(newOrderId, 'Confirmed');
+      await updateOrderStatus(newOrderId, 'Confirmed');
       showSuccessAndNavigate();
       return;
     }
@@ -67,8 +69,9 @@ const CheckoutPage: React.FC = () => {
       description: `Order #${newOrderId}`,
       image: 'https://picsum.photos/seed/logo/128/128',
       order_id: '', // Can be used with server-side order creation
-      handler: (response: any) => {
-        updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
+      // Fixed: Made handler async and added await
+      handler: async (response: any) => {
+        await updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
         showSuccessAndNavigate();
       },
       prefill: {

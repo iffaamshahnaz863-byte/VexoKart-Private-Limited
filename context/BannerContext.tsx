@@ -17,9 +17,19 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [banners, setBanners] = useState<Banner[]>([]);
 
   const fetchBanners = async () => {
-    const res = await fetch(`${BASE_API_URL}/banners?select=*`, { headers: API_HEADERS });
-    const data = await res.json();
-    setBanners(data);
+    try {
+      const res = await fetch(`${BASE_API_URL}/banners?select=*`, { headers: API_HEADERS });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setBanners(data);
+      } else {
+        console.error("Banners fetch failed: API response is not an array", data);
+        setBanners([]);
+      }
+    } catch (error) {
+      console.error("Error fetching banners:", error);
+      setBanners([]);
+    }
   };
 
   useEffect(() => {

@@ -18,9 +18,19 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [vendors, setVendors] = useState<Vendor[]>([]);
 
   const fetchVendors = async () => {
-    const res = await fetch(`${BASE_API_URL}/vendors?select=*`, { headers: API_HEADERS });
-    const data = await res.json();
-    setVendors(data);
+    try {
+      const res = await fetch(`${BASE_API_URL}/vendors?select=*`, { headers: API_HEADERS });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setVendors(data);
+      } else {
+        console.error("Vendors fetch failed: API response is not an array", data);
+        setVendors([]);
+      }
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      setVendors([]);
+    }
   };
 
   useEffect(() => {

@@ -8,15 +8,18 @@ import { useVendors } from '../../context/VendorContext';
 
 const VendorDashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const { products } = useProducts();
-  const { orders } = useOrders();
+  const { products = [] } = useProducts();
+  const { orders = [] } = useOrders();
   const { getVendorByUserId } = useVendors();
 
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeProducts = Array.isArray(products) ? products : [];
+
   const vendor = user ? getVendorByUserId(user.email) : null;
-  const vendorProducts = vendor ? products.filter(p => p.vendorId === vendor.id) : [];
+  const vendorProducts = vendor ? safeProducts.filter(p => p.vendorId === vendor.id) : [];
   
-  const vendorOrders = orders.filter(order => 
-    order.items.some(item => 
+  const vendorOrders = safeOrders.filter(order => 
+    order.items && order.items.some(item => 
         vendorProducts.some(p => p.id === item.id)
     )
   );
@@ -53,7 +56,11 @@ const VendorDashboardPage: React.FC = () => {
       <div className="mt-10">
         <h2 className="text-2xl font-bold text-text-main mb-4">Recent Orders</h2>
         <GlassmorphicCard className="p-4">
-            <p className="text-text-muted">Your recent orders will appear here...</p>
+            {vendorOrders.length > 0 ? (
+                <p className="text-text-main font-medium">You have {vendorOrders.length} orders total. Visit the Orders page to manage them.</p>
+            ) : (
+                <p className="text-text-muted">Your recent orders will appear here...</p>
+            )}
         </GlassmorphicCard>
       </div>
     </div>

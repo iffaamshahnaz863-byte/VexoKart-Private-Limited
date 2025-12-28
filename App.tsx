@@ -30,7 +30,7 @@ import { NotificationProvider } from './context/NotificationContext';
 // Auth Pages
 import VendorSignupPage from './pages/VendorSignupPage';
 
-// Super Admin Imports
+// Admin Imports
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminProductsPage from './pages/admin/AdminProductsPage';
@@ -57,50 +57,31 @@ import VendorStatusPage from './pages/vendor/VendorStatusPage';
 import CourierScanPage from './pages/CourierScanPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
 };
 
-const SuperAdminRoute: React.FC = () => {
-  const { user } = useAuth();
-  if (!user || user.role !== 'SUPER_ADMIN') {
-    return <Navigate to="/" replace />;
+const AdminRoute: React.FC = () => {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
+        <h1 className="text-4xl font-black text-red-500 mb-4 uppercase italic">Access Denied</h1>
+        <p className="text-text-secondary mb-8 font-medium">You do not have administrative privileges to view this page.</p>
+        <Navigate to="/" replace />
+      </div>
+    );
   }
   return <AdminLayout><Outlet /></AdminLayout>;
 };
-
-const VendorApprovalGate: React.FC = () => {
-    const { user } = useAuth();
-    const { getVendorByUserId } = useVendors();
-
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
-
-    const vendor = getVendorByUserId(user.email);
-    
-    if (!vendor) {
-        return <div className="min-h-screen flex items-center justify-center bg-background text-text-main"><p>Loading vendor data...</p></div>;
-    }
-
-    if (vendor.status === 'approved') {
-        return <VendorLayout><Outlet /></VendorLayout>;
-    }
-    
-    return <VendorStatusPage vendor={vendor} />;
-};
-
-
-const VendorRoute: React.FC = () => {
-    const { user } = useAuth();
-    if(!user || user.role !== 'VENDOR') {
-        return <Navigate to="/" replace />;
-    }
-    return <VendorApprovalGate />;
-}
 
 const AppContent: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -142,8 +123,8 @@ const AppContent: React.FC = () => {
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
           
-          {/* Super Admin Routes */}
-          <Route path="/admin" element={<SuperAdminRoute />}>
+          {/* Admin Routes */}
+          <Route path="/admin" element={<AdminRoute />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="products" element={<AdminProductsPage />} />
             <Route path="products/edit/:id" element={<AdminProductFormPage />} />
@@ -158,8 +139,8 @@ const AppContent: React.FC = () => {
             <Route path="notifications" element={<AdminNotificationsPage />} />
           </Route>
 
-          {/* Vendor Routes */}
-           <Route path="/vendor" element={<VendorRoute />}>
+          {/* Vendor Routes - Simplified for this scheme */}
+           <Route path="/vendor" element={<ProtectedRoute><VendorLayout><Outlet /></VendorLayout></ProtectedRoute>}>
             <Route index element={<VendorDashboardPage />} />
             <Route path="products" element={<VendorProductsPage />} />
             <Route path="products/new" element={<VendorProductFormPage />} />

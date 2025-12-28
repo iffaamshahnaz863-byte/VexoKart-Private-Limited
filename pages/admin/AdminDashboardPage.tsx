@@ -7,22 +7,27 @@ import { useOrders } from '../../context/OrderContext';
 import { OrderStatus } from '../../types';
 
 const AdminDashboardPage: React.FC = () => {
-  const { user, users } = useAuth();
-  const { products } = useProducts();
-  const { orders } = useOrders();
+  const { user, users = [] } = useAuth();
+  const { products = [] } = useProducts();
+  const { orders = [] } = useOrders();
 
-  const getStatusCount = (status: OrderStatus) => orders.filter(o => o.status === status).length;
+  // Ensure lists are arrays to prevent .filter crashes
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeProducts = Array.isArray(products) ? products : [];
+  const safeUsers = Array.isArray(users) ? users : [];
+
+  const getStatusCount = (status: OrderStatus) => safeOrders.filter(o => o.status === status).length;
   
   const statusStats: { label: string; count: number; color: string }[] = [
-    { label: 'Processing', count: orders.filter(o => ['Placed', 'Confirmed', 'Packed'].includes(o.status)).length, color: 'text-cyan-400' },
-    { label: 'In Transit', count: orders.filter(o => ['Shipped', 'Out for Delivery'].includes(o.status)).length, color: 'text-blue-400' },
+    { label: 'Processing', count: safeOrders.filter(o => ['Placed', 'Confirmed', 'Packed'].includes(o.status)).length, color: 'text-cyan-400' },
+    { label: 'In Transit', count: safeOrders.filter(o => ['Shipped', 'Out for Delivery'].includes(o.status)).length, color: 'text-blue-400' },
     { label: 'Delivered', count: getStatusCount('Delivered'), color: 'text-green-400' },
     { label: 'Cancelled', count: getStatusCount('Cancelled'), color: 'text-red-400' },
   ];
 
-  const totalRevenue = orders
+  const totalRevenue = safeOrders
     .filter(o => o.status !== 'Cancelled')
-    .reduce((acc, curr) => acc + curr.total, 0);
+    .reduce((acc, curr) => acc + (curr.total || 0), 0);
 
   return (
     <div className="space-y-8">
@@ -38,15 +43,15 @@ const AdminDashboardPage: React.FC = () => {
           </GlassmorphicCard>
           <GlassmorphicCard className="p-6">
               <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Live Inventory</p>
-              <p className="text-3xl font-black text-text-main italic tracking-tighter">{products.length}</p>
+              <p className="text-3xl font-black text-text-main italic tracking-tighter">{safeProducts.length}</p>
           </GlassmorphicCard>
           <GlassmorphicCard className="p-6">
               <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Customer Base</p>
-              <p className="text-3xl font-black text-text-main italic tracking-tighter">{users.length}</p>
+              <p className="text-3xl font-black text-text-main italic tracking-tighter">{safeUsers.length}</p>
           </GlassmorphicCard>
           <GlassmorphicCard className="p-6">
               <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Total Bookings</p>
-              <p className="text-3xl font-black text-text-main italic tracking-tighter">{orders.length}</p>
+              <p className="text-3xl font-black text-text-main italic tracking-tighter">{safeOrders.length}</p>
           </GlassmorphicCard>
       </div>
 
@@ -59,12 +64,12 @@ const AdminDashboardPage: React.FC = () => {
                 <p className="text-[10px] font-bold text-text-muted uppercase mb-1">{stat.label}</p>
                 <div className="flex items-end justify-between">
                   <span className={`text-2xl font-black ${stat.color}`}>{stat.count}</span>
-                  <span className="text-[10px] text-text-muted mb-1">{((stat.count / (orders.length || 1)) * 100).toFixed(0)}%</span>
+                  <span className="text-[10px] text-text-muted mb-1">{((stat.count / (safeOrders.length || 1)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="w-full h-1 bg-white/5 rounded-full mt-3 overflow-hidden">
                   <div 
                     className={`h-full bg-current ${stat.color.replace('text', 'bg')}`} 
-                    style={{ width: `${(stat.count / (orders.length || 1)) * 100}%` }}
+                    style={{ width: `${(stat.count / (safeOrders.length || 1)) * 100}%` }}
                   ></div>
                 </div>
               </GlassmorphicCard>

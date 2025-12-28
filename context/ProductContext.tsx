@@ -28,9 +28,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const response = await fetch(`${BASE_API_URL}/products?select=*`, { headers: API_HEADERS });
       const data = await response.json();
-      setProducts(data);
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        console.error("Products sync failed: API response is not an array", data);
+        setProducts([]);
+      }
     } catch (error) {
       console.error("Error fetching products:", error);
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }

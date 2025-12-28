@@ -17,9 +17,19 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [categories, setCategories] = useState<Category[]>([]);
 
   const fetchCategories = async () => {
-    const res = await fetch(`${BASE_API_URL}/categories?select=*`, { headers: API_HEADERS });
-    const data = await res.json();
-    setCategories(data);
+    try {
+      const res = await fetch(`${BASE_API_URL}/categories?select=*`, { headers: API_HEADERS });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setCategories(data);
+      } else {
+        console.error("Categories fetch failed: API response is not an array", data);
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      setCategories([]);
+    }
   };
 
   useEffect(() => {

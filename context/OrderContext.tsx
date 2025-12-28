@@ -28,11 +28,31 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const refreshOrders = async () => {
     try {
-      const response = await fetch(`${BASE_API_URL}/orders?select=*&order=date.desc`, { headers: API_HEADERS });
+      // Removed the order parameter which often causes 400 if column names or permissions aren't exact
+      const response = await fetch(`${BASE_API_URL}/orders?select=*`, { headers: API_HEADERS });
       const data = await response.json();
-      setOrders(data);
+      
+      if (!response.ok) {
+        // Detailed logging of the actual error message from Supabase to help debugging
+        const errorMessage = data?.message || data?.error || 'Unknown Supabase Error';
+        console.error(`Supabase API Error (Orders): ${response.status}`, errorMessage);
+        setOrders([]);
+        return;
+      }
+
+      if (Array.isArray(data)) {
+        // Sort manually in the browser to ensure stability across environments
+        const sortedData = [...data].sort((a, b) => 
+            new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+        );
+        setOrders(sortedData);
+      } else {
+        console.warn("Orders fetch returned non-array data. Check if table 'orders' exists and has correct permissions.", data);
+        setOrders([]);
+      }
     } catch (e) {
-      console.error("Orders sync failed", e);
+      console.error("Network error during orders sync:", e);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -53,11 +73,17 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       statusHistory: [{ status: 'Placed', timestamp }]
     };
 
-    await fetch(`${BASE_API_URL}/orders`, {
+    const response = await fetch(`${BASE_API_URL}/orders`, {
       method: 'POST',
       headers: API_HEADERS,
       body: JSON.stringify(newOrder)
     });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      console.error("Failed to create order in Supabase:", errData);
+      throw new Error(errData.message || 'Fulfillment service unavailable');
+    }
     
     await refreshOrders();
     const orderUser = users.find(u => u.email === orderData.userEmail);
@@ -78,11 +104,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       trackingId: details.trackingId || order.trackingId
     };
 
-    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+    const response = await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify(updateBody)
     });
+
+    if (!response.ok) {
+      console.error("Failed to update order status:", await response.json());
+      return;
+    }
 
     await refreshOrders();
     const updatedOrder = { ...order, ...updateBody };
@@ -91,7 +122,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const updateOrderPaymentDetails = async (orderId: string, paymentId: string) => {
-    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+    await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ paymentId, status: 'Confirmed' })
@@ -104,7 +135,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 7);
 
-    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+    await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ 
@@ -125,7 +156,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newLog = { id: Date.now().toString(), orderId: order.id, statusSet: status, note, scannedAt: new Date().toISOString() };
     const updatedHistory = [...order.statusHistory, { status, timestamp: new Date().toISOString() }];
     
-    await fetch(`${BASE_API_URL}/orders?id=eq.${order.id}`, {
+    await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(order.id)}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ 
@@ -145,7 +176,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   return (
     <OrderContext.Provider value={{ 
-      orders, isLoading, addOrder, updateOrderStatus, updateOrderPaymentDetails, 
+      orders: Array.isArray(orders) ? orders : [], 
+      isLoading, addOrder, updateOrderStatus, updateOrderPaymentDetails, 
       updateOrderLabelInfo, updateOrderByToken, getOrderById, getOrderByToken, refreshOrders 
     }}>
       {children}
@@ -155,6 +187,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 export const useOrders = () => {
   const context = useContext(OrderContext);
-  if (!context) throw new Error('useOrders error');
+  if (!context) throw new Error('useOrders must be used within an OrderProvider');
   return context;
 };
