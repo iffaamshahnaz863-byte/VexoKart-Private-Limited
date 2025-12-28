@@ -29,9 +29,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     localStorage.setItem('vexokart-cart', JSON.stringify(cartItems));
     
-    // GUARD: Ensure email exists before making network request
-    if (user && user.email && user.email.trim() !== '') {
-      // Background sync to Supabase 'carts' table
+    if (user) {
       const syncCart = async () => {
         try {
           await fetch(`${BASE_API_URL}/carts?email=eq.${encodeURIComponent(user.email)}`, {
@@ -44,7 +42,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             })
           });
         } catch (e) {
-          console.warn("[CartSync] Background update failed:", e);
+          console.warn("Cart background sync deferred:", e);
         }
       };
       syncCart();

@@ -5,8 +5,8 @@ import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { Product } from '../../types';
-import { useAuth } from '../../context/AuthContext';
 import { useVendors } from '../../context/VendorContext';
+import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/Toast';
 
 const VendorProductFormPage: React.FC = () => {
@@ -14,7 +14,10 @@ const VendorProductFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { getProduct, addProduct, updateProduct } = useProducts();
   const { categories } = useCategories();
-  const { currentVendor } = useVendors();
+  const { getVendorByUserId } = useVendors();
+  const { user } = useAuth();
+
+  const currentVendor = user ? getVendorByUserId(user.id.toString()) : null;
 
   const isEditing = id !== undefined;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,15 +90,8 @@ const VendorProductFormPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 1. Critical verification check
-    if (!currentVendor) {
-        console.error("[VendorProductForm] Submission blocked: currentVendor is missing from context.");
-        alert("Your vendor profile is not verified. Access restricted. Please contact admin.");
-        return;
-    }
-
     if(formData.images.length === 0) {
-        alert("Please upload at least one image for the product.");
+        alert("Please upload at least one image.");
         return;
     }
 
@@ -112,12 +108,10 @@ const VendorProductFormPage: React.FC = () => {
 
         const finalData = { 
             ...formData, 
-            vendor_id: currentVendor.id, // Direct mapping from verified currentVendor ID
+            vendor_id: currentVendor?.id.toString(),
             highlights: finalHighlights, 
             specifications: finalSpecs 
         };
-
-        console.log(`[VendorProductForm] Payload for ${isEditing ? 'UPDATE' : 'INSERT'}:`, finalData);
 
         if (isEditing) {
           const existingProduct = getProduct(parseInt(id));
@@ -131,8 +125,8 @@ const VendorProductFormPage: React.FC = () => {
         
         setTimeout(() => navigate('/vendor/products'), 1500);
     } catch (err: any) {
-        console.error("[VendorProductForm] Submission failed:", err);
-        alert(err.message || "An unexpected error occurred while saving. Check console for details.");
+        console.error("Product submission failed:", err);
+        alert(err.message || "Failed to save product listing.");
     } finally {
         setIsSubmitting(false);
     }
@@ -160,22 +154,22 @@ const VendorProductFormPage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Selling Price</label>
+                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Price</label>
                             <input type="number" name="price" value={formData.price} onChange={handleChange} required className={inputClasses} />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">MRP / Original</label>
+                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Original Price</label>
                             <input type="number" name="originalPrice" value={formData.originalPrice} onChange={handleChange} className={inputClasses} />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Stock</label>
+                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Inventory</label>
                             <input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} />
                         </div>
                     </div>
                 </div>
 
                 <div className="space-y-4">
-                    <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Product Visuals</label>
+                    <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Visual Assets</label>
                     <div className="border-2 border-dashed border-border rounded-2xl p-4 min-h-[160px] flex flex-col items-center justify-center bg-surface/30">
                         <input type="file" id="imageUpload" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
                         <label htmlFor="imageUpload" className="cursor-pointer text-center group">
@@ -197,7 +191,7 @@ const VendorProductFormPage: React.FC = () => {
             </div>
 
             <div>
-                <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Detailed Description</label>
+                <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Catalog Description</label>
                 <textarea name="description" value={formData.description} onChange={handleChange} required rows={4} className={`${inputClasses} resize-none`} placeholder="Tell customers about your product..."></textarea>
             </div>
 
@@ -207,7 +201,7 @@ const VendorProductFormPage: React.FC = () => {
                     <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={4} className={`${inputClasses} resize-none`} placeholder="• Water Resistant&#10;• 2 Year Warranty"></textarea>
                 </div>
                 <div>
-                    <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Technical Specs (Key: Value)</label>
+                    <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Specifications (Key: Value)</label>
                     <textarea value={specsText} onChange={(e) => setSpecsText(e.target.value)} rows={4} className={`${inputClasses} resize-none`} placeholder="Material: Leather&#10;Size: Large"></textarea>
                 </div>
             </div>

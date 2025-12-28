@@ -55,18 +55,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const init = async () => {
       setIsLoading(true);
       await fetchUsers();
-      const sessionEmail = localStorage.getItem('vexokart-session-email');
-      if (sessionEmail) {
+      
+      const sessionUser = localStorage.getItem('vexokart-user');
+      if (sessionUser) {
         try {
-          const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(sessionEmail)}&select=*`, { headers: API_HEADERS });
+          const parsed = JSON.parse(sessionUser);
+          const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(parsed.email)}&select=*`, { headers: API_HEADERS });
           const userData = await res.json();
           if (Array.isArray(userData) && userData.length > 0) {
             setUser(userData[0]);
-          } else {
-            localStorage.removeItem('vexokart-session-email');
           }
         } catch (e) {
-          localStorage.removeItem('vexokart-session-email');
+          console.error("Session restoration failed:", e);
         }
       }
       setIsLoading(false);
@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUserSession = (userData: User) => {
     setUser(userData);
-    localStorage.setItem('vexokart-session-email', userData.email);
+    localStorage.setItem('vexokart-user', JSON.stringify(userData));
   };
 
   const login = async (email: string, pass: string) => {
@@ -84,11 +84,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`, { headers: API_HEADERS });
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        updateUserSession(data[0]);
+        const loggedUser = data[0];
+        setUser(loggedUser);
+        localStorage.setItem('vexokart-user', JSON.stringify(loggedUser));
         return;
       }
       throw new Error('Invalid email or password');
     } catch (err) {
+      console.error("Login failed:", err);
       throw new Error('Invalid email or password');
     }
   };
@@ -114,16 +117,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
-     throw new Error("Direct vendor signup is disabled. Please contact an administrator.");
+     throw new Error("Direct vendor signup is currently handled by administration.");
   };
 
   const logout = () => {
-    localStorage.removeItem('vexokart-session-email');
+    localStorage.removeItem('vexokart-user');
     setUser(null);
   };
 
   const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => {
-    // 1. Create User in users table
     const newUser = {
       name: userData.name,
       email: userData.email,
@@ -143,17 +145,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     const createdUsers = await res.json();
-    if (!res.ok) {
-        throw new Error(createdUsers.message || 'Failed to create user record');
-    }
+    if (!res.ok) throw new Error(createdUsers.message || 'Failed to create user record');
 
     const createdUser = createdUsers[0];
 
-    // 2. If Role is Vendor, create the business profile in vendors table
     if (userData.role === 'vendor' && vendorContext) {
         try {
             await vendorContext.addVendorRecord({
-                user_id: createdUser.id.toString(), // Linking using the returned ID from the first insert
+                user_id: createdUser.id.toString(),
                 store_name: userData.storeName || `${userData.name}'s Store`,
                 owner_name: userData.name,
                 email: userData.email,
@@ -161,12 +160,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 profile_image: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.storeName || userData.name)}&background=FF8A00&color=fff`,
                 status: 'pending'
             });
-            // Refresh vendors so they appear in the Vendors tab instantly
             await vendorContext.refreshVendors();
-        } catch (vendorError: any) {
-            // If vendor profile fails, we might want to alert the admin even though the user was created
-            console.error("User created but vendor profile failed:", vendorError);
-            throw new Error(`User created but Vendor profile failed: ${vendorError.message}`);
+        } catch (vErr) {
+            console.error("Vendor profile link failed:", vErr);
         }
     }
 

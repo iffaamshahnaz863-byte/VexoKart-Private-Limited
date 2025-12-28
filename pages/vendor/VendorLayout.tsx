@@ -1,5 +1,5 @@
 
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useVendors } from '../../context/VendorContext';
@@ -11,33 +11,20 @@ interface VendorLayoutProps {
 
 const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
-  const { currentVendor, isVendorLoading, vendorError, fetchCurrentVendor } = useVendors();
-  const [timedOut, setTimedOut] = useState(false);
+  const { getVendorByUserId, vendors, fetchCurrentVendor } = useVendors();
   const navigate = useNavigate();
   
+  const currentVendor = user ? getVendorByUserId(user.id.toString()) : null;
+
   useEffect(() => {
     if (user?.email) {
-        setTimedOut(false); // Reset timeout on retry
-        fetchCurrentVendor(user.email);
-        
-        // Safety timeout: 5 seconds max for syncing UI
-        const timer = setTimeout(() => {
-          setTimedOut(true);
-        }, 5000);
-        
-        return () => clearTimeout(timer);
+      fetchCurrentVendor(user.email);
     }
-  }, [user?.email]);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const handleRetry = () => {
-    if (user?.email) {
-      window.location.reload();
-    }
   };
 
   const menuItems = [
@@ -50,40 +37,15 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const activeLinkClass = 'bg-accent text-white shadow-lg shadow-accent/20';
   const inactiveLinkClass = 'text-text-secondary hover:bg-background hover:text-text-main';
 
-  // 1. Loading State (With 5s limit)
-  if (isVendorLoading && !timedOut) {
+  if (!currentVendor) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background">
             <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Syncing Vendor Profile...</p>
+            <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Loading vendor profile...</p>
         </div>
     );
   }
 
-  // 2. Error State (Profile missing, sync failed, or timed out)
-  if (vendorError || !currentVendor || timedOut) {
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
-            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mb-6">
-                <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h1 className="text-2xl font-black text-text-main uppercase italic tracking-tight mb-2">
-              {timedOut ? 'Sync Timeout' : 'Verification Failed'}
-            </h1>
-            <p className="text-text-secondary max-w-xs mb-8">
-              {vendorError || (timedOut ? 'Server connection timed out. This could be due to network congestion.' : 'We could not verify your vendor status.')}
-            </p>
-            <div className="flex gap-4">
-                <button onClick={handleLogout} className="px-6 py-3 border border-border rounded-xl text-xs font-bold">Logout</button>
-                <button onClick={handleRetry} className="px-6 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20">Retry Sync</button>
-            </div>
-        </div>
-    );
-  }
-
-  // 3. Status Verification (Redirect to status page if not approved)
   if (currentVendor.status !== 'approved') {
     return <VendorStatusPage vendor={currentVendor} />;
   }

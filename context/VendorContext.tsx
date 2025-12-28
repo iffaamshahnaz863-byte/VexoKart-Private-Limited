@@ -44,49 +44,26 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const fetchCurrentVendor = async (email: string) => {
-    // GUARD: Prevents 'vendors?email=eq.' queries
-    if (!email || email.trim() === '') {
-      console.warn("[VendorSync] Fetch blocked: Email is empty.");
-      setIsVendorLoading(false);
-      return;
-    }
-    
-    console.log(`[VendorSync] Initializing profile fetch for: ${email}`);
+    if (!email) return;
     setIsVendorLoading(true);
-    setVendorError(null);
-    
     try {
-      const url = `${BASE_API_URL}/vendors?email=eq.${encodeURIComponent(email)}&select=*`;
-      const res = await fetch(url, {
-        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
+      const res = await fetch(`${BASE_API_URL}/vendors?email=eq.${encodeURIComponent(email)}&select=*`, {
+        headers: API_HEADERS
       });
-      
       const data = await res.json();
-      console.log(`[VendorSync] Response for ${email}:`, data);
-
-      if (!res.ok) {
-        throw new Error(data.message || `Supabase error (${res.status})`);
-      }
-
       if (Array.isArray(data) && data.length > 0) {
         setCurrentVendor(data[0]);
       } else {
-        console.warn(`[VendorSync] No record found for: ${email}`);
         setCurrentVendor(null);
-        setVendorError("Vendor profile not found. Please contact admin.");
       }
-    } catch (error: any) {
-      console.error("[VendorSync] Critical fetch error:", error);
-      setVendorError(`Sync Failed: ${error.message || 'Check your connection and try again.'}`);
+    } catch (error) {
+      console.error("Error syncing current vendor:", error);
     } finally {
-      // ALWAYS stop loading, no matter what
       setIsVendorLoading(false);
     }
   };
 
   useEffect(() => {
-    // Only fetch the full list if we are an admin or it's needed for public view.
-    // For specific vendor sync, we use fetchCurrentVendor.
     fetchVendors();
   }, []);
 
@@ -119,7 +96,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     
     if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || 'Failed to create vendor business profile');
+        throw new Error(err.message || 'Failed to create vendor record');
     }
     
     await fetchVendors();
