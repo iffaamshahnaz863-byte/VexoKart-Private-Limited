@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useProducts } from '../../hooks/useProducts';
@@ -9,28 +8,41 @@ import { useVendors } from '../../context/VendorContext';
 const VendorDashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { products = [] } = useProducts();
-  const { orders = [] } = useOrders();
-  const { currentVendor } = useVendors();
+  const { orders = [], isLoading: ordersLoading } = useOrders();
+  const { getVendorByUserId } = useVendors();
 
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
 
-  const vendorProducts = currentVendor ? safeProducts.filter(p => p.vendorId === currentVendor.id.toString()) : [];
+  const currentVendor = useMemo(() => user ? getVendorByUserId(user.id.toString()) : null, [user, getVendorByUserId]);
+
+  const vendorProducts = useMemo(() => 
+    currentVendor ? safeProducts.filter(p => p.vendorId === currentVendor.id.toString()) : []
+  , [currentVendor, safeProducts]);
   
-  const vendorOrders = safeOrders.filter(order => 
-    order.items && order.items.some(item => 
-        vendorProducts.some(p => p.id === item.id)
-    )
-  );
+  const vendorOrders = useMemo(() => 
+    currentVendor ? safeOrders.filter(order => 
+        order.items && order.items.some(item => 
+            item.vendorId === currentVendor.id.toString() ||
+            item.vendorId === user?.email
+        )
+    ) : []
+  , [currentVendor, safeOrders, user?.email]);
   
-  const totalRevenue = vendorOrders.reduce((total, order) => {
-    const vendorItemsTotal = order.items
-        .filter(item => vendorProducts.some(p => p.id === item.id))
-        .reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    return total + vendorItemsTotal;
-  }, 0);
+  const totalRevenue = useMemo(() => 
+    vendorOrders.reduce((total, order) => {
+        const vendorItemsTotal = order.items
+            .filter(item => item.vendorId === currentVendor?.id.toString() || item.vendorId === user?.email)
+            .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        return total + vendorItemsTotal;
+    }, 0)
+  , [vendorOrders, currentVendor, user?.email]);
 
   const pendingOrders = vendorOrders.filter(o => ['Placed', 'Confirmed', 'Packed'].includes(o.status)).length;
+
+  if (ordersLoading) {
+    return <div className="p-20 text-center text-text-muted font-bold animate-pulse">Calculating stats...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -70,7 +82,7 @@ const VendorDashboardPage: React.FC = () => {
                     <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto">
                         <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                     </div>
-                    <p className="text-text-muted font-bold italic">No orders received yet. Start promoting your products!</p>
+                    <p className="text-text-muted font-bold italic">No orders yet.</p>
                 </div>
             )}
         </GlassmorphicCard>

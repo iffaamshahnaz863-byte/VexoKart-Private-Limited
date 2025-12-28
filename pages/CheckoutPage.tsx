@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
@@ -6,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
-import { Address, Order } from '../types';
+import { Address, Order, OrderItem } from '../types';
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -14,7 +13,6 @@ const CheckoutPage: React.FC = () => {
   const { addOrder, updateOrderPaymentDetails, updateOrderStatus } = useOrders();
   const navigate = useNavigate();
   
-  // Calculate if all items allow specific methods
   const canPayOnline = useMemo(() => cartItems.every(item => item.allow_online ?? true), [cartItems]);
   const canPayCOD = useMemo(() => cartItems.every(item => item.allow_cod ?? true), [cartItems]);
 
@@ -28,7 +26,6 @@ const CheckoutPage: React.FC = () => {
     }
   }, [user]);
 
-  // Adjust default selection if restrictions change
   useEffect(() => {
     if (!canPayOnline && paymentMethod === 'card') {
         setPaymentMethod('cod');
@@ -51,7 +48,6 @@ const CheckoutPage: React.FC = () => {
       return;
     }
     
-    // Final check for payment availability
     if (paymentMethod === 'card' && !canPayOnline) {
         alert("Digital payment is not available for one or more items in your cart.");
         return;
@@ -61,54 +57,63 @@ const CheckoutPage: React.FC = () => {
         return;
     }
     
+    // IMPORTANT: Mapping with vendorId snapshot
+    const orderItems: OrderItem[] = cartItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.images[0],
+        vendorId: item.vendorId // Snapshotted for the vendor console
+    }));
+
     const orderPayload: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory' | 'payment_status'> = {
+        userId: user.id,
         userEmail: user.email,
-        items: cartItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            image: item.images[0]
-        })),
+        items: orderItems,
         total: cartTotal,
         shippingAddress: selectedAddress,
         payment_method: (paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment') as "Online Payment" | "Cash on Delivery"
     };
     
-    if (paymentMethod === 'cod') {
-      const newOrderId = await addOrder(orderPayload);
-      await updateOrderStatus(newOrderId, 'Confirmed');
-      showSuccessAndNavigate();
-      return;
-    }
-
-    // Online Payment logic
-    const newOrderId = await addOrder(orderPayload);
-    const options = {
-      key: 'rzp_test_RvSXZKknVfrNUA',
-      amount: Math.round(cartTotal * 100),
-      currency: 'INR',
-      name: 'VexoKart',
-      description: `Order #${newOrderId}`,
-      image: 'https://picsum.photos/seed/logo/128/128',
-      handler: async (response: any) => {
-        await updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
+    try {
+      if (paymentMethod === 'cod') {
+        const newOrderId = await addOrder(orderPayload);
+        await updateOrderStatus(newOrderId, 'Confirmed');
         showSuccessAndNavigate();
-      },
-      prefill: {
-        name: user?.name || 'Customer',
-        email: user?.email || '',
-        contact: selectedAddress.phone || '',
-      },
-      theme: { color: '#FF8A00' },
-    };
+        return;
+      }
 
-    const paymentObject = new (window as any).Razorpay(options);
-    paymentObject.on('payment.failed', (response: any) => {
-      alert(`Payment failed. Error: ${response.error.description}`);
-      navigate('/orders');
-    });
-    paymentObject.open();
+      const newOrderId = await addOrder(orderPayload);
+      const options = {
+        key: 'rzp_test_RvSXZKknVfrNUA',
+        amount: Math.round(cartTotal * 100),
+        currency: 'INR',
+        name: 'VexoKart',
+        description: `Order #${newOrderId}`,
+        image: 'https://picsum.photos/seed/logo/128/128',
+        handler: async (response: any) => {
+          await updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
+          showSuccessAndNavigate();
+        },
+        prefill: {
+          name: user?.name || 'Customer',
+          email: user?.email || '',
+          contact: selectedAddress.phone || '',
+        },
+        theme: { color: '#FF8A00' },
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.on('payment.failed', (response: any) => {
+        alert(`Payment failed. Error: ${response.error.description}`);
+        navigate('/orders');
+      });
+      paymentObject.open();
+    } catch (err) {
+      console.error("Order process error:", err);
+      alert("Failed to process order. Please try again.");
+    }
   };
 
   if (orderPlaced) {

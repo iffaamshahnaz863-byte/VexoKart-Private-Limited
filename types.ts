@@ -1,4 +1,3 @@
-
 export interface Review {
   id: string;
   author: string;
@@ -56,6 +55,8 @@ export interface OrderItem {
     price: number;
     quantity: number;
     image: string;
+    vendorId: string;
+    vendor_email?: string;
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -83,6 +84,7 @@ export interface Order {
     status: OrderStatus;
     payment_status: PaymentStatus;
     payment_method: 'Online Payment' | 'Cash on Delivery';
+    userId: number;
     userEmail: string;
     shippingAddress: Address;
     paymentId?: string;
@@ -90,6 +92,7 @@ export interface Order {
     courierName?: string;
     trackingId?: string;
     shippingLabelUrl?: string;
+    label_url?: string; // New field for persistent label storage
     labelGeneratedAt?: string;
     qrToken?: string;
     qrExpiresAt?: string;

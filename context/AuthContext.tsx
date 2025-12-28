@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types';
 import { VendorContext } from './VendorContext';
@@ -29,10 +28,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
  * Helper to ensure a user object has all required array properties
- * to prevent 'not iterable' errors.
+ * to prevent 'not iterable' errors and handle numeric IDs safely.
  */
 const sanitizeUser = (u: any): User => ({
   ...u,
+  id: u.id ? Number(u.id) : 0,
   addresses: Array.isArray(u.addresses) ? u.addresses : [],
   wishlist: Array.isArray(u.wishlist) ? u.wishlist : [],
   recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : []
@@ -71,7 +71,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (sessionUser) {
         try {
           const parsed = JSON.parse(sessionUser);
-          const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(parsed.email)}&select=*`, { headers: API_HEADERS });
+          // Use ilike for robust session restoration
+          const res = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(parsed.email)}&select=*`, { headers: API_HEADERS });
           const userData = await res.json();
           if (Array.isArray(userData) && userData.length > 0) {
             setUser(sanitizeUser(userData[0]));
@@ -93,18 +94,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, pass: string) => {
     try {
-      const query = `email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`;
+      // Use ilike for case-insensitive email matching to prevent "User not found" errors
+      const query = `email=ilike.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       const data = await res.json();
       
       if (Array.isArray(data) && data.length > 0) {
         const loggedUser = sanitizeUser(data[0]);
-        setUser(loggedUser);
-        localStorage.setItem('vexokart-user', JSON.stringify(loggedUser));
+        updateUserSession(loggedUser);
         return;
       }
       
-      const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+      // Secondary check to provide specific feedback
+      const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
       const checkData = await checkRes.json();
       
       if (Array.isArray(checkData) && checkData.length === 0) {
@@ -114,30 +116,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw new Error('Invalid email or password');
     } catch (err: any) {
       console.error("Login attempt failed:", err);
-      throw new Error(err.message || 'Authentication error');
+      throw new Error(err.message || 'Authentication service unreachable');
     }
   };
 
   const signup = async (name: string, email: string, phone: string, pass: string) => {
-    const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+    // Check if user exists using case-insensitive lookup
+    const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
     const existing = await checkRes.json();
     if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
 
+    // Payloads strictly exclude 'id' to let Postgres handle identity auto-generation
     const newUser = {
-      name, email, phone, password: pass, role: 'user',
-      addresses: [], wishlist: [], recentlyViewed: [], created_at: new Date().toISOString()
+      name, 
+      email: email.toLowerCase(), 
+      phone, 
+      password: pass, 
+      role: 'user',
+      addresses: [], 
+      wishlist: [], 
+      recentlyViewed: [], 
+      created_at: new Date().toISOString()
     };
 
     const res = await fetch(`${BASE_API_URL}/users`, {
       method: 'POST',
-      headers: API_HEADERS,
+      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
       body: JSON.stringify(newUser)
     });
     
     if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || 'Signup failed. Please try again.');
+        throw new Error(err.message || 'Signup rejected by server.');
     }
+    
     await fetchUsers();
   };
 
@@ -153,7 +165,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => {
     const newUser = {
       name: userData.name,
-      email: userData.email,
+      email: userData.email.toLowerCase(),
       phone: userData.phone,
       password: userData.pass,
       role: userData.role,
@@ -170,7 +182,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     const createdUsers = await res.json();
-    if (!res.ok) throw new Error(createdUsers.message || 'Failed to create user record');
+    if (!res.ok) throw new Error(createdUsers.message || 'Identity creation failed');
 
     const createdUser = sanitizeUser(createdUsers[0]);
 
@@ -180,7 +192,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 user_id: createdUser.id.toString(),
                 store_name: userData.storeName || `${userData.name}'s Store`,
                 owner_name: userData.name,
-                email: userData.email,
+                email: userData.email.toLowerCase(),
                 phone: userData.phone,
                 profile_image: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.storeName || userData.name)}&background=FF8A00&color=fff`,
                 status: 'pending'
@@ -200,7 +212,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
     const updatedAddresses = [...currentAddresses, newAddress];
     
-    await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
+    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ addresses: updatedAddresses })
@@ -213,7 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
     const updatedAddresses = currentAddresses.map(a => a.id === address.id ? address : a);
     
-    await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
+    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ addresses: updatedAddresses })
@@ -226,7 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
     const updatedAddresses = currentAddresses.filter(a => a.id !== addressId);
     
-    await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
+    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ addresses: updatedAddresses })
@@ -246,7 +258,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (currentWishlist.includes(productId)) return;
     
     const updated = [...currentWishlist, productId];
-    await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
+    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ wishlist: updated })
@@ -259,7 +271,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
     const updated = currentWishlist.filter(id => id !== productId);
     
-    await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(user.email)}`, {
+    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
       body: JSON.stringify({ wishlist: updated })

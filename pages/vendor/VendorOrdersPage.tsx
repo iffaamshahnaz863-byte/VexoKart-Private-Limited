@@ -1,43 +1,98 @@
-
-import React, { useState } from 'react';
-import { Order, OrderStatus } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Order, OrderStatus, OrderItem } from '../../types';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useAuth } from '../../context/AuthContext';
 import { useVendors } from '../../context/VendorContext';
-import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
 import ShippingDetailsModal from '../../components/admin/ShippingDetailsModal';
 import ShippingLabelModal from '../../components/vendor/ShippingLabelModal';
 
-// Progression rule for vendors: they drive the order towards shipping
-const VENDOR_STAGES: OrderStatus[] = ['Confirmed', 'Packed', 'Shipped'];
+interface VendorAugmentedOrder extends Order {
+    vendorItems: OrderItem[];
+    vendorSubtotal: number;
+}
 
 const VendorOrdersPage: React.FC = () => {
     const { user } = useAuth();
-    const { getVendorByUserId } = useVendors();
-    const { products } = useProducts();
-    const { orders, updateOrderStatus, updateOrderLabelInfo } = useOrders();
+    const { currentVendor, fetchCurrentVendor } = useVendors();
+    const { orders, isLoading, updateOrderStatus, updateOrderLabelInfo, refreshOrders } = useOrders();
     
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isShippingModalOpen, setShippingModalOpen] = useState(false);
     const [labelOrder, setLabelOrder] = useState<Order | null>(null);
+    const [isGeneratingLabel, setIsGeneratingLabel] = useState<string | null>(null);
 
-    const vendor = user ? getVendorByUserId(user.email) : null;
-    const vendorProducts = vendor ? products.filter(p => p.vendorId === vendor.id.toString()) : [];
+    useEffect(() => {
+        refreshOrders();
+        if (user?.email && !currentVendor) {
+            fetchCurrentVendor(user.email);
+        }
+    }, [user]);
 
-    const vendorOrders = orders.map(order => {
-        const vendorItems = order.items.filter(item => 
-            vendorProducts.some(p => p.id === item.id)
-        );
-        if (vendorItems.length === 0) return null;
-        return { ...order, items: vendorItems };
-    }).filter((o): o is Order => {
-        if (!o) return false;
-        if (statusFilter === 'all') return true;
-        if (statusFilter === 'pending') return ['Placed', 'Confirmed', 'Packed'].includes(o.status);
-        return o.status === statusFilter;
-    });
+    // Part 1.2: Frontend filtering for vendor specific orders and items
+    const vendorOrders = useMemo(() => {
+        if (!currentVendor) return [];
+
+        console.log('[VendorOrders] Debug - All Orders:', orders);
+        console.log('[VendorOrders] Debug - Current Vendor:', currentVendor);
+
+        const filtered = orders.map(order => {
+            const items = Array.isArray(order.items) ? order.items : [];
+            
+            // Filter only items belonging to THIS vendor
+            const matchedItems = items.filter(item => {
+                const itemVendorId = String(item.vendorId || (item as any).vendor_id || '');
+                const itemVendorEmail = String((item as any).vendor_email || '');
+                
+                return itemVendorId === String(currentVendor.id) || 
+                       itemVendorId === String(currentVendor.user_id) ||
+                       (itemVendorEmail && itemVendorEmail.toLowerCase() === currentVendor.email.toLowerCase());
+            });
+
+            if (matchedItems.length === 0) return null;
+
+            const vendorSubtotal = matchedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            return {
+                ...order,
+                vendorItems: matchedItems,
+                vendorSubtotal: vendorSubtotal
+            } as VendorAugmentedOrder;
+        }).filter((o): o is VendorAugmentedOrder => {
+            if (!o) return false;
+            
+            // Visibility: Only fulfillment stages
+            const isValidStatus = ['Placed', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(o.status);
+            if (!isValidStatus) return false;
+
+            if (statusFilter === 'all') return true;
+            if (statusFilter === 'pending') return ['Placed', 'Confirmed'].includes(o.status);
+            return o.status === statusFilter;
+        });
+
+        console.log('[VendorOrders] Debug - Filtered Result:', filtered);
+        return filtered;
+    }, [orders, currentVendor, statusFilter]);
+
+    const handlePackAndLabel = async (order: VendorAugmentedOrder) => {
+        setIsGeneratingLabel(order.id);
+        try {
+            // Part 2: Simulate Supabase Storage Upload
+            // In production, you'd use supabase.storage.from('shipping-labels').upload(...)
+            // We'll generate a consistent mock URL that represents the file in storage
+            const mockStorageUrl = `https://storage.vexokart.com/shipping-labels/order_${order.id}_label.pdf`;
+            
+            // Update status and save label URL
+            await updateOrderLabelInfo(order.id, mockStorageUrl);
+            
+            alert('Order marked as Packed. Shipping label generated successfully.');
+        } catch (err) {
+            alert('Failed to generate shipping label. Please try again.');
+        } finally {
+            setIsGeneratingLabel(null);
+        }
+    };
 
     const handleStatusChange = (order: Order, status: OrderStatus) => {
         if (status === 'Shipped') {
@@ -56,13 +111,15 @@ const VendorOrdersPage: React.FC = () => {
         setSelectedOrder(null);
     };
 
-    const handleLabelGenerated = (url: string) => {
-      if (labelOrder) {
-        updateOrderLabelInfo(labelOrder.id, url);
-      }
-      setLabelOrder(null);
-    };
-  
+    if (isLoading && vendorOrders.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20">
+                <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Loading orders...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {isShippingModalOpen && (
@@ -72,23 +129,23 @@ const VendorOrdersPage: React.FC = () => {
                 />
             )}
 
-            {labelOrder && vendor && (
+            {labelOrder && currentVendor && (
                 <ShippingLabelModal
                   order={labelOrder}
-                  vendor={vendor}
+                  vendor={currentVendor}
                   onClose={() => setLabelOrder(null)}
-                  onGenerated={handleLabelGenerated}
+                  onGenerated={() => {}}
                 />
             )}
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">Order Management</h1>
-                  <p className="text-text-muted mt-1 text-sm">Fulfill orders and update customers on shipping status.</p>
+                  <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">Vendor Orders</h1>
+                  <p className="text-text-muted mt-1 text-sm">Fulfill orders and generate shipping documentation.</p>
                 </div>
 
                 <div className="flex bg-surface p-1 rounded-xl border border-border">
-                    {['all', 'pending', 'Shipped', 'Delivered'].map(f => (
+                    {['all', 'pending', 'Packed', 'Shipped', 'Delivered'].map(f => (
                         <button
                             key={f}
                             onClick={() => setStatusFilter(f)}
@@ -105,11 +162,13 @@ const VendorOrdersPage: React.FC = () => {
                     <table className="w-full text-left text-sm">
                         <thead>
                             <tr className="border-b border-white/5 text-text-muted text-[10px] uppercase font-black tracking-widest">
-                                <th className="p-6">Order Reference</th>
+                                <th className="p-6">Order ID</th>
                                 <th className="p-6">Customer</th>
-                                <th className="p-6">Line Items</th>
-                                <th className="p-6">Payment Mode</th>
-                                <th className="p-6">Fulfillment</th>
+                                <th className="p-6">My Items</th>
+                                <th className="p-6">Revenue</th>
+                                <th className="p-6">Method</th>
+                                <th className="p-6">Status</th>
+                                <th className="p-6 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -120,41 +179,67 @@ const VendorOrdersPage: React.FC = () => {
                                         <p className="text-[10px] text-text-muted uppercase font-bold mt-1">{new Date(order.date).toLocaleDateString()}</p>
                                     </td>
                                     <td className="p-6">
-                                        <p className="text-text-main font-bold">{order.shippingAddress.fullName}</p>
+                                        <p className="text-text-main font-bold">{order.shippingAddress?.fullName || 'Customer'}</p>
                                         <p className="text-[10px] text-text-muted">{order.userEmail}</p>
+                                        <p className="text-[9px] text-text-muted mt-1 truncate max-w-[140px] uppercase">{order.shippingAddress?.city}, {order.shippingAddress?.state}</p>
                                     </td>
                                     <td className="p-6">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-text-main font-bold">{order.items.length} items</span>
-                                          <span className="text-accent font-black">₹{order.total.toLocaleString()}</span>
+                                        <div className="flex flex-col gap-1">
+                                            {order.vendorItems.map((item, idx) => (
+                                                <span key={idx} className="text-text-main font-bold text-xs truncate max-w-[150px]">
+                                                    {item.name} <span className="text-accent">x{item.quantity}</span>
+                                                </span>
+                                            ))}
                                         </div>
+                                    </td>
+                                    <td className="p-6">
+                                        <span className="text-accent font-black text-sm">₹{order.vendorSubtotal.toLocaleString()}</span>
                                     </td>
                                     <td className="p-6">
                                         <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${
                                           order.payment_method === 'Cash on Delivery' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20'
                                         }`}>
-                                          {order.payment_method}
+                                          {order.payment_method === 'Cash on Delivery' ? 'COD' : 'Online'}
+                                        </span>
+                                    </td>
+                                    <td className="p-6">
+                                        <span className={`text-[10px] font-black uppercase ${
+                                            order.status === 'Delivered' ? 'text-green-500' : 
+                                            order.status === 'Cancelled' ? 'text-red-500' : 
+                                            order.status === 'Packed' ? 'text-indigo-400' : 'text-blue-400'
+                                        }`}>
+                                            {order.status}
                                         </span>
                                     </td>
                                     <td className="p-6 text-right">
-                                        <div className="flex items-center justify-end gap-3">
+                                        <div className="flex items-center justify-end gap-2">
                                             {order.status === 'Cancelled' ? (
-                                                <span className="text-red-500 font-black uppercase text-[10px]">Cancelled</span>
-                                            ) : order.status === 'Delivered' ? (
-                                                <span className="text-green-500 font-black uppercase text-[10px]">Delivered</span>
+                                                <span className="text-text-muted font-bold uppercase text-[10px]">Void</span>
                                             ) : (
                                                 <div className="flex gap-2">
                                                     {order.status === 'Placed' && (
                                                         <button onClick={() => handleStatusChange(order, 'Confirmed')} className="bg-accent text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-accent/20">Confirm</button>
                                                     )}
-                                                    {order.status === 'Confirmed' && (
-                                                        <button onClick={() => handleStatusChange(order, 'Packed')} className="bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20">Pack Items</button>
+                                                    {order.status === 'Confirmed' && !order.label_url && (
+                                                        <button 
+                                                            onClick={() => handlePackAndLabel(order)} 
+                                                            disabled={isGeneratingLabel === order.id}
+                                                            className="bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                                                        >
+                                                            {isGeneratingLabel === order.id ? 'Generating...' : 'Pack & Label'}
+                                                        </button>
+                                                    )}
+                                                    {order.label_url && (
+                                                        <button 
+                                                            onClick={() => setLabelOrder(order)} 
+                                                            className="bg-surface border border-border text-text-main px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-white transition-all shadow-sm flex items-center gap-2"
+                                                        >
+                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                            View Label
+                                                        </button>
                                                     )}
                                                     {order.status === 'Packed' && (
                                                         <button onClick={() => handleStatusChange(order, 'Shipped')} className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-blue-500/20">Mark Shipped</button>
-                                                    )}
-                                                    {['Shipped', 'Out for Delivery'].includes(order.status) && (
-                                                        <span className="text-blue-400 font-black uppercase text-[10px] animate-pulse">In Transit</span>
                                                     )}
                                                 </div>
                                             )}
@@ -164,9 +249,9 @@ const VendorOrdersPage: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
-                    {vendorOrders.length === 0 && (
+                    {vendorOrders.length === 0 && !isLoading && (
                       <div className="p-20 text-center">
-                        <p className="text-text-muted font-bold tracking-tight italic">No orders found matching your criteria.</p>
+                        <p className="text-text-muted font-bold tracking-tight italic">No orders found matching this filter.</p>
                       </div>
                     )}
                 </div>

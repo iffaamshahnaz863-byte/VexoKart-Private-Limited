@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Product, Review, Category } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -45,7 +44,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
           const cat = categories.find(c => c.id === item.category_id);
-          // Standardizing Database response to Frontend Product model
           return {
             id: item.id,
             name: item.name || 'Untitled Product',
@@ -55,7 +53,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             stock: Number(item.stock) || 0,
             images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
             category: cat ? cat.name : (item.category || 'General'),
-            // Ensure vendorId is a string for consistent filtering
             vendorId: item.vendor_id ? item.vendor_id.toString() : 'internal',
             status: item.status || 'approved',
             rating: Number(item.rating) || 0,
@@ -97,18 +94,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const matchedCategory = categories.find(c => c.name === productData.category);
     const categoryId = matchedCategory ? matchedCategory.id : null;
     
-    /**
-     * FIXED PAYLOAD:
-     * Explicitly including vendor_id to associate product with its owner.
-     * Auto-approving product as per new requirement.
-     */
     const supabasePayload: any = {
       name: productData.name,
       description: productData.description,
       price: productData.price,
       stock: productData.stock || 0,
       image: productData.images?.[0] || '',
-      status: 'approved', // Auto-approved on creation
+      status: 'approved',
       vendor_id: productData.vendor_id, 
       created_at: new Date().toISOString(),
       allow_online: productData.allow_online ?? true,
@@ -119,7 +111,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     const response = await fetch(`${BASE_API_URL}/products`, {
       method: 'POST',
-      headers: API_HEADERS,
+      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
       body: JSON.stringify(supabasePayload)
     });
 
@@ -140,7 +132,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       description: product.description,
       price: product.price,
       stock: product.stock,
-      status: 'approved', // Force approved status on update too
+      status: 'approved',
       image: product.images?.[0] || '',
       allow_online: product.allow_online,
       allow_cod: product.allow_cod
