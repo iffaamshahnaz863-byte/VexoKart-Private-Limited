@@ -44,20 +44,32 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const fetchCurrentVendor = async (email: string) => {
-    if (!email) return;
+    if (!email) {
+      setIsVendorLoading(false);
+      return;
+    }
+    
     setIsVendorLoading(true);
+    setVendorError(null);
+    
     try {
       const res = await fetch(`${BASE_API_URL}/vendors?email=eq.${encodeURIComponent(email)}&select=*`, {
-        headers: API_HEADERS
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
       });
+      
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+      
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         setCurrentVendor(data[0]);
+        setVendorError(null);
       } else {
         setCurrentVendor(null);
+        setVendorError("Vendor profile not found. Please contact support.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error syncing current vendor:", error);
+      setVendorError(error.message || "Connection error. Please try again.");
     } finally {
       setIsVendorLoading(false);
     }

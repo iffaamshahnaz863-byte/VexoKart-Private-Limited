@@ -7,10 +7,8 @@ import GlassmorphicCard from '../../components/GlassmorphicCard';
 
 const VendorProfilePage: React.FC = () => {
     const { user } = useAuth();
-    const { getVendorByUserId, updateVendorProfile } = useVendors();
+    const { currentVendor, updateVendorProfile } = useVendors();
     const navigate = useNavigate();
-
-    const vendor = user ? getVendorByUserId(user.email) : null;
 
     const [storeName, setStoreName] = useState('');
     const [storeLogo, setStoreLogo] = useState('');
@@ -21,14 +19,14 @@ const VendorProfilePage: React.FC = () => {
     const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
     
     useEffect(() => {
-        if (vendor) {
-            setStoreName(vendor.store_name);
-            setStoreLogo(vendor.profile_image);
-            setLogoPreview(vendor.profile_image);
-            setStoreAddress(vendor.store_address || '');
-            setStorePhone(vendor.phone || '');
+        if (currentVendor) {
+            setStoreName(currentVendor.store_name);
+            setStoreLogo(currentVendor.profile_image);
+            setLogoPreview(currentVendor.profile_image);
+            setStoreAddress(currentVendor.store_address || '');
+            setStorePhone(currentVendor.phone || '');
         }
-    }, [vendor]);
+    }, [currentVendor]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -44,8 +42,8 @@ const VendorProfilePage: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (vendor) {
-            updateVendorProfile(vendor.id, { 
+        if (currentVendor) {
+            updateVendorProfile(currentVendor.id, { 
                 store_name: storeName, 
                 profile_image: storeLogo,
                 store_address: storeAddress,
@@ -56,8 +54,13 @@ const VendorProfilePage: React.FC = () => {
         }
     };
 
-    if (!vendor) {
-        return <div className="text-center p-8">Loading vendor profile...</div>;
+    if (!currentVendor) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20">
+                <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-text-muted font-bold text-xs uppercase tracking-widest">Loading Store Profile...</p>
+            </div>
+        );
     }
 
     return (
@@ -81,7 +84,7 @@ const VendorProfilePage: React.FC = () => {
                         </div>
                         <div className="text-center">
                             <p className="text-lg font-black text-text-main tracking-tight italic uppercase">{storeName}</p>
-                            <p className="text-xs text-text-muted font-bold uppercase tracking-widest mt-1">Vendor ID: {vendor.id}</p>
+                            <p className="text-xs text-text-muted font-bold uppercase tracking-widest mt-1">Vendor ID: {currentVendor.id}</p>
                         </div>
                     </div>
 

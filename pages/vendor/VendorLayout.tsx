@@ -11,16 +11,14 @@ interface VendorLayoutProps {
 
 const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
-  const { getVendorByUserId, vendors, fetchCurrentVendor } = useVendors();
+  const { currentVendor, isVendorLoading, vendorError, fetchCurrentVendor } = useVendors();
   const navigate = useNavigate();
   
-  const currentVendor = user ? getVendorByUserId(user.id.toString()) : null;
-
   useEffect(() => {
-    if (user?.email) {
+    if (user?.email && !currentVendor) {
       fetchCurrentVendor(user.email);
     }
-  }, [user]);
+  }, [user, currentVendor]);
 
   const handleLogout = () => {
     logout();
@@ -37,15 +35,44 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const activeLinkClass = 'bg-accent text-white shadow-lg shadow-accent/20';
   const inactiveLinkClass = 'text-text-secondary hover:bg-background hover:text-text-main';
 
-  if (!currentVendor) {
+  // Loading State
+  if (isVendorLoading && !currentVendor) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background">
             <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Loading vendor profile...</p>
+            <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Syncing vendor data...</p>
         </div>
     );
   }
 
+  // Error State (e.g., Profile not found or network error)
+  if (vendorError || (!isVendorLoading && !currentVendor)) {
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mb-6">
+                <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h2 className="text-xl font-black text-text-main uppercase italic tracking-tight mb-2">Sync Error</h2>
+            <p className="text-text-secondary mb-8 max-w-xs">{vendorError || "We couldn't load your store profile."}</p>
+            <div className="flex gap-4">
+                <button onClick={handleLogout} className="px-6 py-3 border border-border rounded-xl text-xs font-bold">Logout</button>
+                <button 
+                    onClick={() => user?.email && fetchCurrentVendor(user.email)} 
+                    className="px-6 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20"
+                >
+                    Retry Sync
+                </button>
+            </div>
+        </div>
+    );
+  }
+
+  // Double check currentVendor for TS safety
+  if (!currentVendor) return null;
+
+  // Approval Status Guard
   if (currentVendor.status !== 'approved') {
     return <VendorStatusPage vendor={currentVendor} />;
   }
