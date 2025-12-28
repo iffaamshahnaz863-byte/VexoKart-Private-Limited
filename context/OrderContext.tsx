@@ -1,180 +1,153 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { Order, OrderStatus, CourierScanLog } from '../types';
+import { Order, OrderStatus } from '../types';
 import { useNotifications } from './NotificationContext';
 import { useAuth } from './AuthContext';
+import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface OrderContextType {
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory'>) => string;
-  updateOrderStatus: (orderId: string, status: OrderStatus, details?: { courierName?: string; trackingId?: string }) => void;
-  updateOrderPaymentDetails: (orderId: string, paymentId: string) => void;
-  updateOrderLabelInfo: (orderId: string, labelUrl: string) => string;
+  isLoading: boolean;
+  addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory'>) => Promise<string>;
+  updateOrderStatus: (orderId: string, status: OrderStatus, details?: { courierName?: string; trackingId?: string }) => Promise<void>;
+  updateOrderPaymentDetails: (orderId: string, paymentId: string) => Promise<void>;
+  updateOrderLabelInfo: (orderId: string, labelUrl: string) => Promise<string>;
   updateOrderByToken: (token: string, status: OrderStatus, note?: string) => Promise<{ success: boolean; message: string }>;
   getOrderById: (orderId: string) => Order | undefined;
   getOrderByToken: (token: string) => Order | undefined;
+  refreshOrders: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { notifyOrderUpdate } = useNotifications();
-  const { users } = useAuth(); // Needed to find users for notification if session isn't active (courier scan)
-  const [orders, setOrders] = useState<Order[]>(() => {
+  const { users } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refreshOrders = async () => {
     try {
-      const localData = localStorage.getItem('vexokart-orders');
-      return localData ? JSON.parse(localData) : [];
-    } catch (error) {
-      return [];
+      const response = await fetch(`${BASE_API_URL}/orders?select=*&order=date.desc`, { headers: API_HEADERS });
+      const data = await response.json();
+      setOrders(data);
+    } catch (e) {
+      console.error("Orders sync failed", e);
+    } finally {
+      setIsLoading(false);
     }
-  });
-
-  const saveOrders = (updatedOrders: Order[]) => {
-    localStorage.setItem('vexokart-orders', JSON.stringify(updatedOrders));
-    setOrders(updatedOrders);
   };
 
-  const addOrder = (orderData: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory'>): string => {
+  useEffect(() => {
+    refreshOrders();
+  }, []);
+
+  const addOrder = async (orderData: any): Promise<string> => {
+    const orderId = Math.random().toString(36).substr(2, 9).toUpperCase();
     const timestamp = new Date().toISOString();
-    const newOrder: Order = {
-        ...orderData,
-        id: new Date().getTime().toString().slice(-6),
-        date: timestamp,
-        status: 'Placed',
-        statusHistory: [{ status: 'Placed', timestamp }]
+    const newOrder = {
+      ...orderData,
+      id: orderId,
+      date: timestamp,
+      status: 'Placed',
+      statusHistory: [{ status: 'Placed', timestamp }]
     };
-    saveOrders([newOrder, ...orders]);
-    
-    // Attempt to notify (if user is present)
-    const orderUser = users.find(u => u.email === newOrder.userEmail);
-    if (orderUser) {
-      notifyOrderUpdate(newOrder, orderUser);
-    }
-    
-    return newOrder.id;
-  };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus, details: { courierName?: string; trackingId?: string } = {}) => {
-    const orderToUpdate = orders.find(o => o.id === orderId);
-    if (!orderToUpdate) return;
-
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        if (o.status === status) return o;
-        return { 
-          ...o, 
-          status, 
-          statusHistory: [...o.statusHistory, { status, timestamp: new Date().toISOString() }],
-          courierName: details.courierName || o.courierName,
-          trackingId: details.trackingId || o.trackingId,
-        };
-      }
-      return o;
+    await fetch(`${BASE_API_URL}/orders`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify(newOrder)
     });
-    saveOrders(updated);
-
-    const updatedOrder = updated.find(o => o.id === orderId);
-    const orderUser = users.find(u => u.email === updatedOrder?.userEmail);
-    if (updatedOrder && orderUser) {
-        notifyOrderUpdate(updatedOrder, orderUser);
-    }
+    
+    await refreshOrders();
+    const orderUser = users.find(u => u.email === orderData.userEmail);
+    if (orderUser) notifyOrderUpdate(newOrder as any, orderUser);
+    
+    return orderId;
   };
 
-  const updateOrderPaymentDetails = (orderId: string, paymentId: string) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        const newStatus: OrderStatus = 'Confirmed';
-        const newStatusHistory = o.status === 'Placed' 
-            ? [...o.statusHistory, { status: newStatus, timestamp: new Date().toISOString() }] 
-            : o.statusHistory;
-        const updatedOrder = { ...o, paymentId, status: newStatus, statusHistory: newStatusHistory };
-        
-        const orderUser = users.find(u => u.email === updatedOrder.userEmail);
-        if (orderUser) {
-          notifyOrderUpdate(updatedOrder, orderUser);
-        }
-        
-        return updatedOrder;
-      }
-      return o;
+  const updateOrderStatus = async (orderId: string, status: OrderStatus, details: any = {}) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order || order.status === status) return;
+
+    const updatedHistory = [...order.statusHistory, { status, timestamp: new Date().toISOString() }];
+    const updateBody = { 
+      status, 
+      statusHistory: updatedHistory,
+      courierName: details.courierName || order.courierName,
+      trackingId: details.trackingId || order.trackingId
+    };
+
+    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify(updateBody)
     });
-    saveOrders(updated);
+
+    await refreshOrders();
+    const updatedOrder = { ...order, ...updateBody };
+    const orderUser = users.find(u => u.email === order.userEmail);
+    if (orderUser) notifyOrderUpdate(updatedOrder as any, orderUser);
   };
 
-  const updateOrderLabelInfo = (orderId: string, labelUrl: string): string => {
-    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const updateOrderPaymentDetails = async (orderId: string, paymentId: string) => {
+    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ paymentId, status: 'Confirmed' })
+    });
+    await refreshOrders();
+  };
+
+  const updateOrderLabelInfo = async (orderId: string, labelUrl: string) => {
+    const token = Math.random().toString(36).substring(2, 15);
     const expiry = new Date();
-    expiry.setDate(expiry.getDate() + 7); // Valid for 7 days
+    expiry.setDate(expiry.getDate() + 7);
 
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return { 
-            ...o, 
-            shippingLabelUrl: labelUrl, 
-            labelGeneratedAt: new Date().toISOString(),
-            qrToken: token,
-            qrExpiresAt: expiry.toISOString()
-        };
-      }
-      return o;
+    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ 
+        shippingLabelUrl: labelUrl, 
+        labelGeneratedAt: new Date().toISOString(),
+        qrToken: token,
+        qrExpiresAt: expiry.toISOString()
+      })
     });
-    saveOrders(updated);
+    await refreshOrders();
     return token;
   };
 
-  const updateOrderByToken = async (token: string, status: OrderStatus, note?: string): Promise<{ success: boolean; message: string }> => {
+  const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
     const order = orders.find(o => o.qrToken === token);
+    if (!order) return { success: false, message: 'Invalid token' };
     
-    if (!order) return { success: false, message: 'Invalid or expired QR code.' };
+    const newLog = { id: Date.now().toString(), orderId: order.id, statusSet: status, note, scannedAt: new Date().toISOString() };
+    const updatedHistory = [...order.statusHistory, { status, timestamp: new Date().toISOString() }];
     
-    const expiryDate = order.qrExpiresAt ? new Date(order.qrExpiresAt) : null;
-    if (expiryDate && expiryDate < new Date()) {
-        return { success: false, message: 'This QR code has expired.' };
-    }
-
-    if (order.status === 'Delivered' || order.status === 'Cancelled') {
-        return { success: false, message: `Order #${order.id} is already ${order.status}.` };
-    }
-
-    const newLog: CourierScanLog = {
-        id: Math.random().toString(36).substr(2, 9),
-        orderId: order.id,
-        statusSet: status,
-        note,
-        scannedAt: new Date().toISOString(),
-        ipAddress: 'N/A (Client Side Update)'
-    };
-
-    const updated = orders.map(o => {
-        if (o.qrToken === token) {
-            const history = [...o.statusHistory, { status, timestamp: new Date().toISOString() }];
-            return {
-                ...o,
-                status,
-                statusHistory: history,
-                qrUsedAt: new Date().toISOString(),
-                scanLogs: [...(o.scanLogs || []), newLog]
-            };
-        }
-        return o;
+    await fetch(`${BASE_API_URL}/orders?id=eq.${order.id}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ 
+        status, 
+        statusHistory: updatedHistory,
+        qrUsedAt: new Date().toISOString(),
+        scanLogs: [...(order.scanLogs || []), newLog]
+      })
     });
 
-    saveOrders(updated);
-
-    const updatedOrder = updated.find(o => o.qrToken === token);
-    const orderUser = users.find(u => u.email === updatedOrder?.userEmail);
-    if (updatedOrder && orderUser) {
-        await notifyOrderUpdate(updatedOrder, orderUser);
-    }
-
-    return { success: true, message: `Order #${order.id} status updated to ${status}.` };
+    await refreshOrders();
+    return { success: true, message: 'Status updated' };
   };
-  
-  const getOrderById = (orderId: string) => orders.find(o => o.id === orderId);
+
+  const getOrderById = (id: string) => orders.find(o => o.id === id);
   const getOrderByToken = (token: string) => orders.find(o => o.qrToken === token);
 
   return (
-    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, getOrderById, updateOrderPaymentDetails, updateOrderLabelInfo, updateOrderByToken, getOrderByToken }}>
+    <OrderContext.Provider value={{ 
+      orders, isLoading, addOrder, updateOrderStatus, updateOrderPaymentDetails, 
+      updateOrderLabelInfo, updateOrderByToken, getOrderById, getOrderByToken, refreshOrders 
+    }}>
       {children}
     </OrderContext.Provider>
   );
@@ -182,8 +155,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 export const useOrders = () => {
   const context = useContext(OrderContext);
-  if (context === undefined) {
-    throw new Error('useOrders must be used within a OrderProvider');
-  }
+  if (!context) throw new Error('useOrders error');
   return context;
 };

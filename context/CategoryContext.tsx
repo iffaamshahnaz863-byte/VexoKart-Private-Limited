@@ -1,63 +1,55 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Category } from '../types';
-import { useProducts } from '../hooks/useProducts';
+import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface CategoryContextType {
   categories: Category[];
-  addCategory: (category: Omit<Category, 'id'>) => void;
-  updateCategory: (category: Category) => void;
-  deleteCategory: (categoryId: number) => void;
+  addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
+  updateCategory: (category: Category) => Promise<void>;
+  deleteCategory: (categoryId: number) => Promise<void>;
   getCategory: (id: number) => Category | undefined;
 }
 
 export const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
 
-const INITIAL_CATEGORIES: Category[] = [
-  { id: 1, name: 'Electronics', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=300&q=80' },
-  { id: 2, name: 'Computing', image: 'https://images.unsplash.com/photo-1517336712461-481bf488d086?auto=format&fit=crop&w=300&q=80' },
-  { id: 3, name: 'Audio', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80' },
-  { id: 4, name: 'Accessories', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=300&q=80' },
-  { id: 5, name: 'Gaming', image: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&w=300&q=80' },
-];
-
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { products } = useProducts();
-  const [categories, setCategories] = useState<Category[]>(() => {
-    try {
-      const localData = localStorage.getItem('vexokart-categories');
-      return localData ? JSON.parse(localData) : INITIAL_CATEGORIES;
-    } catch (error) {
-      return INITIAL_CATEGORIES;
-    }
-  });
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const saveCategories = (updatedCategories: Category[]) => {
-    localStorage.setItem('vexokart-categories', JSON.stringify(updatedCategories));
-    setCategories(updatedCategories);
+  const fetchCategories = async () => {
+    const res = await fetch(`${BASE_API_URL}/categories?select=*`, { headers: API_HEADERS });
+    const data = await res.json();
+    setCategories(data);
   };
 
-  const addCategory = (categoryData: Omit<Category, 'id'>) => {
-    const newId = categories.length > 0 ? Math.max(...categories.map(c => c.id)) + 1 : 1;
-    saveCategories([...categories, { ...categoryData, id: newId }]);
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const addCategory = async (cat: any) => {
+    await fetch(`${BASE_API_URL}/categories`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify(cat)
+    });
+    await fetchCategories();
   };
 
-  const updateCategory = (updatedCategory: Category) => {
-    const updated = categories.map(c => (c.id === updatedCategory.id ? updatedCategory : c));
-    saveCategories(updated);
+  const updateCategory = async (cat: Category) => {
+    await fetch(`${BASE_API_URL}/categories?id=eq.${cat.id}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify(cat)
+    });
+    await fetchCategories();
   };
 
-  const deleteCategory = (categoryId: number) => {
-    const categoryToDelete = categories.find(c => c.id === categoryId);
-    if (!categoryToDelete) return;
-    const isCategoryInUse = products.some(p => p.category === categoryToDelete.name);
-    if (isCategoryInUse) {
-      alert('This category is in use by one or more products and cannot be deleted.');
-      return;
-    }
-    if(window.confirm(`Are you sure you want to delete the category "${categoryToDelete.name}"?`)){
-        saveCategories(categories.filter(c => c.id !== categoryId));
-    }
+  const deleteCategory = async (id: number) => {
+    await fetch(`${BASE_API_URL}/categories?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: API_HEADERS
+    });
+    await fetchCategories();
   };
 
   const getCategory = (id: number) => categories.find(c => c.id === id);

@@ -1,227 +1,228 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { User, Address, Vendor } from '../types';
-// FIX: Replaced unused `useVendors` import with `VendorContext` to resolve type errors.
+import { User, Address } from '../types';
 import { VendorContext } from './VendorContext';
 import { AdminCodeContext } from './AdminCodeContext';
+import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface AuthContextType {
   user: User | null;
   users: User[];
+  isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
   signupAsVendor: (name: string, email: string, pass: string, storeName: string, adminCode: string) => Promise<void>;
   logout: () => void;
   addUser: (userData: { name: string; email: string; pass: string; role: 'USER' | 'VENDOR' | 'SUPER_ADMIN' }) => Promise<void>;
-  addAddress: (address: Omit<Address, 'id'>) => void;
-  updateAddress: (address: Address) => void;
-  deleteAddress: (addressId: string) => void;
-  deleteUser: (email: string) => void;
-  addToWishlist: (productId: number) => void;
-  removeFromWishlist: (productId: number) => void;
+  addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
+  updateAddress: (address: Address) => Promise<void>;
+  deleteAddress: (addressId: string) => Promise<void>;
+  deleteUser: (email: string) => Promise<void>;
+  addToWishlist: (productId: number) => Promise<void>;
+  removeFromWishlist: (productId: number) => Promise<void>;
   isInWishlist: (productId: number) => boolean;
   updateUserSession: (userData: User) => void;
+  fetchUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const getUsersFromStorage = () => {
-    try {
-        const users = localStorage.getItem('vexokart-users');
-        const parsedUsers = users ? JSON.parse(users) : {};
-        if (!parsedUsers['admin@vexokart.com']) {
-            parsedUsers['admin@vexokart.com'] = { name: 'Super Admin', password: 'admin123', role: 'SUPER_ADMIN', addresses: [], wishlist: [], recentlyViewed: [] };
-        }
-        return parsedUsers;
-    } catch (error) {
-        return { 'admin@vexokart.com': { name: 'Super Admin', password: 'admin123', role: 'SUPER_ADMIN', addresses: [], wishlist: [], recentlyViewed: [] } };
-    }
-};
-
-const saveUsersToStorage = (users: any) => {
-    localStorage.setItem('vexokart-users', JSON.stringify(users));
-}
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  // We need vendor context to create a vendor profile on signup
+  const [isLoading, setIsLoading] = useState(true);
+  
   const vendorContext = useContext(VendorContext);
   const adminCodeContext = useContext(AdminCodeContext);
 
-  const updateUserList = () => {
-    const usersData = getUsersFromStorage();
-    const usersArray = Object.entries(usersData).map(([email, data]: [string, any]) => ({
-        email,
-        name: data.name,
-        role: data.role || 'USER',
-        addresses: data.addresses || [],
-        wishlist: data.wishlist || [],
-        recentlyViewed: data.recentlyViewed || [],
-    }));
-    setAllUsers(usersArray);
-  }
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${BASE_API_URL}/users?select=*`, { headers: API_HEADERS });
+      const data = await response.json();
+      setAllUsers(data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('vexokart-session');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+    const init = async () => {
+      setIsLoading(true);
+      await fetchUsers();
+      const session = localStorage.getItem('vexokart-session-email');
+      if (session) {
+        try {
+          const res = await fetch(`${BASE_API_URL}/users?email=eq.${session}&select=*`, { headers: API_HEADERS });
+          const userData = await res.json();
+          if (userData && userData.length > 0) {
+            setUser(userData[0]);
+          }
+        } catch (e) {
+          console.error("Session restore failed", e);
+        }
       }
-    } catch (error) {
-      console.error("Could not parse user session data from localStorage", error);
-      localStorage.removeItem('vexokart-session');
-    }
-    updateUserList();
+      setIsLoading(false);
+    };
+    init();
   }, []);
 
   const updateUserSession = (userData: User) => {
-    localStorage.setItem('vexokart-session', JSON.stringify(userData));
     setUser(userData);
-    
-    const users = getUsersFromStorage();
-    const existingUser = users[userData.email];
-    if (existingUser) {
-        users[userData.email] = { ...existingUser, ...userData, password: existingUser.password };
-        saveUsersToStorage(users);
-    }
-    updateUserList();
-  }
+    localStorage.setItem('vexokart-session-email', userData.email);
+  };
 
   const login = async (email: string, pass: string) => {
-    const users = getUsersFromStorage();
-    const existingUser = users[email];
-
-    if (existingUser && existingUser.password === pass) {
-      const userData: User = { 
-        name: existingUser.name, 
-        email: email,
-        role: existingUser.role || 'USER',
-        addresses: existingUser.addresses || [],
-        wishlist: existingUser.wishlist || [],
-        recentlyViewed: existingUser.recentlyViewed || []
-      };
-      updateUserSession(userData);
-      return Promise.resolve();
+    const res = await fetch(`${BASE_API_URL}/users?email=eq.${email}&password=eq.${pass}&select=*`, { headers: API_HEADERS });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      updateUserSession(data[0]);
+      return;
     }
-    return Promise.reject(new Error('Invalid email or password'));
+    throw new Error('Invalid email or password');
   };
 
   const signup = async (name: string, email: string, pass: string) => {
-    const users = getUsersFromStorage();
-    if (users[email]) {
-        return Promise.reject(new Error('An account with this email already exists.'));
-    }
+    const check = await fetch(`${BASE_API_URL}/users?email=eq.${email}`, { headers: API_HEADERS });
+    const existing = await check.json();
+    if (existing.length > 0) throw new Error('Account already exists');
 
-    users[email] = { name, password: pass, role: 'USER', addresses: [], wishlist: [], recentlyViewed: [] };
-    saveUsersToStorage(users);
+    const newUser = {
+      name,
+      email,
+      password: pass,
+      role: 'USER',
+      addresses: [],
+      wishlist: [],
+      recentlyViewed: []
+    };
 
-    const userData: User = { name, email, role: 'USER', addresses: [], wishlist: [], recentlyViewed: [] };
-    updateUserSession(userData);
-    return Promise.resolve();
+    const res = await fetch(`${BASE_API_URL}/users`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify(newUser)
+    });
+    
+    if (!res.ok) throw new Error('Failed to create account');
+    updateUserSession(newUser as any);
+    await fetchUsers();
   };
 
   const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, adminCode: string) => {
-    const validationResult = adminCodeContext?.validateAndUseCode(adminCode, email);
+    const validation = adminCodeContext?.validateAndUseCode(adminCode, email);
+    if (!validation || !validation.isValid) throw new Error(validation?.message || 'Invalid code');
 
-    if (!validationResult || !validationResult.isValid) {
-        return Promise.reject(new Error(validationResult?.message || 'Invalid Admin Code.'));
-    }
+    const newUser = {
+      name,
+      email,
+      password: pass,
+      role: 'VENDOR',
+      addresses: [],
+      wishlist: [],
+      recentlyViewed: []
+    };
 
-    const users = getUsersFromStorage();
-    if (users[email]) {
-        // If user exists, we should probably revert the code usage, but for this simulation we'll just error out.
-        // A real backend would use a transaction here.
-        return Promise.reject(new Error('An account with this email already exists.'));
-    }
+    const res = await fetch(`${BASE_API_URL}/users`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify(newUser)
+    });
     
-    // Create the user with VENDOR role
-    users[email] = { name, password: pass, role: 'VENDOR', addresses: [], wishlist: [], recentlyViewed: [] };
-    saveUsersToStorage(users);
-
-    // Create the corresponding vendor profile
-    vendorContext?.addVendor({ userId: email, storeName });
-
-    const userData: User = { name, email, role: 'VENDOR', addresses: [], wishlist: [], recentlyViewed: [] };
-    updateUserSession(userData);
-    return Promise.resolve();
-  }
-
-  const addUser = async (userData: { name: string; email: string; pass: string; role: 'USER' | 'VENDOR' | 'SUPER_ADMIN' }) => {
-    const users = getUsersFromStorage();
-    if (users[userData.email]) {
-        return Promise.reject(new Error('An account with this email already exists.'));
-    }
-    users[userData.email] = { name: userData.name, password: userData.pass, role: userData.role, addresses: [], wishlist: [], recentlyViewed: [] };
-    saveUsersToStorage(users);
+    if (!res.ok) throw new Error('Failed to create vendor account');
     
-    if (userData.role === 'VENDOR') {
-        vendorContext?.addVendor({ userId: userData.email, storeName: `${userData.name}'s Store`});
-    }
-
-    updateUserList();
-    return Promise.resolve();
-  }
+    await vendorContext?.addVendor({ userId: email, storeName });
+    updateUserSession(newUser as any);
+    await fetchUsers();
+  };
 
   const logout = () => {
-    localStorage.removeItem('vexokart-session');
+    localStorage.removeItem('vexokart-session-email');
     setUser(null);
   };
 
-  const addAddress = (address: Omit<Address, 'id'>) => {
-      if (!user) return;
-      const newAddress = { ...address, id: new Date().getTime().toString() };
-      const updatedUser = { ...user, addresses: [...user.addresses, newAddress]};
-      updateUserSession(updatedUser);
-  };
-  
-  const updateAddress = (address: Address) => {
-      if (!user) return;
-      const updatedAddresses = user.addresses.map(a => a.id === address.id ? address : a);
-      const updatedUser = { ...user, addresses: updatedAddresses };
-      updateUserSession(updatedUser);
+  const addUser = async (userData: any) => {
+    await fetch(`${BASE_API_URL}/users`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify({ ...userData, addresses: [], wishlist: [], recentlyViewed: [] })
+    });
+    if (userData.role === 'VENDOR') {
+      await vendorContext?.addVendor({ userId: userData.email, storeName: `${userData.name}'s Store` });
+    }
+    await fetchUsers();
   };
 
-  const deleteAddress = (addressId: string) => {
-      if (!user) return;
-      const updatedAddresses = user.addresses.filter(a => a.id !== addressId);
-      const updatedUser = { ...user, addresses: updatedAddresses };
-      updateUserSession(updatedUser);
-  };
-
-  const deleteUser = (email: string) => {
-      if (email === 'admin@vexokart.com') {
-          alert("Cannot delete the primary super admin account.");
-          return;
-      }
-      const users = getUsersFromStorage();
-      delete users[email];
-      saveUsersToStorage(users);
-      updateUserList();
-  }
-  
-  const addToWishlist = (productId: number) => {
+  const addAddress = async (address: Omit<Address, 'id'>) => {
     if (!user) return;
-    if (user.wishlist.includes(productId)) return;
-    const updatedUser = { ...user, wishlist: [...user.wishlist, productId] };
-    updateUserSession(updatedUser);
+    const newAddress = { ...address, id: Date.now().toString() };
+    const updatedAddresses = [...user.addresses, newAddress];
+    await fetch(`${BASE_API_URL}/users?email=eq.${user.email}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ addresses: updatedAddresses })
+    });
+    setUser({ ...user, addresses: updatedAddresses });
   };
 
-  const removeFromWishlist = (productId: number) => {
+  const updateAddress = async (address: Address) => {
     if (!user) return;
-    const updatedUser = { ...user, wishlist: user.wishlist.filter(id => id !== productId) };
-    updateUserSession(updatedUser);
+    const updatedAddresses = user.addresses.map(a => a.id === address.id ? address : a);
+    await fetch(`${BASE_API_URL}/users?email=eq.${user.email}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ addresses: updatedAddresses })
+    });
+    setUser({ ...user, addresses: updatedAddresses });
   };
 
-  const isInWishlist = (productId: number): boolean => {
-    return user?.wishlist.includes(productId) || false;
+  const deleteAddress = async (addressId: string) => {
+    if (!user) return;
+    const updatedAddresses = user.addresses.filter(a => a.id !== addressId);
+    await fetch(`${BASE_API_URL}/users?email=eq.${user.email}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ addresses: updatedAddresses })
+    });
+    setUser({ ...user, addresses: updatedAddresses });
   };
 
-  const isAuthenticated = !!user;
+  const deleteUser = async (email: string) => {
+    if (email === 'admin@vexokart.com') return;
+    await fetch(`${BASE_API_URL}/users?email=eq.${email}`, { method: 'DELETE', headers: API_HEADERS });
+    await fetchUsers();
+  };
+
+  const addToWishlist = async (productId: number) => {
+    if (!user || user.wishlist.includes(productId)) return;
+    const updated = [...user.wishlist, productId];
+    await fetch(`${BASE_API_URL}/users?email=eq.${user.email}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ wishlist: updated })
+    });
+    setUser({ ...user, wishlist: updated });
+  };
+
+  const removeFromWishlist = async (productId: number) => {
+    if (!user) return;
+    const updated = user.wishlist.filter(id => id !== productId);
+    await fetch(`${BASE_API_URL}/users?email=eq.${user.email}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ wishlist: updated })
+    });
+    setUser({ ...user, wishlist: updated });
+  };
+
+  const isInWishlist = (productId: number) => user?.wishlist.includes(productId) || false;
 
   return (
-    <AuthContext.Provider value={{ user, users: allUsers, isAuthenticated, login, signup, logout, addUser, addAddress, updateAddress, deleteAddress, deleteUser, addToWishlist, removeFromWishlist, isInWishlist, updateUserSession, signupAsVendor }}>
+    <AuthContext.Provider value={{ 
+      user, users: allUsers, isLoading, isAuthenticated: !!user, 
+      login, signup, logout, addUser, addAddress, updateAddress, 
+      deleteAddress, deleteUser, addToWishlist, removeFromWishlist, 
+      isInWishlist, updateUserSession, signupAsVendor, fetchUsers 
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -229,8 +230,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

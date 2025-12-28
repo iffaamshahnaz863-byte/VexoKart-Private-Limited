@@ -1,6 +1,8 @@
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { CartItem, Product } from '../types';
+import { useAuth } from './AuthContext';
+import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -15,54 +17,46 @@ interface CartContextType {
 export const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    try {
-      const localData = localStorage.getItem('vexokart-cart');
-      return localData ? JSON.parse(localData) : [];
-    } catch (error) {
-      console.error("Could not parse cart data from localStorage", error);
-      return [];
-    }
-  });
+  const { user } = useAuth();
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  // Local state as primary for speed, but sync to Supabase if user is logged in
+  useEffect(() => {
+    const local = localStorage.getItem('vexokart-cart');
+    if (local) setCartItems(JSON.parse(local));
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('vexokart-cart', JSON.stringify(cartItems));
-  }, [cartItems]);
+    if (user) {
+      // Background sync to Supabase 'carts' table
+      fetch(`${BASE_API_URL}/carts?email=eq.${user.email}`, {
+        method: 'POST',
+        headers: { ...API_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ email: user.email, items: cartItems, updatedAt: new Date().toISOString() })
+      }).catch(e => console.error("Cart sync failed", e));
+    }
+  }, [cartItems, user]);
 
   const addToCart = (product: Product) => {
-    setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prevItems, { ...product, quantity: 1 }];
+    setCartItems(prev => {
+      const existing = prev.find(i => i.id === product.id);
+      if (existing) return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { ...product, quantity: 1 }];
     });
   };
 
-  const removeFromCart = (productId: number) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+  const removeFromCart = (id: number) => setCartItems(prev => prev.filter(i => i.id !== id));
+
+  const updateQuantity = (id: number, q: number) => {
+    if (q <= 0) return removeFromCart(id);
+    setCartItems(prev => prev.map(i => i.id === id ? { ...i, quantity: q } : i));
   };
 
-  const updateQuantity = (productId: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-    } else {
-      setCartItems(prevItems =>
-        prevItems.map(item =>
-          item.id === productId ? { ...item, quantity } : item
-        )
-      );
-    }
-  };
+  const clearCart = () => setCartItems([]);
 
-  const clearCart = () => {
-    setCartItems([]);
-  };
-
-  const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const cartCount = cartItems.reduce((acc, i) => acc + i.quantity, 0);
+  const cartTotal = cartItems.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
   return (
     <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, cartCount, cartTotal }}>

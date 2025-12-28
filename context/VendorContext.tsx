@@ -1,12 +1,13 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Vendor } from '../types';
+import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface VendorContextType {
   vendors: Vendor[];
-  addVendor: (vendorData: { userId: string; storeName: string }) => void;
-  updateVendorStatus: (vendorId: string, status: 'approved' | 'rejected' | 'suspended', reason?: string) => void;
-  updateVendorProfile: (vendorId: string, profileData: Partial<Vendor>) => void;
+  addVendor: (vendorData: { userId: string; storeName: string }) => Promise<void>;
+  updateVendorStatus: (vendorId: string, status: string, reason?: string) => Promise<void>;
+  updateVendorProfile: (vendorId: string, profileData: Partial<Vendor>) => Promise<void>;
   getVendorByUserId: (userId: string) => Vendor | undefined;
   getVendorById: (vendorId: string) => Vendor | undefined;
 }
@@ -14,66 +15,64 @@ interface VendorContextType {
 export const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
 export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [vendors, setVendors] = useState<Vendor[]>(() => {
-    try {
-      const localData = localStorage.getItem('vexokart-vendors');
-      return localData ? JSON.parse(localData) : [];
-    } catch (error) {
-      return [];
-    }
-  });
+  const [vendors, setVendors] = useState<Vendor[]>([]);
 
-  const saveVendors = (updatedVendors: Vendor[]) => {
-    localStorage.setItem('vexokart-vendors', JSON.stringify(updatedVendors));
-    setVendors(updatedVendors);
+  const fetchVendors = async () => {
+    const res = await fetch(`${BASE_API_URL}/vendors?select=*`, { headers: API_HEADERS });
+    const data = await res.json();
+    setVendors(data);
   };
 
-  const addVendor = (vendorData: { userId: string; storeName: string }) => {
-    const newVendor: Vendor = {
-      id: new Date().getTime().toString(),
-      userId: vendorData.userId,
-      storeName: vendorData.storeName,
-      storeLogo: `https://picsum.photos/seed/${vendorData.storeName}/200`,
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  const addVendor = async (data: any) => {
+    const newVendor = {
+      userId: data.userId,
+      storeName: data.storeName,
+      storeLogo: `https://picsum.photos/seed/${data.storeName}/200`,
       status: 'pending',
-      kycDetails: {
-        pan: '',
-        gst: '',
-        addressProofUrl: '',
-        status: 'pending'
-      },
+      kycDetails: { pan: '', gst: '', status: 'pending' },
       createdAt: new Date().toISOString()
     };
-    saveVendors([...vendors, newVendor]);
-  };
-
-  const updateVendorStatus = (vendorId: string, status: 'approved' | 'rejected' | 'suspended', reason?: string) => {
-    const updated = vendors.map(v => {
-      if (v.id !== vendorId) return v;
-      if (status === 'rejected' && reason) {
-        return { ...v, status: 'rejected' as const, rejectionReason: reason };
-      } else {
-        const { rejectionReason, ...vendorWithoutReason } = v;
-        return { ...vendorWithoutReason, status };
-      }
+    await fetch(`${BASE_API_URL}/vendors`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify(newVendor)
     });
-    saveVendors(updated);
+    await fetchVendors();
   };
 
-  const updateVendorProfile = (vendorId: string, profileData: Partial<Vendor>) => {
-    const updated = vendors.map(v => v.id === vendorId ? { ...v, ...profileData } : v);
-    saveVendors(updated);
+  const updateVendorStatus = async (id: string, status: string, reason?: string) => {
+    await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ status, rejectionReason: reason })
+    });
+    await fetchVendors();
   };
-  
-  const getVendorByUserId = (userId: string) => vendors.find(v => v.userId === userId);
-  const getVendorById = (vendorId: string) => vendors.find(v => v.id === vendorId);
+
+  const updateVendorProfile = async (id: string, profile: any) => {
+    await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify(profile)
+    });
+    await fetchVendors();
+  };
+
+  const getVendorByUserId = (uid: string) => vendors.find(v => v.userId === uid);
+  const getVendorById = (id: string) => vendors.find(v => v.id === id);
 
   return (
-    <VendorContext.Provider value={{ vendors, addVendor, updateVendorStatus, getVendorByUserId, getVendorById, updateVendorProfile }}>
+    <VendorContext.Provider value={{ vendors, addVendor, updateVendorStatus, updateVendorProfile, getVendorByUserId, getVendorById }}>
       {children}
     </VendorContext.Provider>
   );
 };
 
+// Export useVendors hook for accessing vendor context
 export const useVendors = () => {
   const context = useContext(VendorContext);
   if (context === undefined) {

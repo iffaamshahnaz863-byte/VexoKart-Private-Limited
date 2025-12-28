@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { useProducts } from '../../context/ProductContext';
+// Changed import from context file to the dedicated hook file
+import { useProducts } from '../../hooks/useProducts';
+// useVendors is now correctly exported from VendorContext
 import { useVendors } from '../../context/VendorContext';
 import { useAuth } from '../../context/AuthContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';

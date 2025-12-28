@@ -1,56 +1,63 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Banner } from '../types';
+import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface BannerContextType {
   banners: Banner[];
-  addBanner: (imageUrl: string) => void;
-  deleteBanner: (id: string) => void;
-  toggleBannerStatus: (id: string) => void;
-  updateBannerOrder: (id: string, newOrder: number) => void;
+  addBanner: (imageUrl: string) => Promise<void>;
+  deleteBanner: (id: string) => Promise<void>;
+  toggleBannerStatus: (id: string) => Promise<void>;
+  updateBannerOrder: (id: string, newOrder: number) => Promise<void>;
 }
 
 const BannerContext = createContext<BannerContextType | undefined>(undefined);
 
 export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [banners, setBanners] = useState<Banner[]>(() => {
-    try {
-      const localData = localStorage.getItem('vexokart-banners');
-      return localData ? JSON.parse(localData) : [
-        { id: '1', imageUrl: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=1200&q=80', status: 'active', displayOrder: 0, createdAt: new Date().toISOString() },
-        { id: '2', imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80', status: 'active', displayOrder: 1, createdAt: new Date().toISOString() }
-      ];
-    } catch (error) {
-      console.error("Error loading banners", error);
-      return [];
-    }
-  });
+  const [banners, setBanners] = useState<Banner[]>([]);
+
+  const fetchBanners = async () => {
+    const res = await fetch(`${BASE_API_URL}/banners?select=*`, { headers: API_HEADERS });
+    const data = await res.json();
+    setBanners(data);
+  };
 
   useEffect(() => {
-    localStorage.setItem('vexokart-banners', JSON.stringify(banners));
-  }, [banners]);
+    fetchBanners();
+  }, []);
 
-  const addBanner = (imageUrl: string) => {
-    const newBanner: Banner = {
-      id: Date.now().toString(),
-      imageUrl,
-      status: 'active',
-      displayOrder: banners.length,
-      createdAt: new Date().toISOString()
-    };
-    setBanners(prev => [...prev, newBanner]);
+  const addBanner = async (url: string) => {
+    await fetch(`${BASE_API_URL}/banners`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify({ imageUrl: url, status: 'active', displayOrder: banners.length, createdAt: new Date().toISOString() })
+    });
+    await fetchBanners();
   };
 
-  const deleteBanner = (id: string) => {
-    setBanners(prev => prev.filter(b => b.id !== id));
+  const deleteBanner = async (id: string) => {
+    await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, { method: 'DELETE', headers: API_HEADERS });
+    await fetchBanners();
   };
 
-  const toggleBannerStatus = (id: string) => {
-    setBanners(prev => prev.map(b => b.id === id ? { ...b, status: b.status === 'active' ? 'inactive' : 'active' } : b));
+  const toggleBannerStatus = async (id: string) => {
+    const b = banners.find(x => x.id === id);
+    if (!b) return;
+    await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ status: b.status === 'active' ? 'inactive' : 'active' })
+    });
+    await fetchBanners();
   };
 
-  const updateBannerOrder = (id: string, newOrder: number) => {
-    setBanners(prev => prev.map(b => b.id === id ? { ...b, displayOrder: newOrder } : b));
+  const updateBannerOrder = async (id: string, order: number) => {
+    await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: API_HEADERS,
+      body: JSON.stringify({ displayOrder: order })
+    });
+    await fetchBanners();
   };
 
   return (
@@ -62,8 +69,6 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
 export const useBanners = () => {
   const context = useContext(BannerContext);
-  if (context === undefined) {
-    throw new Error('useBanners must be used within a BannerProvider');
-  }
+  if (!context) throw new Error('useBanners error');
   return context;
 };
