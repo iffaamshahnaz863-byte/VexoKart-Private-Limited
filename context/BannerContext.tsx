@@ -5,10 +5,10 @@ import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface BannerContextType {
   banners: Banner[];
-  addBanner: (imageUrl: string) => Promise<void>;
-  deleteBanner: (id: string) => Promise<void>;
-  toggleBannerStatus: (id: string) => Promise<void>;
-  updateBannerOrder: (id: string, newOrder: number) => Promise<void>;
+  addBanner: (imageUrl: string, title: string) => Promise<void>;
+  deleteBanner: (id: number) => Promise<void>;
+  toggleBannerStatus: (id: number, currentStatus: boolean) => Promise<void>;
+  refreshBanners: () => Promise<void>;
 }
 
 const BannerContext = createContext<BannerContextType | undefined>(undefined);
@@ -18,12 +18,14 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const fetchBanners = async () => {
     try {
-      const res = await fetch(`${BASE_API_URL}/banners?select=*`, { headers: API_HEADERS });
+      // Fetching all banners for management, Home page will filter for status=true
+      const res = await fetch(`${BASE_API_URL}/banners?select=*&order=display_order.asc`, { 
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setBanners(data);
       } else {
-        console.error("Banners fetch failed: API response is not an array", data);
         setBanners([]);
       }
     } catch (error) {
@@ -36,42 +38,43 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     fetchBanners();
   }, []);
 
-  const addBanner = async (url: string) => {
-    await fetch(`${BASE_API_URL}/banners`, {
+  const addBanner = async (url: string, title: string) => {
+    const nextOrder = banners.length > 0 ? Math.max(...banners.map(b => b.display_order)) + 1 : 0;
+    const response = await fetch(`${BASE_API_URL}/banners`, {
       method: 'POST',
       headers: API_HEADERS,
-      body: JSON.stringify({ imageUrl: url, status: 'active', displayOrder: banners.length, createdAt: new Date().toISOString() })
+      body: JSON.stringify({ 
+        image_url: url, 
+        title: title,
+        status: true, 
+        display_order: nextOrder 
+      })
     });
-    await fetchBanners();
+    
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to add banner');
+    }
+    
+    await fetchBanners(); // Immediate sync
   };
 
-  const deleteBanner = async (id: string) => {
+  const deleteBanner = async (id: number) => {
     await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, { method: 'DELETE', headers: API_HEADERS });
-    await fetchBanners();
+    await fetchBanners(); // Immediate sync
   };
 
-  const toggleBannerStatus = async (id: string) => {
-    const b = banners.find(x => x.id === id);
-    if (!b) return;
+  const toggleBannerStatus = async (id: number, currentStatus: boolean) => {
     await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
-      body: JSON.stringify({ status: b.status === 'active' ? 'inactive' : 'active' })
+      body: JSON.stringify({ status: !currentStatus })
     });
-    await fetchBanners();
-  };
-
-  const updateBannerOrder = async (id: string, order: number) => {
-    await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ displayOrder: order })
-    });
-    await fetchBanners();
+    await fetchBanners(); // Immediate sync
   };
 
   return (
-    <BannerContext.Provider value={{ banners, addBanner, deleteBanner, toggleBannerStatus, updateBannerOrder }}>
+    <BannerContext.Provider value={{ banners, addBanner, deleteBanner, toggleBannerStatus, refreshBanners: fetchBanners }}>
       {children}
     </BannerContext.Provider>
   );

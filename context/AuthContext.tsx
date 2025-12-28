@@ -2,7 +2,6 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types';
 import { VendorContext } from './VendorContext';
-import { AdminCodeContext } from './AdminCodeContext';
 import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface AuthContextType {
@@ -12,10 +11,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<void>;
   signup: (name: string, email: string, phone: string, pass: string) => Promise<void>;
-  // Fix: Added missing signupAsVendor method to type definition
   signupAsVendor: (name: string, email: string, pass: string, storeName: string, code: string) => Promise<void>;
   logout: () => void;
-  addUser: (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => Promise<void>;
+  addUser: (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
   updateAddress: (address: Address) => Promise<void>;
   deleteAddress: (addressId: string) => Promise<void>;
@@ -35,17 +33,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   
   const vendorContext = useContext(VendorContext);
-  // Fix: Injected AdminCodeContext to facilitate vendor registration validation
-  const adminCodeContext = useContext(AdminCodeContext);
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${BASE_API_URL}/users?select=*`, { headers: API_HEADERS });
+      const response = await fetch(`${BASE_API_URL}/users?select=*`, { 
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
+      });
       const data = await response.json();
       if (Array.isArray(data)) {
         setAllUsers(data);
       } else {
-        console.error("Users fetch failed: API response is not an array", data);
         setAllUsers([]);
       }
     } catch (error) {
@@ -69,7 +66,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             localStorage.removeItem('vexokart-session-email');
           }
         } catch (e) {
-          console.error("Session restore failed", e);
           localStorage.removeItem('vexokart-session-email');
         }
       }
@@ -98,21 +94,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (name: string, email: string, phone: string, pass: string) => {
-    // Check for existing user via REST
     const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
     const existing = await checkRes.json();
     if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
 
     const newUser = {
-      name,
-      email,
-      phone,
-      password: pass,
-      role: 'user',
-      addresses: [],
-      wishlist: [],
-      recentlyViewed: [],
-      created_at: new Date().toISOString()
+      name, email, phone, password: pass, role: 'user',
+      addresses: [], wishlist: [], recentlyViewed: [], created_at: new Date().toISOString()
     };
 
     const res = await fetch(`${BASE_API_URL}/users`, {
@@ -121,60 +109,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       body: JSON.stringify(newUser)
     });
     
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Signup failed');
-    }
-    
+    if (!res.ok) throw new Error('Signup failed');
     await fetchUsers();
   };
 
-  // Fix: Implemented missing signupAsVendor method to satisfy VendorSignupPage.tsx requirements
   const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
-    // 1. Check for existing user
-    const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
-    const existing = await checkRes.json();
-    if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
-
-    // 2. Validate admin code required for vendor signup
-    const validation = adminCodeContext?.validateAndUseCode(code, email);
-    if (!validation?.isValid) {
-      throw new Error(validation?.message || 'Invalid admin code');
-    }
-
-    // 3. Register user with vendor role
-    const newUser = {
-      name,
-      email,
-      phone: '', // Default empty for vendor registration
-      password: pass,
-      role: 'vendor',
-      addresses: [],
-      wishlist: [],
-      recentlyViewed: [],
-      created_at: new Date().toISOString()
-    };
-
-    const res = await fetch(`${BASE_API_URL}/users`, {
-      method: 'POST',
-      headers: API_HEADERS,
-      body: JSON.stringify(newUser)
-    });
-    
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Vendor signup failed');
-    }
-
-    // 4. Initialize specialized vendor profile record
-    if (vendorContext) {
-      await vendorContext.addVendor({ userId: email, storeName });
-    }
-    
-    await fetchUsers();
-    
-    // 5. Automatic authentication session creation
-    await login(email, pass);
+     throw new Error("Direct vendor signup is disabled. Please contact an administrator.");
   };
 
   const logout = () => {
@@ -182,7 +122,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => {
+  const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => {
+    // 1. Create User in users table
     const newUser = {
       name: userData.name,
       email: userData.email,
@@ -197,18 +138,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const res = await fetch(`${BASE_API_URL}/users`, {
       method: 'POST',
-      headers: API_HEADERS,
+      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
       body: JSON.stringify(newUser)
     });
 
+    const createdUsers = await res.json();
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to create user');
+        throw new Error(createdUsers.message || 'Failed to create user record');
     }
 
-    if (userData.role === 'vendor') {
-        // Automatically initialize vendor record if creating a vendor
-        await vendorContext?.addVendor({ userId: userData.email, storeName: `${userData.name}'s Store` });
+    const createdUser = createdUsers[0];
+
+    // 2. If Role is Vendor, create the business profile in vendors table
+    if (userData.role === 'vendor' && vendorContext) {
+        try {
+            await vendorContext.addVendorRecord({
+                user_id: createdUser.id.toString(), // Linking using the returned ID from the first insert
+                store_name: userData.storeName || `${userData.name}'s Store`,
+                owner_name: userData.name,
+                email: userData.email,
+                phone: userData.phone,
+                profile_image: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.storeName || userData.name)}&background=FF8A00&color=fff`,
+                status: 'pending'
+            });
+            // Refresh vendors so they appear in the Vendors tab instantly
+            await vendorContext.refreshVendors();
+        } catch (vendorError: any) {
+            // If vendor profile fails, we might want to alert the admin even though the user was created
+            console.error("User created but vendor profile failed:", vendorError);
+            throw new Error(`User created but Vendor profile failed: ${vendorError.message}`);
+        }
     }
 
     await fetchUsers();

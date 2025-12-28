@@ -6,17 +6,26 @@ import UserFormModal from '../../components/admin/UserFormModal';
 import { User } from '../../types';
 
 const AdminUsersPage: React.FC = () => {
-  const { users, deleteUser, addUser } = useAuth();
+  const { users, deleteUser, addUser, fetchUsers } = useAuth();
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleDelete = (email: string, name: string) => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchUsers();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  const handleDelete = async (email: string, name: string) => {
     if (window.confirm(`Are you sure you want to delete user "${name}" (${email})? This action cannot be undone.`)) {
-        deleteUser(email);
+        await deleteUser(email);
+        await fetchUsers(); // Re-sync
     }
   }
 
   const handleCreateUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => {
     await addUser(userData);
+    await fetchUsers(); // Re-sync
     setModalOpen(false);
   }
 
@@ -28,9 +37,21 @@ const AdminUsersPage: React.FC = () => {
             <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">Platform Users</h1>
             <p className="text-text-muted mt-1 text-sm">Manage customers, vendors, and internal staff access.</p>
         </div>
-        <button onClick={() => setModalOpen(true)} className="bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 px-6 rounded-xl shadow-xl shadow-accent/20 hover:-translate-y-1 active:translate-y-0 transition-all">
-          Register User
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            className="p-3 bg-surface border border-border text-text-secondary rounded-xl hover:text-accent transition-all disabled:opacity-50"
+            title="Force Sync from DB"
+          >
+            <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M22 3A10.03 10.03 0 0112 20a9.93 9.93 0 01-7-3m7 5a10 10 0 01-10-10 9.93 9.93 0 013-7" />
+            </svg>
+          </button>
+          <button onClick={() => setModalOpen(true)} className="bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 px-6 rounded-xl shadow-xl shadow-accent/20 hover:-translate-y-1 active:translate-y-0 transition-all">
+            Register User
+          </button>
+        </div>
       </div>
 
       <GlassmorphicCard>

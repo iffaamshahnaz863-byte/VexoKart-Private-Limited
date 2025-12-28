@@ -108,7 +108,7 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  password?: string; // Optional for safety in client state
+  password?: string;
   role: 'user' | 'admin' | 'vendor';
   addresses: Address[];
   wishlist: number[];
@@ -116,25 +116,26 @@ export interface User {
   created_at: string;
 }
 
-export interface KYCDetails {
-  pan: string;
-  gst: string;
-  addressProofUrl: string;
-  status: 'pending' | 'verified' | 'rejected';
+export interface Banner {
+  id: number;
+  image_url: string;
+  title: string;
+  status: boolean;
+  display_order: number;
+  created_at: string;
 }
 
 export interface Vendor {
-  id: string;
-  userId: string;
-  storeName: string;
-  storeLogo: string;
-  storeAddress?: string;
-  storePhone?: string;
+  id: number;
+  user_id: string;
+  store_name: string;
+  owner_name: string;
+  email: string;
+  phone: string;
+  profile_image: string;
   status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  kycDetails: KYCDetails;
-  commissionRate?: number;
-  createdAt: string;
-  rejectionReason?: string;
+  created_at: string;
+  rejection_reason?: string;
 }
 
 export interface AdminCode {
@@ -149,26 +150,7 @@ export interface AdminCode {
   note: string;
 }
 
-export interface Banner {
-  id: string;
-  imageUrl: string;
-  status: 'active' | 'inactive';
-  displayOrder: number;
-  createdAt: string;
-}
-
-export interface NotificationLog {
-  id: string;
-  userId: string;
-  orderId: string;
-  channel: 'email' | 'sms';
-  status: 'sent' | 'failed';
-  response: string;
-  createdAt: string;
-  type: OrderStatus;
-  retryCount?: number;
-}
-
+// Added NotificationSettings interface to resolve import error
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -180,4 +162,17 @@ export interface NotificationSettings {
   smsSenderId: string;
   smsTemplateId: string;
   testMode: boolean;
+}
+
+// Added NotificationLog interface to resolve import error
+export interface NotificationLog {
+  id: string;
+  createdAt: string;
+  userId: string;
+  orderId: string;
+  channel: 'email' | 'sms';
+  status: 'sent' | 'failed';
+  response: string;
+  type: OrderStatus;
+  retryCount: number;
 }

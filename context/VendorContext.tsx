@@ -5,11 +5,11 @@ import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface VendorContextType {
   vendors: Vendor[];
-  addVendor: (vendorData: { userId: string; storeName: string }) => Promise<void>;
-  updateVendorStatus: (vendorId: string, status: string, reason?: string) => Promise<void>;
-  updateVendorProfile: (vendorId: string, profileData: Partial<Vendor>) => Promise<void>;
+  addVendorRecord: (vendorData: Omit<Vendor, 'id' | 'created_at'>) => Promise<void>;
+  updateVendorStatus: (vendorId: number, status: Vendor['status'], reason?: string) => Promise<void>;
   getVendorByUserId: (userId: string) => Vendor | undefined;
   getVendorById: (vendorId: string) => Vendor | undefined;
+  refreshVendors: () => Promise<void>;
 }
 
 export const VendorContext = createContext<VendorContextType | undefined>(undefined);
@@ -19,12 +19,13 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?select=*`, { headers: API_HEADERS });
+      const res = await fetch(`${BASE_API_URL}/vendors?select=*&order=created_at.desc`, { 
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
+      });
       const data = await res.json();
       if (Array.isArray(data)) {
         setVendors(data);
       } else {
-        console.error("Vendors fetch failed: API response is not an array", data);
         setVendors([]);
       }
     } catch (error) {
@@ -37,52 +38,51 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     fetchVendors();
   }, []);
 
-  const addVendor = async (data: any) => {
-    const newVendor = {
-      userId: data.userId,
-      storeName: data.storeName,
-      storeLogo: `https://picsum.photos/seed/${data.storeName}/200`,
-      status: 'pending',
-      kycDetails: { pan: '', gst: '', status: 'pending' },
-      createdAt: new Date().toISOString()
-    };
-    await fetch(`${BASE_API_URL}/vendors`, {
+  const addVendorRecord = async (data: Omit<Vendor, 'id' | 'created_at'>) => {
+    const res = await fetch(`${BASE_API_URL}/vendors`, {
       method: 'POST',
       headers: API_HEADERS,
-      body: JSON.stringify(newVendor)
+      body: JSON.stringify({
+        ...data,
+        created_at: new Date().toISOString()
+      })
     });
+    
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to create vendor business profile');
+    }
+    
     await fetchVendors();
   };
 
-  const updateVendorStatus = async (id: string, status: string, reason?: string) => {
-    await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
+  const updateVendorStatus = async (id: number, status: Vendor['status'], reason?: string) => {
+    const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
-      body: JSON.stringify({ status, rejectionReason: reason })
+      body: JSON.stringify({ status, rejection_reason: reason })
     });
+    if (!res.ok) throw new Error('Failed to update vendor status');
     await fetchVendors();
   };
 
-  const updateVendorProfile = async (id: string, profile: any) => {
-    await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify(profile)
-    });
-    await fetchVendors();
-  };
-
-  const getVendorByUserId = (uid: string) => vendors.find(v => v.userId === uid);
-  const getVendorById = (id: string) => vendors.find(v => v.id === id);
+  const getVendorByUserId = (uid: string) => vendors.find(v => v.user_id === uid);
+  const getVendorById = (id: string) => vendors.find(v => v.id.toString() === id);
 
   return (
-    <VendorContext.Provider value={{ vendors, addVendor, updateVendorStatus, updateVendorProfile, getVendorByUserId, getVendorById }}>
+    <VendorContext.Provider value={{ 
+      vendors, 
+      addVendorRecord, 
+      updateVendorStatus, 
+      getVendorByUserId, 
+      getVendorById, 
+      refreshVendors: fetchVendors 
+    }}>
       {children}
     </VendorContext.Provider>
   );
 };
 
-// Export useVendors hook for accessing vendor context
 export const useVendors = () => {
   const context = useContext(VendorContext);
   if (context === undefined) {

@@ -4,7 +4,7 @@ import { User } from '../../types';
 
 interface UserFormModalProps {
   onClose: () => void;
-  onSubmit: (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => Promise<void>;
+  onSubmit: (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => Promise<void>;
 }
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onSubmit }) => {
@@ -13,23 +13,32 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onSubmit }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<User['role']>('user');
+  const [storeName, setStoreName] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
     if (!name.trim() || !email.trim() || !password.trim() || !phone.trim()) {
-        setError("All fields are required.");
+        setError("All basic fields are required.");
         return;
     }
-     if (password.length < 6) {
+    
+    if (role === 'vendor' && !storeName.trim()) {
+        setError("Store Name is required for Vendor accounts.");
+        return;
+    }
+
+    if (password.length < 6) {
         setError('Password must be at least 6 characters long.');
         return;
     }
+
     setIsSubmitting(true);
     try {
-      await onSubmit({ name, email, phone, pass: password, role });
+      await onSubmit({ name, email, phone, pass: password, role, storeName });
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create user');
@@ -73,6 +82,14 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onSubmit }) => {
                 <option value="admin">Platform Admin</option>
             </select>
           </div>
+          
+          {role === 'vendor' && (
+              <div className="animate-in slide-in-from-top-2 duration-300">
+                <label className="block text-[10px] font-black uppercase text-accent" htmlFor="storeName">Business Store Name</label>
+                <input id="storeName" type="text" value={storeName} onChange={(e) => setStoreName(e.target.value)} required className={`${inputClasses} border-accent/50`} placeholder="e.g., Luxe Threads" />
+              </div>
+          )}
+
           <div className="flex justify-end gap-4 pt-4">
             <button type="button" onClick={onClose} disabled={isSubmitting} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
             <button type="submit" disabled={isSubmitting} className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110 disabled:opacity-50">

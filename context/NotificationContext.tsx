@@ -1,6 +1,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
+// Added GenerateContentResponse to imports for world-class type safety
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { NotificationLog, NotificationSettings, Order, User } from '../types';
 
 interface NotificationContextType {
@@ -66,7 +67,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     let aiContent = { email: '', sms: '' };
     try {
-      const response = await ai.models.generateContent({
+      // Properly typed response object using GenerateContentResponse
+      const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Generate a production-ready transactional notification for VexoKart.
         User Name: ${user.name}
@@ -80,6 +82,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         config: { responseMimeType: 'application/json' }
       });
       
+      // Accessing .text as a property as required by world-class SDK guidelines
       const parsed = JSON.parse(response.text || '{}');
       aiContent.email = parsed.emailBody;
       aiContent.sms = parsed.smsBody;
@@ -111,7 +114,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           const isNetworkError = error.message === 'Failed to fetch';
           
           if (isNetworkError) {
-            // FIX: Graceful handling for CORS/Browser restrictions
+            // Graceful handling for CORS/Browser restrictions using simulated success log
             const warningMsg = 'CORS BLOCKED: Production APIs require a backend proxy. Falling back to simulation to prevent order flow failure.';
             addLog({ 
                 userId: user.email, 

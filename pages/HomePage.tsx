@@ -13,16 +13,20 @@ import { ProductCardSkeleton } from '../components/Skeleton';
 const HomePage: React.FC = () => {
   const { products } = useProducts();
   const { categories } = useCategories();
-  const { banners } = useBanners();
+  const { banners, refreshBanners } = useBanners();
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const activeBanners = banners.filter(b => b.status === 'active').sort((a, b) => a.displayOrder - b.displayOrder);
+  // Filter for active banners ONLY as per requirement
+  const activeBanners = banners.filter(b => b.status === true).sort((a, b) => a.display_order - b.display_order);
   const liveProducts = products.filter(p => p.status === 'approved' || p.status === 'live');
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    const init = async () => {
+        await refreshBanners(); // Ensure we have the latest active banners
+        setIsLoading(false);
+    };
+    init();
   }, []);
 
   const handleCategoryClick = (categoryName: string) => {
@@ -37,9 +41,9 @@ const HomePage: React.FC = () => {
         <section className="mt-2">
             {isLoading ? (
                 <div className="w-full h-40 bg-surface rounded-2xl animate-pulse"></div>
-            ) : (
-                <BannerCarousel banners={activeBanners.map(b => b.imageUrl)} />
-            )}
+            ) : activeBanners.length > 0 ? (
+                <BannerCarousel banners={activeBanners.map(b => b.image_url)} />
+            ) : null}
         </section>
 
         <section>
