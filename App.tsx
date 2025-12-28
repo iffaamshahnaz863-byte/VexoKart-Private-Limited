@@ -75,13 +75,31 @@ const AdminRoute: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
         <h1 className="text-4xl font-black text-red-500 mb-4 uppercase italic">Access Denied</h1>
-        <p className="text-text-secondary mb-8 font-medium">You do not have administrative privileges to view this page.</p>
-        <Navigate to="/" replace />
+        <p className="text-text-secondary mb-8 font-medium">This section is restricted to Platform Administrators.</p>
+        <button onClick={() => window.location.href = '#/'} className="bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 px-8 rounded-xl">Return Home</button>
       </div>
     );
   }
   return <AdminLayout><Outlet /></AdminLayout>;
 };
+
+const VendorRoute: React.FC = () => {
+    const { user, isLoading } = useAuth();
+    if (isLoading) return null;
+    if (!user) {
+      return <Navigate to="/login" replace />;
+    }
+    if (user.role !== 'vendor') {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
+          <h1 className="text-4xl font-black text-red-500 mb-4 uppercase italic">Access Denied</h1>
+          <p className="text-text-secondary mb-8 font-medium">This section is restricted to Authorized Vendors.</p>
+          <button onClick={() => window.location.href = '#/'} className="bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 px-8 rounded-xl">Return Home</button>
+        </div>
+      );
+    }
+    return <VendorLayout><Outlet /></VendorLayout>;
+  };
 
 const AppContent: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -108,7 +126,6 @@ const AppContent: React.FC = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/vendor/signup" element={<VendorSignupPage />} />
           
           {/* Logistics Route (QR Scan) */}
           <Route path="/scan/:token" element={<CourierScanPage />} />
@@ -139,8 +156,8 @@ const AppContent: React.FC = () => {
             <Route path="notifications" element={<AdminNotificationsPage />} />
           </Route>
 
-          {/* Vendor Routes - Simplified for this scheme */}
-           <Route path="/vendor" element={<ProtectedRoute><VendorLayout><Outlet /></VendorLayout></ProtectedRoute>}>
+          {/* Vendor Routes */}
+           <Route path="/vendor" element={<VendorRoute />}>
             <Route index element={<VendorDashboardPage />} />
             <Route path="products" element={<VendorProductsPage />} />
             <Route path="products/new" element={<VendorProductFormPage />} />

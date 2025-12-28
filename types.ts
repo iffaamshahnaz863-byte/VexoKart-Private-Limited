@@ -108,8 +108,8 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  // Added additional role strings to match usage in components
-  role: 'user' | 'admin' | 'SUPER_ADMIN' | 'VENDOR' | 'USER';
+  password?: string; // Optional for safety in client state
+  role: 'user' | 'admin' | 'vendor';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];

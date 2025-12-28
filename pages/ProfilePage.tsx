@@ -24,7 +24,8 @@ const ProfilePage: React.FC = () => {
 
   if (!user) return null;
   
-  const panelLink = user.role === 'SUPER_ADMIN' ? { link: '/admin', text: 'Admin Hub' } : user.role === 'VENDOR' ? { link: '/vendor', text: 'Vendor Console' } : null;
+  // Fix: Updated role strings to 'admin' and 'vendor' to fix type overlap errors
+  const panelLink = user.role === 'admin' ? { link: '/admin', text: 'Admin Hub' } : user.role === 'vendor' ? { link: '/vendor', text: 'Vendor Console' } : null;
 
   return (
     <div className="bg-surface min-h-screen">
@@ -41,7 +42,8 @@ const ProfilePage: React.FC = () => {
             <p className="text-text-muted text-xs font-semibold">{user.email}</p>
             <div className="flex gap-2 mt-2">
                <span className="text-[8px] font-black uppercase tracking-widest bg-accent/10 text-accent px-2 py-0.5 rounded-full border border-accent/20">Premier Member</span>
-               {user.role !== 'USER' && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{user.role}</span>}
+               {/* Fix: Updated comparison to lowercase 'user' to align with User type definition */}
+               {user.role !== 'user' && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{user.role}</span>}
             </div>
           </div>
         </div>

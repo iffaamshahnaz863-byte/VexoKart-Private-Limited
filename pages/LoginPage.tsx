@@ -27,10 +27,17 @@ const LoginPage: React.FC = () => {
 
   React.useEffect(() => {
     if (user) {
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/profile');
+      // Role-based redirection logic
+      switch (user.role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'vendor':
+          navigate('/vendor');
+          break;
+        default:
+          navigate('/profile');
+          break;
       }
     }
   }, [user, navigate]);
@@ -55,7 +62,7 @@ const LoginPage: React.FC = () => {
           {error && <p className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl mb-6 font-bold">{error}</p>}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="text-xs font-black uppercase tracking-wider text-text-muted" htmlFor="email">Email Address</label>
+              <label className="text-xs font-black uppercase tracking-wider text-text-muted ml-1" htmlFor="email">Email Address</label>
               <input
                 id="email"
                 type="email"
@@ -68,7 +75,7 @@ const LoginPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-black uppercase tracking-wider text-text-muted" htmlFor="password">Password</label>
+              <label className="text-xs font-black uppercase tracking-wider text-text-muted ml-1" htmlFor="password">Password</label>
               <input
                 id="password"
                 type="password"
@@ -83,7 +90,7 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-xl shadow-accent/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-xl shadow-accent/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-4"
             >
               {isSubmitting ? 'Authenticating...' : 'Secure Login'}
             </button>

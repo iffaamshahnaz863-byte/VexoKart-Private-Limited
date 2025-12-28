@@ -4,20 +4,22 @@ import { User } from '../../types';
 
 interface UserFormModalProps {
   onClose: () => void;
-  onSubmit: (userData: { name: string; email: string; pass: string; role: User['role'] }) => Promise<void>;
+  onSubmit: (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => Promise<void>;
 }
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onSubmit }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<User['role']>('USER');
+  const [role, setRole] = useState<User['role']>('user');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!name.trim() || !email.trim() || !password.trim()) {
+    if (!name.trim() || !email.trim() || !password.trim() || !phone.trim()) {
         setError("All fields are required.");
         return;
     }
@@ -25,7 +27,15 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onSubmit }) => {
         setError('Password must be at least 6 characters long.');
         return;
     }
-    await onSubmit({ name, email, pass: password, role });
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ name, email, phone, pass: password, role });
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to create user');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
@@ -36,32 +46,38 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onSubmit }) => {
         className="bg-surface rounded-lg shadow-2xl w-full max-w-md p-6 border border-gray-700"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-bold text-text-main mb-4">Create New User</h2>
-        {error && <p className="bg-red-500/20 text-red-400 text-sm p-3 rounded-md mb-4">{error}</p>}
+        <h2 className="text-xl font-bold text-text-main mb-4">Create New Account</h2>
+        {error && <p className="bg-red-500/20 text-red-400 text-sm p-3 rounded-md mb-4 font-bold">{error}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text-secondary" htmlFor="name">Full Name</label>
-            <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required className={inputClasses} />
+            <label className="block text-[10px] font-black uppercase text-text-muted" htmlFor="name">Full Name</label>
+            <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} required disabled={isSubmitting} className={inputClasses} />
           </div>
            <div>
-            <label className="block text-sm font-medium text-text-secondary" htmlFor="email">Email</label>
-            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={inputClasses} />
+            <label className="block text-[10px] font-black uppercase text-text-muted" htmlFor="email">Email Address</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isSubmitting} className={inputClasses} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary" htmlFor="password">Password</label>
-            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={inputClasses} />
+            <label className="block text-[10px] font-black uppercase text-text-muted" htmlFor="phone">Phone Number</label>
+            <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required disabled={isSubmitting} className={inputClasses} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary" htmlFor="role">Role</label>
-            <select id="role" value={role} onChange={(e) => setRole(e.target.value as User['role'])} className={inputClasses}>
-                <option value="USER">User</option>
-                <option value="VENDOR">Vendor</option>
-                <option value="SUPER_ADMIN">Super Admin</option>
+            <label className="block text-[10px] font-black uppercase text-text-muted" htmlFor="password">Initial Password</label>
+            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isSubmitting} className={inputClasses} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase text-text-muted" htmlFor="role">Assign Role</label>
+            <select id="role" value={role} onChange={(e) => setRole(e.target.value as User['role'])} disabled={isSubmitting} className={inputClasses}>
+                <option value="user">Normal User</option>
+                <option value="vendor">Vendor Partner</option>
+                <option value="admin">Platform Admin</option>
             </select>
           </div>
           <div className="flex justify-end gap-4 pt-4">
-            <button type="button" onClick={onClose} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
-            <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">Create User</button>
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110 disabled:opacity-50">
+                {isSubmitting ? 'Creating...' : 'Create Account'}
+            </button>
           </div>
         </form>
       </div>

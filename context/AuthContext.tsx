@@ -11,10 +11,11 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  signup: (name: string, email: string, pass: string) => Promise<void>;
-  signupAsVendor: (name: string, email: string, pass: string, storeName: string, adminCode: string) => Promise<void>;
+  signup: (name: string, email: string, phone: string, pass: string) => Promise<void>;
+  // Fix: Added missing signupAsVendor method to type definition
+  signupAsVendor: (name: string, email: string, pass: string, storeName: string, code: string) => Promise<void>;
   logout: () => void;
-  addUser: (userData: { name: string; email: string; pass: string; role: User['role'] }) => Promise<void>;
+  addUser: (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
   updateAddress: (address: Address) => Promise<void>;
   deleteAddress: (addressId: string) => Promise<void>;
@@ -34,6 +35,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   
   const vendorContext = useContext(VendorContext);
+  // Fix: Injected AdminCodeContext to facilitate vendor registration validation
   const adminCodeContext = useContext(AdminCodeContext);
 
   const fetchUsers = async () => {
@@ -59,7 +61,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const sessionEmail = localStorage.getItem('vexokart-session-email');
       if (sessionEmail) {
         try {
-          // Encoded URI component to prevent 400 errors from '@' characters
           const res = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(sessionEmail)}&select=*`, { headers: API_HEADERS });
           const userData = await res.json();
           if (Array.isArray(userData) && userData.length > 0) {
@@ -96,20 +97,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signup = async (name: string, email: string, pass: string) => {
-    const check = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}`, { headers: API_HEADERS });
-    const existing = await check.json();
-    if (Array.isArray(existing) && existing.length > 0) throw new Error('Account already exists');
+  const signup = async (name: string, email: string, phone: string, pass: string) => {
+    // Check for existing user via REST
+    const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+    const existing = await checkRes.json();
+    if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
 
     const newUser = {
       name,
       email,
+      phone,
       password: pass,
       role: 'user',
       addresses: [],
       wishlist: [],
       recentlyViewed: [],
-      phone: ''
+      created_at: new Date().toISOString()
     };
 
     const res = await fetch(`${BASE_API_URL}/users`, {
@@ -120,30 +123,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.message || 'Failed to create account');
+      throw new Error(err.message || 'Signup failed');
     }
     
-    const verifyRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=*`, { headers: API_HEADERS });
-    const verifyData = await verifyRes.json();
-    if (Array.isArray(verifyData) && verifyData.length > 0) {
-      updateUserSession(verifyData[0]);
-    }
     await fetchUsers();
   };
 
-  const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, adminCode: string) => {
-    const validation = adminCodeContext?.validateAndUseCode(adminCode, email);
-    if (!validation || !validation.isValid) throw new Error(validation?.message || 'Invalid code');
+  // Fix: Implemented missing signupAsVendor method to satisfy VendorSignupPage.tsx requirements
+  const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
+    // 1. Check for existing user
+    const checkRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+    const existing = await checkRes.json();
+    if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
 
+    // 2. Validate admin code required for vendor signup
+    const validation = adminCodeContext?.validateAndUseCode(code, email);
+    if (!validation?.isValid) {
+      throw new Error(validation?.message || 'Invalid admin code');
+    }
+
+    // 3. Register user with vendor role
     const newUser = {
       name,
       email,
+      phone: '', // Default empty for vendor registration
       password: pass,
-      role: 'user',
+      role: 'vendor',
       addresses: [],
       wishlist: [],
       recentlyViewed: [],
-      phone: ''
+      created_at: new Date().toISOString()
     };
 
     const res = await fetch(`${BASE_API_URL}/users`, {
@@ -153,18 +162,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to create account');
+      const err = await res.json();
+      throw new Error(err.message || 'Vendor signup failed');
+    }
+
+    // 4. Initialize specialized vendor profile record
+    if (vendorContext) {
+      await vendorContext.addVendor({ userId: email, storeName });
     }
     
-    await vendorContext?.addVendor({ userId: email, storeName });
-    
-    const verifyRes = await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}&select=*`, { headers: API_HEADERS });
-    const verifyData = await verifyRes.json();
-    if (Array.isArray(verifyData) && verifyData.length > 0) {
-      updateUserSession(verifyData[0]);
-    }
     await fetchUsers();
+    
+    // 5. Automatic authentication session creation
+    await login(email, pass);
   };
 
   const logout = () => {
@@ -172,12 +182,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const addUser = async (userData: any) => {
-    await fetch(`${BASE_API_URL}/users`, {
+  const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => {
+    const newUser = {
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      password: userData.pass,
+      role: userData.role,
+      addresses: [],
+      wishlist: [],
+      recentlyViewed: [],
+      created_at: new Date().toISOString()
+    };
+
+    const res = await fetch(`${BASE_API_URL}/users`, {
       method: 'POST',
       headers: API_HEADERS,
-      body: JSON.stringify({ ...userData, addresses: [], wishlist: [], recentlyViewed: [] })
+      body: JSON.stringify(newUser)
     });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to create user');
+    }
+
+    if (userData.role === 'vendor') {
+        // Automatically initialize vendor record if creating a vendor
+        await vendorContext?.addVendor({ userId: userData.email, storeName: `${userData.name}'s Store` });
+    }
+
     await fetchUsers();
   };
 
@@ -248,9 +281,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <AuthContext.Provider value={{ 
       user, users: allUsers, isLoading, isAuthenticated: !!user, 
-      login, signup, logout, addUser, addAddress, updateAddress, 
+      login, signup, signupAsVendor, logout, addUser, addAddress, updateAddress, 
       deleteAddress, deleteUser, addToWishlist, removeFromWishlist, 
-      isInWishlist, updateUserSession, signupAsVendor, fetchUsers 
+      isInWishlist, updateUserSession, fetchUsers 
     }}>
       {children}
     </AuthContext.Provider>
