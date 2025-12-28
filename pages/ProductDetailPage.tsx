@@ -167,10 +167,10 @@ const ProductDetailPage: React.FC = () => {
       );
       case 'shipping': return <div className="space-y-6">
           <div className="flex items-center gap-4 p-4 border border-border rounded-2xl">
-            <img src={vendor?.storeLogo || `https://ui-avatars.com/api/?name=${vendor?.storeName || 'V'}`} className="w-12 h-12 rounded-full border border-border" />
+            <img src={vendor?.profile_image || `https://ui-avatars.com/api/?name=${vendor?.store_name || 'V'}`} className="w-12 h-12 rounded-full border border-border" />
             <div>
               <p className="text-[9px] font-bold text-text-muted uppercase">Seller</p>
-              <p className="font-bold text-text-main">{vendor?.storeName || 'VexoKart Direct'}</p>
+              <p className="font-bold text-text-main">{vendor?.store_name || 'VexoKart Direct'}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

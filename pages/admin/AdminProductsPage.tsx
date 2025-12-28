@@ -50,7 +50,7 @@ const AdminProductsPage: React.FC = () => {
             <tbody>
               {products.map(product => {
                 const vendor = getVendorById(product.vendorId);
-                const vendorName = vendor ? vendor.storeName : (product.vendorId === 'vexokart_internal' ? 'VexoKart' : 'Unknown');
+                const vendorName = vendor ? vendor.store_name : (product.vendorId === 'vexokart_internal' ? 'VexoKart' : 'Unknown');
 
                 return (
                     <tr key={product.id} className="border-b border-gray-800 hover:bg-surface/50">

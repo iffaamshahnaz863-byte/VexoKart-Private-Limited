@@ -7,7 +7,7 @@ interface ProductContextType {
   products: Product[];
   isLoading: boolean;
   getProduct: (id: number) => Product | undefined;
-  addProduct: (product: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'reviews' | 'status'>) => Promise<void>;
+  addProduct: (product: any) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: number) => Promise<void>;
   toggleProductStatus: (productId: number) => Promise<void>;
@@ -26,7 +26,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const refreshProducts = async () => {
     try {
-      const response = await fetch(`${BASE_API_URL}/products?select=*`, { headers: API_HEADERS });
+      const response = await fetch(`${BASE_API_URL}/products?select=*`, { 
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
+      });
       const data = await response.json();
       if (Array.isArray(data)) {
         setProducts(data);
@@ -49,20 +51,38 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    const newProduct = {
-      ...productData,
-      rating: 0,
-      reviewCount: 0,
-      reviews: [],
+    const discountAmount = productData.originalPrice ? Math.max(0, productData.originalPrice - productData.price) : 0;
+    
+    // Mapping frontend model to requested Supabase schema columns
+    const supabasePayload = {
+      vendor_id: productData.vendor_id,
+      name: productData.name,
+      description: productData.description,
+      price: productData.price,
+      discount: discountAmount,
+      stock: productData.stock,
+      image: productData.images?.[0] || '', // Using first image as requested 'image' column
+      category: productData.category,
       status: 'pending',
+      created_at: new Date().toISOString(),
+      // Optional/Extended fields
       highlights: productData.highlights || [],
-      specifications: productData.specifications || {}
+      specifications: productData.specifications || {},
+      original_price: productData.originalPrice || productData.price,
+      images: productData.images || []
     };
-    await fetch(`${BASE_API_URL}/products`, {
+
+    const response = await fetch(`${BASE_API_URL}/products`, {
       method: 'POST',
       headers: API_HEADERS,
-      body: JSON.stringify(newProduct)
+      body: JSON.stringify(supabasePayload)
     });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Database insert failed');
+    }
+
     await refreshProducts();
   };
 

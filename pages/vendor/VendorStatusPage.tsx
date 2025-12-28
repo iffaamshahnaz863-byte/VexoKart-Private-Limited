@@ -76,20 +76,20 @@ const VendorStatusPage: React.FC<VendorStatusPageProps> = ({ vendor }) => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background text-center">
         <img 
-            src={vendor.storeLogo} 
-            alt={`${vendor.storeName} logo`} 
+            src={vendor.profile_image} 
+            alt={`${vendor.store_name} logo`} 
             className="w-28 h-28 rounded-full border-4 border-surface object-cover mb-4" 
         />
-        <h1 className="text-2xl font-bold text-text-main">{vendor.storeName}</h1>
+        <h1 className="text-2xl font-bold text-text-main">{vendor.store_name}</h1>
         
         <GlassmorphicCard className="w-full max-w-lg mt-8 p-8">
             <h2 className="text-xl font-bold text-accent mb-4">{title}</h2>
             <p className="text-text-secondary">{message}</p>
-            {vendor.status === 'rejected' && vendor.rejectionReason && (
+            {vendor.status === 'rejected' && vendor.rejection_reason && (
               <div className="mt-6 text-left p-4 bg-surface/50 border border-gray-700/50 rounded-lg">
                 <p className="text-sm font-semibold text-text-secondary mb-2">Reason for Rejection:</p>
                 <blockquote className="text-sm text-text-main italic border-l-4 border-red-500 pl-4">
-                  {vendor.rejectionReason}
+                  {vendor.rejection_reason}
                 </blockquote>
               </div>
             )}

@@ -132,9 +132,9 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                     <div className="grid grid-cols-2 gap-8 mb-8 border-b-2 border-black pb-8">
                         <div>
                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Shipper / Dispatch From:</p>
-                            <p className="font-black text-base leading-tight">{vendor.storeName}</p>
-                            <p className="text-sm font-medium leading-relaxed mt-1">{vendor.storeAddress || 'Vendor Warehouse HQ'}</p>
-                            <p className="text-sm font-bold mt-2">TEL: {vendor.storePhone || '+91 XXXX XXX XXX'}</p>
+                            <p className="font-black text-base leading-tight">{vendor.store_name}</p>
+                            <p className="text-sm font-medium leading-relaxed mt-1">{vendor.store_address || 'Vendor Warehouse HQ'}</p>
+                            <p className="text-sm font-bold mt-2">TEL: {vendor.phone || '+91 XXXX XXX XXX'}</p>
                         </div>
                         <div>
                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">Recipient / Ship To:</p>

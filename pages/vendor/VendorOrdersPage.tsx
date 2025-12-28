@@ -23,7 +23,7 @@ const VendorOrdersPage: React.FC = () => {
     const [labelOrder, setLabelOrder] = useState<Order | null>(null);
 
     const vendor = user ? getVendorByUserId(user.email) : null;
-    const vendorProducts = vendor ? products.filter(p => p.vendorId === vendor.id) : [];
+    const vendorProducts = vendor ? products.filter(p => p.vendorId === vendor.id.toString()) : [];
 
     const vendorOrders = orders.map(order => {
         const vendorItems = order.items.filter(item => 

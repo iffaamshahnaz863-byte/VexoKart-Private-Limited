@@ -134,8 +134,8 @@ const AdminApprovalsPage: React.FC = () => {
                     </td>
                     <td className="p-6">
                       <div className="flex items-center gap-2">
-                        <img src={vendor?.storeLogo || `https://ui-avatars.com/api/?name=${vendor?.storeName || 'V'}`} className="w-6 h-6 rounded-full border border-border" />
-                        <span className="text-text-secondary font-medium truncate max-w-[120px]">{vendor?.storeName || 'VexoKart'}</span>
+                        <img src={vendor?.profile_image || `https://ui-avatars.com/api/?name=${vendor?.store_name || 'V'}`} className="w-6 h-6 rounded-full border border-border" />
+                        <span className="text-text-secondary font-medium truncate max-w-[120px]">{vendor?.store_name || 'VexoKart'}</span>
                       </div>
                     </td>
                     <td className="p-6">

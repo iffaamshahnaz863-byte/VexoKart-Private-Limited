@@ -22,11 +22,11 @@ const VendorProfilePage: React.FC = () => {
     
     useEffect(() => {
         if (vendor) {
-            setStoreName(vendor.storeName);
-            setStoreLogo(vendor.storeLogo);
-            setLogoPreview(vendor.storeLogo);
-            setStoreAddress(vendor.storeAddress || '');
-            setStorePhone(vendor.storePhone || '');
+            setStoreName(vendor.store_name);
+            setStoreLogo(vendor.profile_image);
+            setLogoPreview(vendor.profile_image);
+            setStoreAddress(vendor.store_address || '');
+            setStorePhone(vendor.phone || '');
         }
     }, [vendor]);
 
@@ -46,11 +46,11 @@ const VendorProfilePage: React.FC = () => {
         e.preventDefault();
         if (vendor) {
             updateVendorProfile(vendor.id, { 
-                storeName, 
-                storeLogo,
-                storeAddress,
-                storePhone
-            } as any);
+                store_name: storeName, 
+                profile_image: storeLogo,
+                store_address: storeAddress,
+                phone: storePhone
+            });
             alert('Store profile updated successfully! Your details will now appear on shipping labels.');
             navigate('/vendor');
         }

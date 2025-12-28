@@ -136,6 +136,7 @@ export interface Vendor {
   status: 'pending' | 'approved' | 'rejected' | 'suspended';
   created_at: string;
   rejection_reason?: string;
+  store_address?: string;
 }
 
 export interface AdminCode {
