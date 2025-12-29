@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -17,7 +16,7 @@ const AdminProductFormPage: React.FC = () => {
   // Added missing allow_online and allow_cod properties to satisfy Product type requirements
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount'>>({
     name: '',
-    category: categories[0]?.name || '',
+    category: '', // This will store category ID
     price: 0,
     originalPrice: 0,
     images: [],
@@ -45,10 +44,12 @@ const AdminProductFormPage: React.FC = () => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
       if (productToEdit) {
-        // Added allow_online and allow_cod to state update from existing product
+        // Find category ID for the existing product name
+        const cat = categories.find(c => c.name === productToEdit.category);
+        
         setFormData({
             name: productToEdit.name,
-            category: productToEdit.category,
+            category: cat ? cat.id.toString() : '',
             price: productToEdit.price,
             originalPrice: productToEdit.originalPrice,
             images: productToEdit.images,
@@ -70,7 +71,7 @@ const AdminProductFormPage: React.FC = () => {
       }
     } else {
         if (categories.length > 0) {
-            setFormData(prev => ({...prev, category: categories[0].name}));
+            setFormData(prev => ({...prev, category: categories[0].id.toString()}));
         }
     }
   }, [id, isEditing, getProduct, categories]);
@@ -106,6 +107,8 @@ const AdminProductFormPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[AdminForm] Submitting Category ID:", formData.category);
+    
     if(formData.images.length === 0) {
         alert("Please upload at least one image for the product.");
         return;
@@ -150,7 +153,7 @@ const AdminProductFormPage: React.FC = () => {
       <GlassmorphicCard className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
             <div><label className="block text-sm font-medium text-text-secondary">Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} /></div>
-            <div><label className="block text-sm font-medium text-text-secondary">Category</label><select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-text-secondary">Category</label><select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div><label className="block text-sm font-medium text-text-secondary">Price (₹)</label><input type="number" name="price" value={formData.price} onChange={handleChange} required className={inputClasses} /></div>
                 <div><label className="block text-sm font-medium text-text-secondary">Original Price (₹)</label><input type="number" name="originalPrice" value={formData.originalPrice} onChange={handleChange} className={inputClasses} /></div>

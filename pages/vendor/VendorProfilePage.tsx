@@ -28,15 +28,56 @@ const VendorProfilePage: React.FC = () => {
         }
     }, [currentVendor]);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+    /**
+     * Resizes the image to prevent massive base64 payloads
+     */
+    const resizeLogo = (file: File, size = 400): Promise<string> => {
+        return new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                const result = reader.result as string;
-                setStoreLogo(result);
-                setLogoPreview(result);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > size) {
+                            height *= size / width;
+                            width = size;
+                        }
+                    } else {
+                        if (height > size) {
+                            width *= size / height;
+                            height = size;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.src = e.target?.result as string;
             };
-            reader.readAsDataURL(e.target.files[0]);
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setIsUpdating(true);
+            try {
+                const compressed = await resizeLogo(file);
+                setStoreLogo(compressed);
+                setLogoPreview(compressed);
+            } catch (err) {
+                console.error("Logo processing error:", err);
+            } finally {
+                setIsUpdating(false);
+            }
         }
     };
 

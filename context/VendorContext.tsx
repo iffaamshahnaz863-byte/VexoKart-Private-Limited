@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Vendor } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -120,17 +119,50 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       headers: API_HEADERS,
       body: JSON.stringify({ status, rejection_reason: reason })
     });
-    if (!res.ok) throw new Error('Failed to update vendor status');
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to update vendor status');
+    }
     await fetchVendors();
   };
 
   const updateVendorProfile = async (id: number, updates: Partial<Vendor>) => {
-    const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
+    const url = `${BASE_API_URL}/vendors?id=eq.${id}`;
+    const res = await fetch(url, {
       method: 'PATCH',
-      headers: API_HEADERS,
+      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
       body: JSON.stringify(updates)
     });
-    if (!res.ok) throw new Error('Failed to update profile');
+
+    const result = await res.json();
+
+    // PGRST204: Column not found in schema cache. 
+    // Handle the case where 'store_address' column might not exist yet.
+    if (!res.ok && result.code === 'PGRST204' && updates.store_address !== undefined) {
+        console.warn("[VendorContext] 'store_address' column missing. Retrying update without it.");
+        const { store_address, ...fallbackUpdates } = updates;
+        
+        const fallbackRes = await fetch(url, {
+            method: 'PATCH',
+            headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+            body: JSON.stringify(fallbackUpdates)
+        });
+
+        if (!fallbackRes.ok) {
+            const fallbackErr = await fallbackRes.json();
+            throw new Error(fallbackErr.message || 'Profile fallback update failed');
+        }
+        
+        if (currentVendor && currentVendor.id === id) {
+            setCurrentVendor({ ...currentVendor, ...fallbackUpdates });
+        }
+        await fetchVendors();
+        return;
+    }
+
+    if (!res.ok) {
+        throw new Error(result.message || 'Failed to update profile');
+    }
     
     if (currentVendor && currentVendor.id === id) {
         setCurrentVendor({ ...currentVendor, ...updates });

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -25,7 +24,7 @@ const VendorProductFormPage: React.FC = () => {
   
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount' | 'status' | 'vendorId'>>({
     name: '',
-    category: categories[0]?.name || '',
+    category: '', // This will store category ID
     price: 0,
     originalPrice: 0,
     images: [],
@@ -84,12 +83,17 @@ const VendorProductFormPage: React.FC = () => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
       if (productToEdit) {
-        setFormData({ ...productToEdit });
+        // Find category ID for the existing product name
+        const cat = categories.find(c => c.name === productToEdit.category);
+        setFormData({ 
+            ...productToEdit, 
+            category: cat ? cat.id.toString() : '' 
+        });
         setHighlightsText((productToEdit.highlights || []).join('\n'));
         setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
       }
     } else if (categories.length > 0) {
-      setFormData(prev => ({...prev, category: categories[0].name}));
+      setFormData(prev => ({...prev, category: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
 
@@ -102,9 +106,11 @@ const VendorProductFormPage: React.FC = () => {
     }
   };
 
+  // Fixed handleImageChange: cast files to File[] to satisfy type requirements for resizeImage
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files);
+      // Cast FileList conversion to explicit File[] to avoid unknown type errors
+      const files = Array.from(e.target.files) as File[];
       const processedImages: string[] = [];
       for (const file of files) {
         const compressed = await resizeImage(file);
@@ -128,6 +134,8 @@ const VendorProductFormPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[VendorForm] Submitting Category ID:", formData.category);
+    
     if (!currentVendor) { alert("Vendor profile not loaded."); return; }
     if (formData.images.length === 0) { alert("At least one image is required."); return; }
     if (!formData.allow_online && !formData.allow_cod) { alert("Select a payment method."); return; }
@@ -188,7 +196,7 @@ const VendorProductFormPage: React.FC = () => {
                         <div>
                             <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Product Category</label>
                             <select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>
-                                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div>
