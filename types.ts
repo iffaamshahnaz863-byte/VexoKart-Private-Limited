@@ -1,3 +1,4 @@
+
 export interface Review {
   id: string;
   author: string;
@@ -12,19 +13,24 @@ export interface Review {
 
 export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected';
 
+export interface ProductVariantColor {
+    name: string;
+    image: string;
+}
+
 export interface Product {
   id: number;
   name: string;
   category: string;
   price: number;
-  originalPrice?: number;
+  originalPrice: number;
   rating: number;
   reviewCount: number;
   images: string[];
   description: string;
   reviews: Review[];
   highlights?: string[];
-  stock?: number;
+  stock: number;
   specifications?: { [key: string]: string };
   sellerInfo?: string;
   returnPolicy?: string;
@@ -33,20 +39,25 @@ export interface Product {
   vendorId: string;
   status: ProductStatus;
   rejectionReason?: string;
-  approved_by?: string;
   approved_at?: string;
+  approved_by?: string;
   allow_online: boolean;
   allow_cod: boolean;
+  colors?: ProductVariantColor[];
+  sizes?: string[];
 }
 
 export interface Category {
   id: number;
   name: string;
   image: string;
+  status: boolean;
 }
 
 export interface CartItem extends Product {
   quantity: number;
+  selectedColor?: string;
+  selectedSize?: string;
 }
 
 export interface OrderItem {
@@ -57,6 +68,8 @@ export interface OrderItem {
     image: string;
     vendorId: string;
     vendor_email?: string;
+    color?: string;
+    size?: string;
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -65,15 +78,6 @@ export type PaymentStatus = 'paid' | 'cod_pending' | 'failed';
 export interface StatusHistory {
     status: OrderStatus;
     timestamp: string;
-}
-
-export interface CourierScanLog {
-    id: string;
-    orderId: string;
-    statusSet: OrderStatus;
-    note?: string;
-    scannedAt: string;
-    ipAddress?: string;
 }
 
 export interface Order {
@@ -91,13 +95,7 @@ export interface Order {
     statusHistory: StatusHistory[];
     courierName?: string;
     trackingId?: string;
-    shippingLabelUrl?: string;
-    label_url?: string; // New field for persistent label storage
-    labelGeneratedAt?: string;
-    qrToken?: string;
-    qrExpiresAt?: string;
-    qrUsedAt?: string;
-    scanLogs?: CourierScanLog[];
+    label_url?: string;
 }
 
 export interface Address {
@@ -121,6 +119,7 @@ export interface User {
   wishlist: number[];
   recentlyViewed: number[];
   created_at: string;
+  sms_enabled?: boolean;
 }
 
 export interface Banner {
@@ -146,18 +145,35 @@ export interface Vendor {
   store_address?: string;
 }
 
+export interface NotificationLog {
+  id: string;
+  createdAt: string;
+  userId: string;
+  orderId: string;
+  title: string;
+  message: string;
+  channel: 'email' | 'sms' | 'in-app';
+  status: 'sent' | 'failed';
+  response: string;
+  type: OrderStatus | 'system';
+  retryCount: number;
+  is_read?: boolean;
+}
+
+// Fix for AdminCode missing error: Add AdminCode interface
 export interface AdminCode {
   id: string;
   code: string;
   status: 'unused' | 'used' | 'revoked';
   createdAt: string;
   expiresAt: string | null;
+  note: string;
   maxUsage: number;
   usageCount: number;
-  usedBy: string | null;
-  note: string;
+  usedBy?: string;
 }
 
+// Fix for NotificationSettings missing error: Add NotificationSettings interface
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -169,16 +185,4 @@ export interface NotificationSettings {
   smsSenderId: string;
   smsTemplateId: string;
   testMode: boolean;
-}
-
-export interface NotificationLog {
-  id: string;
-  createdAt: string;
-  userId: string;
-  orderId: string;
-  channel: 'email' | 'sms';
-  status: 'sent' | 'failed';
-  response: string;
-  type: OrderStatus;
-  retryCount: number;
 }

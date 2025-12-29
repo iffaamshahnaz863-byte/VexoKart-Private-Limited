@@ -4,6 +4,7 @@ import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { Product } from '../../types';
+import ImageCropperModal from '../../components/ImageCropperModal';
 
 const AdminProductFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -13,10 +14,9 @@ const AdminProductFormPage: React.FC = () => {
   
   const isEditing = id !== undefined;
   
-  // Added missing allow_online and allow_cod properties to satisfy Product type requirements
   const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount'>>({
     name: '',
-    category: '', // This will store category ID
+    category: '', 
     price: 0,
     originalPrice: 0,
     images: [],
@@ -34,9 +34,13 @@ const AdminProductFormPage: React.FC = () => {
     allow_cod: true
   });
 
-  // Local states for textareas to allow seamless typing
   const [highlightsText, setHighlightsText] = useState('');
   const [specsText, setSpecsText] = useState('');
+  
+  // Cropper Queue States
+  const [cropQueue, setCropQueue] = useState<string[]>([]);
+  const [currentCropIndex, setCurrentCropIndex] = useState(0);
+  const [totalInQueue, setTotalInQueue] = useState(0);
 
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
 
@@ -44,39 +48,21 @@ const AdminProductFormPage: React.FC = () => {
     if (isEditing) {
       const productToEdit = getProduct(parseInt(id));
       if (productToEdit) {
-        // Find category ID for the existing product name
         const cat = categories.find(c => c.name === productToEdit.category);
-        
         setFormData({
-            name: productToEdit.name,
+            ...productToEdit,
             category: cat ? cat.id.toString() : '',
-            price: productToEdit.price,
-            originalPrice: productToEdit.originalPrice,
-            images: productToEdit.images,
-            description: productToEdit.description,
-            vendorId: productToEdit.vendorId,
-            status: productToEdit.status,
-            highlights: productToEdit.highlights || [],
-            stock: productToEdit.stock || 0,
-            specifications: productToEdit.specifications || {},
-            sellerInfo: productToEdit.sellerInfo || 'VexoKart Direct',
-            returnPolicy: productToEdit.returnPolicy || '30-Day Money Back Guarantee',
-            warranty: productToEdit.warranty || '1 Year Standard Warranty',
-            videoUrl: productToEdit.videoUrl || '',
             allow_online: productToEdit.allow_online ?? true,
             allow_cod: productToEdit.allow_cod ?? true
         });
         setHighlightsText((productToEdit.highlights || []).join('\n'));
         setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
       }
-    } else {
-        if (categories.length > 0) {
-            setFormData(prev => ({...prev, category: categories[0].id.toString()}));
-        }
+    } else if (categories.length > 0) {
+        setFormData(prev => ({...prev, category: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
 
-  // Updated handleChange to handle checkbox inputs for allow_online and allow_cod
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as any;
     if (type === 'checkbox') {
@@ -86,18 +72,54 @@ const AdminProductFormPage: React.FC = () => {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      for (const file of e.target.files) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFormData(prev => ({
-            ...prev,
-            images: [...prev.images, reader.result as string]
-          }));
+  const validateImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            if (img.width < 600 || img.height < 600) {
+                reject(`Image "${file.name}" is too small (${img.width}x${img.height}). Min required: 600x600.`);
+            } else {
+                resolve(URL.createObjectURL(file));
+            }
         };
-        reader.readAsDataURL(file);
+        img.onerror = () => reject("Corrupted image file.");
+        img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // Fixed handleImageChange to avoid unknown type error
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files) as File[];
+      const urls: string[] = [];
+      
+      for (const file of files) {
+          try {
+              const url = await validateImage(file);
+              urls.push(url);
+          } catch (err: any) {
+              alert(err);
+          }
       }
+
+      if (urls.length > 0) {
+        setTotalInQueue(urls.length);
+        setCurrentCropIndex(0);
+        setCropQueue(urls);
+      }
+      
+      // Reset input so same file can be picked again
+      e.target.value = '';
+    }
+  };
+
+  const handleCropComplete = (croppedBase64: string) => {
+    setFormData(prev => ({ ...prev, images: [...prev.images, croppedBase64] }));
+    
+    if (currentCropIndex < cropQueue.length - 1) {
+        setCurrentCropIndex(prev => prev + 1);
+    } else {
+        setCropQueue([]);
     }
   };
 
@@ -107,114 +129,94 @@ const AdminProductFormPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[AdminForm] Submitting Category ID:", formData.category);
-    
-    if(formData.images.length === 0) {
-        alert("Please upload at least one image for the product.");
-        return;
-    }
+    if(formData.images.length === 0) { alert("Please upload at least one image."); return; }
+    if (!formData.allow_online && !formData.allow_cod) { alert("Select at least one payment method."); return; }
 
-    if (!formData.allow_online && !formData.allow_cod) {
-        alert("Select at least one payment method (Online or COD).");
-        return;
-    }
-
-    // Parse highlights and specs from local text states before saving
     const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
     const finalSpecs: { [key: string]: string } = {};
     specsText.split('\n').forEach(line => {
       const parts = line.split(':');
-      if (parts.length === 2) {
-        finalSpecs[parts[0].trim()] = parts[1].trim();
-      }
+      if (parts.length === 2) finalSpecs[parts[0].trim()] = parts[1].trim();
     });
 
-    const finalData = { 
-        ...formData, 
-        highlights: finalHighlights, 
-        specifications: finalSpecs 
-    };
+    const finalData = { ...formData, highlights: finalHighlights, specifications: finalSpecs };
 
     if (isEditing) {
-      const existingProduct = getProduct(parseInt(id));
-      const updatedData = { ...existingProduct, ...finalData, id: parseInt(id) } as Product;
-      updateProduct(updatedData);
+      updateProduct({ ...finalData as any, id: parseInt(id) } as Product);
     } else {
       const { status, ...productData } = finalData;
       addProduct(productData as any);
-      alert("Product published successfully!");
     }
     navigate('/admin/products');
   };
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-text-main mb-6">{isEditing ? 'Edit Product' : 'Create New Product'}</h1>
+      {cropQueue.length > 0 && (
+          <ImageCropperModal 
+            image={cropQueue[currentCropIndex]} 
+            queueCount={currentCropIndex + 1}
+            totalInQueue={totalInQueue}
+            title="Standardize Product Image"
+            onCropComplete={handleCropComplete}
+            onCancel={() => setCropQueue([])}
+          />
+      )}
+
+      <h1 className="text-3xl font-black text-text-main uppercase italic mb-6">{isEditing ? 'Edit Catalog Entry' : 'Create New Inventory'}</h1>
       <GlassmorphicCard className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div><label className="block text-sm font-medium text-text-secondary">Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} /></div>
-            <div><label className="block text-sm font-medium text-text-secondary">Category</label><select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><label className="block text-[10px] font-black uppercase text-text-muted">Product Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} /></div>
+                <div><label className="block text-[10px] font-black uppercase text-text-muted">Category</label><select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+            </div>
+
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div><label className="block text-sm font-medium text-text-secondary">Price (₹)</label><input type="number" name="price" value={formData.price} onChange={handleChange} required className={inputClasses} /></div>
-                <div><label className="block text-sm font-medium text-text-secondary">Original Price (₹)</label><input type="number" name="originalPrice" value={formData.originalPrice} onChange={handleChange} className={inputClasses} /></div>
-                 <div><label className="block text-sm font-medium text-text-secondary">Stock</label><input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} /></div>
+                <div><label className="block text-[10px] font-black uppercase text-text-muted">Price (₹)</label><input type="number" name="price" value={formData.price} onChange={handleChange} required className={inputClasses} /></div>
+                <div><label className="block text-[10px] font-black uppercase text-text-muted">Original (₹)</label><input type="number" name="originalPrice" value={formData.originalPrice} onChange={handleChange} className={inputClasses} /></div>
+                 <div><label className="block text-[10px] font-black uppercase text-text-muted">Stock Level</label><input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} /></div>
             </div>
-            <div><label className="block text-sm font-medium text-text-secondary">Description</label><textarea name="description" value={formData.description} onChange={handleChange} required rows={4} className={inputClasses}></textarea></div>
+
+            <div><label className="block text-[10px] font-black uppercase text-text-muted">Description</label><textarea name="description" value={formData.description} onChange={handleChange} required rows={4} className={inputClasses}></textarea></div>
             
-            <div>
-                <label className="block text-sm font-medium text-text-secondary">Images</label>
-                <div className="mt-2"><input type="file" id="imageUpload" multiple accept="image/*" onChange={handleImageChange} className="hidden" /><label htmlFor="imageUpload" className="cursor-pointer bg-surface text-text-main font-semibold py-2 px-4 rounded-lg border border-gray-600 hover:bg-gray-700">Choose Files</label></div>
-                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+            <div className="p-4 bg-surface rounded-2xl border border-border">
+                <label className="block text-[10px] font-black uppercase text-text-muted mb-3">Product Gallery</label>
+                <div className="flex flex-wrap gap-4">
                     {formData.images.map((image, index) => (
-                        <div key={index} className="relative"><img src={image} alt={`preview ${index}`} className="w-full h-24 object-cover rounded-lg"/><button type="button" onClick={() => removeImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">&times;</button></div>
+                        <div key={index} className="relative group">
+                            <img src={image} alt={`preview ${index}`} className="w-24 h-24 object-cover rounded-xl border-2 border-white shadow-md"/>
+                            <button type="button" onClick={() => removeImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-lg hover:scale-110 transition-transform">&times;</button>
+                        </div>
                     ))}
+                    <div className="relative">
+                        <input type="file" id="imageUpload" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+                        <label htmlFor="imageUpload" className="w-24 h-24 cursor-pointer bg-white border-2 border-dashed border-accent/30 rounded-xl flex flex-col items-center justify-center text-accent hover:bg-accent/5 transition-all group">
+                             <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                             <span className="text-[8px] font-black uppercase mt-1">Add Visuals</span>
+                        </label>
+                    </div>
+                </div>
+                <p className="text-[9px] text-text-muted mt-3 italic">* Minimum resolution: 600x600px. High quality 1:1 ratio images only.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Options</label>
+                    <div className="flex gap-6">
+                        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="allow_online" checked={formData.allow_online} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-accent focus:ring-accent bg-surface"/><span className="text-xs font-bold text-text-main">Digital</span></label>
+                        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="allow_cod" checked={formData.allow_cod} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-accent focus:ring-accent bg-surface"/><span className="text-xs font-bold text-text-main">COD</span></label>
+                    </div>
                 </div>
             </div>
 
-            {/* Added Payment Configuration section to allow controlling payment methods from Admin panel */}
-            <div>
-                <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Configuration</label>
-                <div className="flex flex-wrap gap-6">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                        <input 
-                            type="checkbox" 
-                            name="allow_online"
-                            checked={formData.allow_online}
-                            onChange={handleChange}
-                            className="w-5 h-5 rounded border-gray-600 text-accent focus:ring-accent bg-surface"
-                        />
-                        <div className="flex flex-col">
-                            <span className="text-sm font-bold text-text-main group-hover:text-accent transition-colors">Digital Transaction</span>
-                            <span className="text-[10px] text-text-muted uppercase font-black tracking-widest">Card, UPI, NetBanking</span>
-                        </div>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                        <input 
-                            type="checkbox" 
-                            name="allow_cod"
-                            checked={formData.allow_cod}
-                            onChange={handleChange}
-                            className="w-5 h-5 rounded border-gray-600 text-accent focus:ring-accent bg-surface"
-                        />
-                        <div className="flex flex-col">
-                            <span className="text-sm font-bold text-text-main group-hover:text-accent transition-colors">Cash On Delivery</span>
-                            <span className="text-[10px] text-text-muted uppercase font-black tracking-widest">Pay at doorstep</span>
-                        </div>
-                    </label>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-[10px] font-black uppercase text-text-muted">Highlights (per line)</label><textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={4} className={inputClasses} placeholder="e.g.&#10;Premium Design"></textarea></div>
+                <div><label className="block text-[10px] font-black uppercase text-text-muted">Specifications (Key: Value)</label><textarea value={specsText} onChange={(e) => setSpecsText(e.target.value)} rows={4} className={inputClasses} placeholder="e.g.&#10;Color: Black"></textarea></div>
             </div>
 
-            <div><label className="block text-sm font-medium text-text-secondary">Highlights (one per line)</label><textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={4} className={inputClasses} placeholder="e.g.&#10;Premium Design&#10;Long Battery Life"></textarea></div>
-            <div><label className="block text-sm font-medium text-text-secondary">Specifications (format: Key: Value)</label><textarea value={specsText} onChange={(e) => setSpecsText(e.target.value)} rows={5} className={inputClasses} placeholder="e.g.&#10;Color: Black&#10;Material: Aluminum"></textarea></div>
-            <div><label className="block text-sm font-medium text-text-secondary">Video URL (optional)</label><input type="url" name="videoUrl" value={formData.videoUrl} onChange={handleChange} className={inputClasses} /></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><label className="block text-sm font-medium text-text-secondary">Seller Info</label><input type="text" name="sellerInfo" value={formData.sellerInfo} onChange={handleChange} className={inputClasses} /></div>
-              <div><label className="block text-sm font-medium text-text-secondary">Return Policy</label><input type="text" name="returnPolicy" value={formData.returnPolicy} onChange={handleChange} className={inputClasses} /></div>
-              <div><label className="block text-sm font-medium text-text-secondary">Warranty</label><input type="text" name="warranty" value={formData.warranty} onChange={handleChange} className={inputClasses} /></div>
-            </div>
             <div className="flex justify-end gap-4 pt-4">
-                <button type="button" onClick={() => navigate('/admin/products')} className="bg-gray-600/50 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500/50">Cancel</button>
-                <button type="submit" className="bg-accent text-white font-bold py-2 px-4 rounded-lg hover:brightness-110">{isEditing ? 'Update Product' : 'Create Product'}</button>
+                <button type="button" onClick={() => navigate('/admin/products')} className="px-6 py-2 rounded-xl text-[10px] font-black uppercase text-text-secondary hover:bg-surface">Cancel</button>
+                <button type="submit" className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/20 hover:-translate-y-1 transition-all">{isEditing ? 'Sync Changes' : 'Go Live'}</button>
             </div>
         </form>
       </GlassmorphicCard>

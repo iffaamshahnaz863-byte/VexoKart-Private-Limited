@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
-import { Product } from '../../types';
+import { Product, ProductVariantColor } from '../../types';
 import { useVendors } from '../../context/VendorContext';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/Toast';
-// Fix: Added missing import for ChevronLeftIcon
 import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
+import ImageCropperModal from '../../components/ImageCropperModal';
+
+const SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
 const VendorProductFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -22,9 +24,9 @@ const VendorProductFormPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'info' });
   
-  const [formData, setFormData] = useState<Omit<Product, 'id' | 'reviews' | 'rating' | 'reviewCount' | 'status' | 'vendorId'>>({
+  const [formData, setFormData] = useState<any>({
     name: '',
-    category: '', // This will store category ID
+    category: '', 
     price: 0,
     originalPrice: 0,
     images: [],
@@ -33,47 +35,23 @@ const VendorProductFormPage: React.FC = () => {
     stock: 10,
     specifications: {},
     sellerInfo: '',
-    returnPolicy: '30-Day Money Back Guarantee',
-    warranty: '1 Year Standard Warranty',
-    videoUrl: '',
     allow_online: true,
-    allow_cod: true
+    allow_cod: true,
+    colors: [] as ProductVariantColor[],
+    sizes: [] as string[]
   });
 
   const [highlightsText, setHighlightsText] = useState('');
-  const [specsText, setSpecsText] = useState('');
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorImage, setNewColorImage] = useState('');
+
+  // Cropper States
+  const [cropQueue, setCropQueue] = useState<string[]>([]);
+  const [currentCropIndex, setCurrentCropIndex] = useState(0);
+  const [totalInQueue, setTotalInQueue] = useState(0);
+  const [targetVariantIdx, setTargetVariantIdx] = useState<number | null>(null);
   
-  const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50";
-
-  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
-    setToast({ show: true, message, type });
-  };
-
-  const resizeImage = (file: File, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          if (width > height) {
-            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-          } else {
-            if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.8));
-        };
-        img.src = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
-  };
+  const inputClasses = "w-full mt-1 bg-surface text-text-main border border-border rounded-xl p-3 transition focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 disabled:opacity-50";
 
   useEffect(() => {
     if (user?.email && !currentVendor) fetchCurrentVendor(user.email);
@@ -81,16 +59,18 @@ const VendorProductFormPage: React.FC = () => {
 
   useEffect(() => {
     if (isEditing) {
-      const productToEdit = getProduct(parseInt(id));
-      if (productToEdit) {
-        // Find category ID for the existing product name
-        const cat = categories.find(c => c.name === productToEdit.category);
+      const p = getProduct(parseInt(id));
+      if (p) {
+        const cat = categories.find(c => c.name === p.category);
         setFormData({ 
-            ...productToEdit, 
-            category: cat ? cat.id.toString() : '' 
+            ...p, 
+            category: cat ? cat.id.toString() : p.category,
+            allow_online: p.allow_online ?? true,
+            allow_cod: p.allow_cod ?? true,
+            colors: p.colors || [],
+            sizes: p.sizes || []
         });
-        setHighlightsText((productToEdit.highlights || []).join('\n'));
-        setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
+        setHighlightsText((p.highlights || []).join('\n'));
       }
     } else if (categories.length > 0) {
       setFormData(prev => ({...prev, category: categories[0].id.toString()}));
@@ -106,132 +86,224 @@ const VendorProductFormPage: React.FC = () => {
     }
   };
 
-  // Fixed handleImageChange: cast files to File[] to satisfy type requirements for resizeImage
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Cast FileList conversion to explicit File[] to avoid unknown type errors
       const files = Array.from(e.target.files) as File[];
-      const processedImages: string[] = [];
-      for (const file of files) {
-        const compressed = await resizeImage(file);
-        processedImages.push(compressed);
-      }
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...processedImages].slice(0, 5) }));
+      const urls = files.map(file => URL.createObjectURL(file));
+      setTargetVariantIdx(null); // Default gallery
+      setTotalInQueue(urls.length);
+      setCurrentCropIndex(0);
+      setCropQueue(urls);
+      e.target.value = '';
     }
   };
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+  const handleVariantImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const url = URL.createObjectURL(e.target.files[0]);
+          setTargetVariantIdx(-1); // Special code for new variant
+          setCropQueue([url]);
+          setTotalInQueue(1);
+          setCurrentCropIndex(0);
+          e.target.value = '';
+      }
+  }
+
+  const handleCropComplete = (croppedBase64: string) => {
+    if (targetVariantIdx === -1) {
+        setNewColorImage(croppedBase64);
+    } else if (targetVariantIdx !== null) {
+        // Update existing variant image if needed (not implemented for simplicity)
+    } else {
+        setFormData(prev => ({ ...prev, images: [...prev.images, croppedBase64] }));
+    }
+    
+    if (currentCropIndex < cropQueue.length - 1) {
+        setCurrentCropIndex(prev => prev + 1);
+    } else {
+        setCropQueue([]);
+        setTargetVariantIdx(null);
+    }
   };
 
-  const setAsCover = (index: number) => {
-    setFormData(prev => {
-        const newImages = [...prev.images];
-        const [cover] = newImages.splice(index, 1);
-        return { ...prev, images: [cover, ...newImages] };
-    });
+  const addColorVariant = () => {
+      if (!newColorName || !newColorImage) return;
+      setFormData(prev => ({ ...prev, colors: [...prev.colors, { name: newColorName, image: newColorImage }] }));
+      setNewColorName('');
+      setNewColorImage('');
+  };
+
+  const removeColorVariant = (idx: number) => {
+      setFormData(prev => ({ ...prev, colors: prev.colors.filter((_, i) => i !== idx) }));
+  };
+
+  const toggleSize = (size: string) => {
+      setFormData(prev => {
+          const current = prev.sizes || [];
+          return { ...prev, sizes: current.includes(size) ? current.filter(s => s !== size) : [...current, size] };
+      });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[VendorForm] Submitting Category ID:", formData.category);
-    
-    if (!currentVendor) { alert("Vendor profile not loaded."); return; }
-    if (formData.images.length === 0) { alert("At least one image is required."); return; }
-    if (!formData.allow_online && !formData.allow_cod) { alert("Select a payment method."); return; }
+    if (formData.images.length === 0) { alert("Please provide at least one product image."); return; }
+    if (!formData.allow_online && !formData.allow_cod) { alert("Select a supported payment mode."); return; }
 
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
-        const finalSpecs: { [key: string]: string } = {};
-        specsText.split('\n').forEach(line => {
-          const parts = line.split(':');
-          if (parts.length === 2) finalSpecs[parts[0].trim()] = parts[1].trim();
-        });
-
         const finalData = { 
             ...formData, 
-            vendor_id: currentVendor.id,
-            highlights: finalHighlights, 
-            specifications: finalSpecs 
+            vendor_id: currentVendor?.id,
+            highlights: finalHighlights,
+            status: 'approved' // Auto-approve
         };
 
         if (isEditing) {
-          await updateProduct({ ...finalData as any, id: parseInt(id), status: 'approved' });
-          showToast("Listing Updated!");
+          await updateProduct({ ...finalData, id: parseInt(id) });
         } else {
-          await addProduct({ ...finalData, status: 'approved' });
-          showToast("Product Published!");
+          await addProduct(finalData);
         }
+        setToast({ show: true, message: 'Published to Marketplace!', type: 'success' });
         setTimeout(() => navigate('/vendor/products'), 1500);
     } catch (err: any) {
-        alert(err.message || "Submission failed.");
+        alert(`Failed to save: ${err.message}`);
     } finally {
         setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="pb-10 max-w-5xl mx-auto">
+    <div className="pb-20 max-w-5xl mx-auto">
       <Toast isVisible={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+      
+      {cropQueue.length > 0 && (
+          <ImageCropperModal 
+            image={cropQueue[currentCropIndex]} 
+            queueCount={currentCropIndex + 1}
+            totalInQueue={totalInQueue}
+            title="Refine Asset"
+            onCropComplete={handleCropComplete}
+            onCancel={() => setCropQueue([])}
+          />
+      )}
+
       <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => navigate('/vendor/products')} className="p-3 bg-surface rounded-2xl hover:bg-white transition-all shadow-sm border border-border">
+          <button onClick={() => navigate('/vendor/products')} className="p-3 bg-white rounded-2xl hover:bg-surface transition-all shadow-sm border border-border">
               <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">
-            {isEditing ? 'Edit Listing' : 'New Listing'}
+            {isEditing ? 'Modify Listing' : 'Marketplace Entry'}
           </h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Basic Identity</h2>
+            <GlassmorphicCard className="p-8 border-none bg-white">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Core Attributes</h2>
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Product Title</label>
-                        <input type="text" name="name" value={formData.name} onChange={handleChange} required className={inputClasses} placeholder="e.g., Signature Suede Loafers" />
+                        <label className="block text-[10px] font-black uppercase text-text-muted mb-1 ml-1">Product Title</label>
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} required disabled={isSubmitting} className={inputClasses} placeholder="e.g., Slim Fit Essential Shirt" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Product Category</label>
-                            <select name="category" value={formData.category} onChange={handleChange} className={inputClasses}>
+                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1 ml-1">Category</label>
+                            <select name="category" value={formData.category} onChange={handleChange} disabled={isSubmitting} className={inputClasses}>
                                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Inventory Level</label>
-                            <input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} />
+                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1 ml-1">Stock Position</label>
+                            <input type="number" name="stock" value={formData.stock} onChange={handleChange} required disabled={isSubmitting} className={inputClasses} />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Selling Price (₹)</label>
-                            <input type="number" name="price" value={formData.price} onChange={handleChange} required className={inputClasses} />
+                            <label className="block text-[10px] font-black uppercase text-accent mb-1 ml-1">Selling Price (₹)</label>
+                            <input type="number" name="price" value={formData.price} onChange={handleChange} required disabled={isSubmitting} className={inputClasses} />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">MRP / Old Price (₹)</label>
-                            <input type="number" name="originalPrice" value={formData.originalPrice} onChange={handleChange} className={inputClasses} />
+                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1 ml-1">Original MRP (₹)</label>
+                            <input type="number" name="originalPrice" value={formData.originalPrice} onChange={handleChange} disabled={isSubmitting} className={inputClasses} />
                         </div>
                     </div>
                 </div>
             </GlassmorphicCard>
 
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Description & Specs</h2>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Detailed Catalog Content</label>
-                        <textarea name="description" value={formData.description} onChange={handleChange} required rows={4} className={`${inputClasses} resize-none`} placeholder="Elaborate on features, material, and usage..."></textarea>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Highlights (One per line)</label>
-                            <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={4} className={`${inputClasses} resize-none font-medium`} placeholder="• Breathable Mesh&#10;• Anti-slip Sole"></textarea>
+            <GlassmorphicCard className="p-8 border-none bg-white">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Visual Gallery</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    {formData.images.map((img: string, i: number) => (
+                        <div key={i} className="aspect-[3/4] rounded-xl overflow-hidden border border-border relative group bg-surface">
+                            <img src={img} className="w-full h-full object-cover" />
+                            <button 
+                                type="button" 
+                                onClick={() => setFormData(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }))}
+                                className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                            {i === 0 && <span className="absolute bottom-2 left-2 bg-accent text-[8px] font-black text-white px-2 py-0.5 rounded uppercase">Primary</span>}
                         </div>
-                        <div>
-                            <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Specifications (Key: Value)</label>
-                            <textarea value={specsText} onChange={(e) => setSpecsText(e.target.value)} rows={4} className={`${inputClasses} resize-none font-mono text-xs`} placeholder="Material: Leather&#10;Color: Navy Blue"></textarea>
+                    ))}
+                    <label className="aspect-[3/4] rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:bg-surface transition-all">
+                        <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+                        <svg className="w-6 h-6 text-text-muted mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        <span className="text-[9px] font-black uppercase text-text-muted">Add Asset</span>
+                    </label>
+                </div>
+            </GlassmorphicCard>
+
+            <GlassmorphicCard className="p-8 border-none bg-white">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Variants (Color & Size)</h2>
+                <div className="space-y-8">
+                    {/* Size Variants */}
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-text-muted mb-3 ml-1">Available Sizes</p>
+                        <div className="flex flex-wrap gap-2">
+                            {SIZE_OPTIONS.map(size => (
+                                <button 
+                                    key={size}
+                                    type="button"
+                                    onClick={() => toggleSize(size)}
+                                    className={`w-12 h-12 rounded-xl text-[10px] font-black transition-all border-2 ${formData.sizes.includes(size) ? 'border-accent bg-accent text-white' : 'border-border bg-white text-text-muted hover:border-accent'}`}
+                                >
+                                    {size}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Color Variants */}
+                    <div className="space-y-4">
+                        <p className="text-[10px] font-black uppercase text-text-muted mb-1 ml-1">Color Shades</p>
+                        <div className="flex flex-wrap gap-4">
+                            {formData.colors.map((c: ProductVariantColor, i: number) => (
+                                <div key={i} className="flex items-center gap-3 p-2 bg-surface rounded-2xl border border-border">
+                                    <img src={c.image} className="w-10 h-10 rounded-full object-cover" />
+                                    <span className="text-[10px] font-black uppercase text-text-main pr-2">{c.name}</span>
+                                    <button type="button" onClick={() => removeColorVariant(i)} className="text-red-500 p-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-surface/50 rounded-2xl border-2 border-dashed border-border">
+                            <div>
+                                <label className="block text-[9px] font-black uppercase text-text-muted mb-1">Color Name</label>
+                                <input type="text" value={newColorName} onChange={(e) => setNewColorName(e.target.value)} className={inputClasses} placeholder="e.g., Midnight Blue" />
+                            </div>
+                            <div className="flex gap-3 items-end">
+                                <div className="flex-grow">
+                                    <label className="block text-[9px] font-black uppercase text-text-muted mb-1">Swatch Image</label>
+                                    <label className="w-full bg-white border border-border rounded-xl p-3 flex items-center gap-2 cursor-pointer text-xs font-bold">
+                                        <input type="file" accept="image/*" onChange={handleVariantImageChange} className="hidden" />
+                                        {newColorImage ? 'Image Ready' : 'Select Swatch'}
+                                        {newColorImage && <img src={newColorImage} className="w-4 h-4 rounded-full ml-auto" />}
+                                    </label>
+                                </div>
+                                <button type="button" onClick={addColorVariant} className="bg-text-main text-white px-4 py-3.5 rounded-xl text-[10px] font-black uppercase">Add</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -239,56 +311,31 @@ const VendorProductFormPage: React.FC = () => {
         </div>
 
         <div className="space-y-6">
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Gallery (Max 5)</h2>
+            <GlassmorphicCard className="p-8 border-none bg-white">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Listing Controls</h2>
                 <div className="space-y-4">
-                    <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center bg-surface/30 group hover:border-accent transition-colors">
-                        <input type="file" id="imageUpload" multiple accept="image/*" onChange={handleImageChange} className="hidden" disabled={formData.images.length >= 5} />
-                        <label htmlFor="imageUpload" className={`cursor-pointer block ${formData.images.length >= 5 ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                            <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                                <svg className="w-6 h-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            </div>
-                            <p className="text-xs font-black uppercase tracking-tighter text-text-main">Add Assets</p>
-                            <p className="text-[10px] text-text-muted mt-1">{5 - formData.images.length} slots remaining</p>
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-text-muted mb-1">Description Highlights</label>
+                        <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={5} className={inputClasses} placeholder="One feature per line..."></textarea>
+                    </div>
+                    
+                    <div className="pt-4 space-y-3">
+                        <p className="text-[10px] font-black uppercase text-text-muted mb-1 ml-1">Payment Strategy</p>
+                        <label className="flex items-center gap-3 p-4 bg-surface rounded-2xl cursor-pointer border border-border hover:border-accent transition-all">
+                            <input type="checkbox" name="allow_online" checked={formData.allow_online} onChange={handleChange} className="w-5 h-5 rounded border-gray-300 text-accent focus:ring-accent" />
+                            <span className="text-xs font-black uppercase tracking-tighter">Digital Payment Only</span>
+                        </label>
+                        <label className="flex items-center gap-3 p-4 bg-surface rounded-2xl cursor-pointer border border-border hover:border-accent transition-all">
+                            <input type="checkbox" name="allow_cod" checked={formData.allow_cod} onChange={handleChange} className="w-5 h-5 rounded border-gray-300 text-accent focus:ring-accent" />
+                            <span className="text-xs font-black uppercase tracking-tighter">Cash on Delivery</span>
                         </label>
                     </div>
-
-                    <div className="grid grid-cols-1 gap-3">
-                        {formData.images.map((image, index) => (
-                            <div key={index} className="relative group p-2 bg-surface rounded-xl border border-border flex items-center gap-3">
-                                <img src={image} className="w-16 h-16 object-cover rounded-lg border border-border bg-white" alt={`product ${index}`} />
-                                <div className="flex-grow">
-                                    <p className="text-[9px] font-black uppercase text-text-muted tracking-widest">{index === 0 ? 'Cover Image' : `View ${index + 1}`}</p>
-                                    <div className="flex gap-2 mt-1">
-                                        {index !== 0 && (
-                                            <button type="button" onClick={() => setAsCover(index)} className="text-[8px] font-black uppercase text-accent hover:underline">Mark Cover</button>
-                                        )}
-                                        <button type="button" onClick={() => removeImage(index)} className="text-[8px] font-black uppercase text-red-500 hover:underline">Remove</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
                 </div>
-            </GlassmorphicCard>
-
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Policy & Modes</h2>
-                <div className="space-y-4">
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface rounded-xl border border-border">
-                        <input type="checkbox" name="allow_online" checked={formData.allow_online} onChange={handleChange} className="w-5 h-5 rounded border-gray-600 text-accent" />
-                        <span className="text-xs font-bold text-text-main group-hover:text-accent transition-colors">Accept Online Pay</span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface rounded-xl border border-border">
-                        <input type="checkbox" name="allow_cod" checked={formData.allow_cod} onChange={handleChange} className="w-5 h-5 rounded border-gray-600 text-accent" />
-                        <span className="text-xs font-bold text-text-main group-hover:text-accent transition-colors">Accept Cash (COD)</span>
-                    </label>
-                </div>
-                <div className="mt-8 flex flex-col gap-3">
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/30 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50">
-                        {isSubmitting ? 'Processing...' : (isEditing ? 'Sync Changes' : 'Go Live Now')}
+                
+                <div className="mt-8">
+                    <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-4 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/20 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50">
+                        {isSubmitting ? 'Syncing Catalog...' : (isEditing ? 'Update Listing' : 'Publish to Store')}
                     </button>
-                    <button type="button" onClick={() => navigate('/vendor/products')} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-text-muted hover:bg-surface rounded-2xl transition-all">Discard</button>
                 </div>
             </GlassmorphicCard>
         </div>

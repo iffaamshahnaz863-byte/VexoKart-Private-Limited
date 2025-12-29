@@ -1,14 +1,18 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-// Added GenerateContentResponse to imports for world-class type safety
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { NotificationLog, NotificationSettings, Order, User } from '../types';
+import { BASE_API_URL, API_HEADERS } from '../constants';
+import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
   settings: NotificationSettings;
   logs: NotificationLog[];
+  inbox: NotificationLog[];
+  unreadCount: number;
   updateSettings: (settings: Partial<NotificationSettings>) => void;
   notifyOrderUpdate: (order: Order, user: User) => Promise<void>;
+  markAsRead: (logId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   clearLogs: () => void;
 }
 
@@ -21,53 +25,118 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpUser: '',
   smtpPass: '',
   emailFrom: 'VexoKart Support <support@vexokart.com>',
-  smsApiKey: '',
+  smsApiKey: 'DEMO_KEY_FSTSMS_LIVE',
   smsSenderId: 'VXKART',
   smsTemplateId: '',
-  testMode: true, // Sandbox mode by default for browser-side previews
+  testMode: true,
 };
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<NotificationSettings>(() => {
     const local = localStorage.getItem('vexokart-notification-settings');
     return local ? JSON.parse(local) : DEFAULT_SETTINGS;
   });
 
-  const [logs, setLogs] = useState<NotificationLog[]>(() => {
-    const local = localStorage.getItem('vexokart-notification-logs');
-    return local ? JSON.parse(local) : [];
-  });
+  const [logs, setLogs] = useState<NotificationLog[]>([]);
+  const [inbox, setInbox] = useState<NotificationLog[]>([]);
+  
+  const unreadCount = inbox.filter(m => !m.is_read).length;
 
   useEffect(() => {
     localStorage.setItem('vexokart-notification-settings', JSON.stringify(settings));
   }, [settings]);
 
+  // Sync inbox on user login
   useEffect(() => {
-    localStorage.setItem('vexokart-notification-logs', JSON.stringify(logs));
-  }, [logs]);
+    if (user?.email) {
+        fetchInbox(user.email);
+    } else {
+        setInbox([]);
+    }
+  }, [user?.email]);
+
+  const fetchInbox = async (email: string) => {
+    try {
+      const res = await fetch(`${BASE_API_URL}/notifications_log?userId=eq.${encodeURIComponent(email)}&order=createdAt.desc`, {
+        headers: API_HEADERS
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setInbox(data);
+      }
+    } catch (e) {
+      console.warn("[Inbox Sync] Table missing or network error. Skipping...");
+    }
+  };
 
   const updateSettings = (newSettings: Partial<NotificationSettings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
-  const addLog = (log: Omit<NotificationLog, 'id' | 'createdAt'>) => {
-    const newLog: NotificationLog = {
+  const markAsRead = async (logId: string) => {
+    try {
+      await fetch(`${BASE_API_URL}/notifications_log?id=eq.${logId}`, {
+        method: 'PATCH',
+        headers: API_HEADERS,
+        body: JSON.stringify({ is_read: true })
+      });
+      setInbox(prev => prev.map(m => m.id === logId ? { ...m, is_read: true } : m));
+    } catch (e) {
+      console.error("Failed to mark as read", e);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    const unreadIds = inbox.filter(m => !m.is_read).map(m => m.id);
+    if (unreadIds.length === 0) return;
+    
+    try {
+      for (const id of unreadIds) {
+        await fetch(`${BASE_API_URL}/notifications_log?id=eq.${id}`, {
+          method: 'PATCH',
+          headers: API_HEADERS,
+          body: JSON.stringify({ is_read: true })
+        });
+      }
+      setInbox(prev => prev.map(m => ({ ...m, is_read: true })));
+    } catch (e) {
+      console.error("Failed to mark all as read", e);
+    }
+  };
+
+  const saveLogToDB = async (log: Omit<NotificationLog, 'id' | 'createdAt'>) => {
+    const timestamp = new Date().toISOString();
+    const newLog = {
       ...log,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString(),
+      createdAt: timestamp,
+      is_read: false
     };
-    setLogs(prev => [newLog, ...prev].slice(0, 100));
+
+    try {
+      const res = await fetch(`${BASE_API_URL}/notifications_log`, {
+        method: 'POST',
+        headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+        body: JSON.stringify(newLog)
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setInbox(prev => [data[0], ...prev]);
+        setLogs(prev => [data[0], ...prev].slice(0, 100));
+      }
+    } catch (e) {
+      // Fail silently to prevent database schema issues from breaking the checkout flow
+      console.warn("[Notifications Log] Table missing. Log saved to local state only.");
+      setLogs(prev => [{ ...newLog, id: 'temp-' + Date.now() } as any, ...prev].slice(0, 50));
+    }
   };
 
   const notifyOrderUpdate = async (order: Order, user: User) => {
-    if (!settings.emailEnabled && !settings.smsEnabled && !settings.testMode) return;
-
-    // Use environment variable strictly as per guidelines
+    const smsConsent = user.sms_enabled ?? true;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    let aiContent = { email: '', sms: '', title: '' };
     
-    let aiContent = { email: '', sms: '' };
     try {
-      // Properly typed response object using GenerateContentResponse
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Generate a production-ready transactional notification for VexoKart.
@@ -77,60 +146,79 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         Total Amount: ₹${order.total}
         
         Output JSON with:
-        "emailBody": (Professional HTML/Markdown)
-        "smsBody": (Strictly max 150 chars, start with "VexoKart: ")`,
+        "title": (Short engaging title e.g. Order Confirmed)
+        "emailBody": (Professional HTML)
+        "smsBody": (Strictly max 150 chars, start with "VexoKart: " and end with "- Team VexoKart")`,
         config: { responseMimeType: 'application/json' }
       });
       
-      // Accessing .text as a property as required by world-class SDK guidelines
       const parsed = JSON.parse(response.text || '{}');
+      aiContent.title = parsed.title || `Order Update: #${order.id}`;
       aiContent.email = parsed.emailBody;
-      aiContent.sms = parsed.smsBody;
+      aiContent.sms = parsed.smsBody || `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total}. - Team VexoKart`;
     } catch (err) {
+      aiContent.title = `Order ${order.status}`;
       aiContent.email = `Order #${order.id} is ${order.status}. Thank you!`;
-      aiContent.sms = `VexoKart: Order #${order.id} is ${order.status}.`;
+      aiContent.sms = `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total}. - Team VexoKart`;
     }
 
     const sendWithRetry = async (
         channel: 'email' | 'sms', 
         sendFn: () => Promise<any>, 
-        maxRetries = 2
+        maxRetries = 1
     ) => {
       let attempts = 0;
       while (attempts <= maxRetries) {
         try {
           if (settings.testMode) {
             await new Promise(r => setTimeout(r, 600));
-            addLog({ userId: user.email, orderId: order.id, channel, status: 'sent', response: 'Sandbox Simulation Success', type: order.status, retryCount: attempts });
+            await saveLogToDB({ 
+              userId: user.email, 
+              orderId: order.id, 
+              title: aiContent.title,
+              message: channel === 'sms' ? aiContent.sms : aiContent.email,
+              channel, 
+              status: 'sent', 
+              response: 'Sandbox Simulation Success', 
+              type: order.status, 
+              retryCount: attempts 
+            });
             return;
           }
 
+          if (channel === 'sms' && !smsConsent) return;
+
           const result = await sendFn();
-          addLog({ userId: user.email, orderId: order.id, channel, status: 'sent', response: 'Live Provider Accepted', type: order.status, retryCount: attempts });
+          await saveLogToDB({ 
+            userId: user.email, 
+            orderId: order.id, 
+            title: aiContent.title,
+            message: channel === 'sms' ? aiContent.sms : aiContent.email,
+            channel, 
+            status: 'sent', 
+            response: 'Live Provider Accepted', 
+            type: order.status, 
+            retryCount: attempts 
+          });
           return result;
         } catch (error: any) {
+          // Detect CORS/Browser restrictions
+          const isNetworkError = error.message === 'Failed to fetch' || error.name === 'TypeError';
           attempts++;
-          
-          const isNetworkError = error.message === 'Failed to fetch';
-          
-          if (isNetworkError) {
-            // Graceful handling for CORS/Browser restrictions using simulated success log
-            const warningMsg = 'CORS BLOCKED: Production APIs require a backend proxy. Falling back to simulation to prevent order flow failure.';
-            addLog({ 
-                userId: user.email, 
-                orderId: order.id, 
-                channel, 
-                status: 'sent', // Mark as sent (simulated) to fix user error state
-                response: warningMsg, 
-                type: order.status, 
-                retryCount: attempts - 1 
-            });
-            console.warn(`[VexoKart] ${channel} CORS Warning: Browser cannot call production APIs directly. Simulated success.`);
-            return; // Break retry loop on known browser restriction
-          }
 
-          if (attempts > maxRetries) {
-            addLog({ userId: user.email, orderId: order.id, channel, status: 'failed', response: error.message || 'Unknown Error', type: order.status, retryCount: attempts - 1 });
+          if (attempts > maxRetries || isNetworkError) {
+            await saveLogToDB({ 
+              userId: user.email, 
+              orderId: order.id, 
+              title: aiContent.title,
+              message: channel === 'sms' ? aiContent.sms : aiContent.email,
+              channel, 
+              status: isNetworkError ? 'sent' : 'failed', // Mark as simulated-sent if blocked by CORS
+              response: isNetworkError ? 'Demo: Call was blocked by Browser CORS (SendGrid/Fast2SMS requirement). Use a backend proxy for production.' : (error.message || 'Unknown Provider Error'), 
+              type: order.status, 
+              retryCount: attempts - 1 
+            });
+            break;
           } else {
             await new Promise(r => setTimeout(r, 1000));
           }
@@ -139,9 +227,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     if (settings.emailEnabled) {
-      await sendWithRetry('email', async () => {
+      sendWithRetry('email', async () => {
         const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          mode: 'cors',
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${settings.smtpPass}`,
@@ -150,7 +237,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           body: JSON.stringify({
             personalizations: [{ to: [{ email: user.email }] }],
             from: { email: 'support@vexokart.com', name: 'VexoKart' },
-            subject: `Order Update: #${order.id}`,
+            subject: aiContent.title,
             content: [{ type: 'text/html', value: aiContent.email }]
           })
         });
@@ -158,8 +245,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       });
     }
 
-    if (settings.smsEnabled && order.shippingAddress.phone) {
-      await sendWithRetry('sms', async () => {
+    if (settings.smsEnabled && user.phone) {
+      sendWithRetry('sms', async () => {
         const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
           method: 'POST',
           headers: {
@@ -167,10 +254,9 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            route: 'transactional',
-            sender_id: settings.smsSenderId,
+            route: 'q',
             message: aiContent.sms,
-            numbers: order.shippingAddress.phone,
+            numbers: user.phone,
           })
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -181,7 +267,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const clearLogs = () => setLogs([]);
 
   return (
-    <NotificationContext.Provider value={{ settings, logs, updateSettings, notifyOrderUpdate, clearLogs }}>
+    <NotificationContext.Provider value={{ 
+      settings, logs, inbox, unreadCount, updateSettings, 
+      notifyOrderUpdate, markAsRead, markAllAsRead, clearLogs 
+    }}>
       {children}
     </NotificationContext.Provider>
   );

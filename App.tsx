@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import HomePage from './pages/HomePage';
@@ -14,6 +13,7 @@ import OrderDetailPage from './pages/OrderDetailPage';
 import ShippingAddressesPage from './pages/ShippingAddressesPage';
 import AddressFormPage from './pages/AddressFormPage';
 import WishlistPage from './pages/WishlistPage';
+import NotificationsPage from './pages/NotificationsPage';
 import BottomNav from './components/BottomNav';
 import SplashScreen from './components/SplashScreen';
 import { CartProvider } from './context/CartContext';
@@ -132,6 +132,7 @@ const AppContent: React.FC = () => {
 
           {/* Protected User Routes */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
           <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
           <Route path="/addresses" element={<ProtectedRoute><ShippingAddressesPage /></ProtectedRoute>} />

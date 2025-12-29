@@ -1,4 +1,3 @@
-
 import React, { ReactNode, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -15,10 +14,10 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    if (user?.email && !currentVendor) {
+    if (user?.email && !currentVendor && !isVendorLoading) {
       fetchCurrentVendor(user.email);
     }
-  }, [user, currentVendor]);
+  }, [user, currentVendor, isVendorLoading]);
 
   const handleLogout = () => {
     logout();
@@ -49,22 +48,23 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   if (vendorError || (!isVendorLoading && !currentVendor)) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
-            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mb-6">
+            <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mb-6 border border-red-100">
                 <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
-            <h2 className="text-xl font-black text-text-main uppercase italic tracking-tight mb-2">Sync Error</h2>
-            <p className="text-text-secondary mb-8 max-w-xs">{vendorError || "We couldn't load your store profile."}</p>
-            <div className="flex gap-4">
-                <button onClick={handleLogout} className="px-6 py-3 border border-border rounded-xl text-xs font-bold">Logout</button>
+            <h2 className="text-xl font-black text-text-main uppercase italic tracking-tight mb-2">Workspace Unavailable</h2>
+            <p className="text-text-secondary mb-8 max-w-xs mx-auto text-sm leading-relaxed">{vendorError || "We couldn't verify your store credentials in the marketplace database."}</p>
+            <div className="flex gap-4 justify-center">
+                <button onClick={handleLogout} className="px-6 py-3 border border-border rounded-xl text-xs font-bold hover:bg-surface transition-all">Logout</button>
                 <button 
                     onClick={() => user?.email && fetchCurrentVendor(user.email)} 
-                    className="px-6 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20"
+                    className="px-6 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20 active:scale-95 transition-all"
                 >
                     Retry Sync
                 </button>
             </div>
+            <p className="mt-12 text-[10px] text-text-muted font-bold uppercase tracking-tighter">VexoKart Marketplace Protocol v2.4</p>
         </div>
     );
   }

@@ -42,6 +42,10 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  /**
+   * WORLD-CLASS VENDOR SYNC
+   * Uses case-insensitive 'ilike' to ensure profiles are found regardless of email casing.
+   */
   const fetchCurrentVendor = async (email: string) => {
     if (!email) {
       setIsVendorLoading(false);
@@ -52,11 +56,12 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setVendorError(null);
     
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?email=eq.${encodeURIComponent(email)}&select=*`, {
+      // Critical Fix: Using ilike instead of eq for robust email matching
+      const res = await fetch(`${BASE_API_URL}/vendors?email=ilike.${encodeURIComponent(email)}&select=*`, {
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
       });
       
-      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+      if (!res.ok) throw new Error(`Network authentication error (${res.status})`);
       
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
@@ -64,7 +69,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setVendorError(null);
       } else {
         setCurrentVendor(null);
-        setVendorError("Vendor profile not found. Please contact support.");
+        setVendorError("Vendor profile record not found in system. Please contact site administrator.");
       }
     } catch (error: any) {
       console.error("Error syncing current vendor:", error);
@@ -81,7 +86,8 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const getVendorByEmailDirect = async (email: string): Promise<Vendor | null> => {
     if (!email) return null;
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?select=*&email=eq.${encodeURIComponent(email)}&status=eq.approved`, {
+      // Also using ilike here for security
+      const res = await fetch(`${BASE_API_URL}/vendors?select=*&email=ilike.${encodeURIComponent(email)}&status=eq.approved`, {
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
       });
       const data = await res.json();
@@ -101,6 +107,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       headers: API_HEADERS,
       body: JSON.stringify({
         ...data,
+        email: data.email.toLowerCase(), // Force lowercase for consistency
         created_at: new Date().toISOString()
       })
     });
@@ -128,19 +135,22 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const updateVendorProfile = async (id: number, updates: Partial<Vendor>) => {
     const url = `${BASE_API_URL}/vendors?id=eq.${id}`;
+    
+    // Ensure email is lowercase if it's being updated
+    const sanitizedUpdates = { ...updates };
+    if (sanitizedUpdates.email) sanitizedUpdates.email = sanitizedUpdates.email.toLowerCase();
+
     const res = await fetch(url, {
       method: 'PATCH',
       headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-      body: JSON.stringify(updates)
+      body: JSON.stringify(sanitizedUpdates)
     });
 
     const result = await res.json();
 
-    // PGRST204: Column not found in schema cache. 
-    // Handle the case where 'store_address' column might not exist yet.
-    if (!res.ok && result.code === 'PGRST204' && updates.store_address !== undefined) {
-        console.warn("[VendorContext] 'store_address' column missing. Retrying update without it.");
-        const { store_address, ...fallbackUpdates } = updates;
+    if (!res.ok && result.code === 'PGRST204' && sanitizedUpdates.store_address !== undefined) {
+        console.warn("[VendorContext] Column missing. Retrying fallback update.");
+        const { store_address, ...fallbackUpdates } = sanitizedUpdates;
         
         const fallbackRes = await fetch(url, {
             method: 'PATCH',
@@ -148,10 +158,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             body: JSON.stringify(fallbackUpdates)
         });
 
-        if (!fallbackRes.ok) {
-            const fallbackErr = await fallbackRes.json();
-            throw new Error(fallbackErr.message || 'Profile fallback update failed');
-        }
+        if (!fallbackRes.ok) throw new Error('Profile update failed');
         
         if (currentVendor && currentVendor.id === id) {
             setCurrentVendor({ ...currentVendor, ...fallbackUpdates });
@@ -160,12 +167,10 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         return;
     }
 
-    if (!res.ok) {
-        throw new Error(result.message || 'Failed to update profile');
-    }
+    if (!res.ok) throw new Error(result.message || 'Failed to update profile');
     
     if (currentVendor && currentVendor.id === id) {
-        setCurrentVendor({ ...currentVendor, ...updates });
+        setCurrentVendor({ ...currentVendor, ...sanitizedUpdates });
     }
     await fetchVendors();
   };

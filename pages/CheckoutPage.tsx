@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
+import { useNotifications } from '../context/NotificationContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { Address, Order, OrderItem } from '../types';
@@ -10,7 +11,8 @@ import { Address, Order, OrderItem } from '../types';
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
-  const { addOrder, updateOrderPaymentDetails, updateOrderStatus } = useOrders();
+  const { addOrder, updateOrderPaymentDetails, updateOrderStatus, getOrderById } = useOrders();
+  const { notifyOrderUpdate } = useNotifications();
   const navigate = useNavigate();
   
   const canPayOnline = useMemo(() => cartItems.every(item => item.allow_online ?? true), [cartItems]);
@@ -34,8 +36,14 @@ const CheckoutPage: React.FC = () => {
     }
   }, [canPayOnline, canPayCOD, paymentMethod]);
 
-  const showSuccessAndNavigate = () => {
+  const showSuccessAndNavigate = (orderId: string) => {
     setOrderPlaced(true);
+    // Requirement 1 & 2: Trigger official notification on confirmation
+    const finalOrder = getOrderById(orderId);
+    if (finalOrder && user) {
+        notifyOrderUpdate(finalOrder, user);
+    }
+
     setTimeout(() => {
         clearCart();
         navigate('/');
@@ -57,14 +65,13 @@ const CheckoutPage: React.FC = () => {
         return;
     }
     
-    // IMPORTANT: Mapping with vendorId snapshot
     const orderItems: OrderItem[] = cartItems.map(item => ({
         id: item.id,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
         image: item.images[0],
-        vendorId: item.vendorId // Snapshotted for the vendor console
+        vendorId: item.vendorId
     }));
 
     const orderPayload: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory' | 'payment_status'> = {
@@ -80,7 +87,7 @@ const CheckoutPage: React.FC = () => {
       if (paymentMethod === 'cod') {
         const newOrderId = await addOrder(orderPayload);
         await updateOrderStatus(newOrderId, 'Confirmed');
-        showSuccessAndNavigate();
+        showSuccessAndNavigate(newOrderId);
         return;
       }
 
@@ -94,7 +101,7 @@ const CheckoutPage: React.FC = () => {
         image: 'https://picsum.photos/seed/logo/128/128',
         handler: async (response: any) => {
           await updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
-          showSuccessAndNavigate();
+          showSuccessAndNavigate(newOrderId);
         },
         prefill: {
           name: user?.name || 'Customer',
@@ -121,7 +128,7 @@ const CheckoutPage: React.FC = () => {
         <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-green-400 mb-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <h1 className="text-2xl font-bold text-text-main uppercase italic">Order Confirmed!</h1>
-            <p className="text-text-muted mt-2 font-medium">Redirecting you to the home page...</p>
+            <p className="text-text-muted mt-2 font-medium">Sending your confirmation message...</p>
         </div>
     );
   }

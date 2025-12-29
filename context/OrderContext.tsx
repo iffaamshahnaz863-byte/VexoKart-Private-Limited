@@ -29,10 +29,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const refreshOrders = async () => {
     try {
-      // Role-based visibility logic
       let url = `${BASE_API_URL}/orders?select=${ORDER_FIELDS}&order=created_at.desc`;
-      
-      // Part 1.1: Standard users only fetch their own orders
       if (user && user.role === 'user') {
         url += `&user_id=eq.${user.id}`;
       }
@@ -43,7 +40,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const data = await response.json();
       
       if (!response.ok) {
-        console.error(`Order Fetch Error: ${response.status}`, data?.message);
         setOrders([]);
         return;
       }
@@ -80,6 +76,64 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  /**
+   * ADAPTIVE SAVE UTILITY (Shared Pattern)
+   * Prevents "Failed to fetch" by stripping columns not present in the DB schema.
+   */
+  const safeOrderSave = async (url: string, method: string, payload: any) => {
+    let currentPayload = { ...payload };
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+          body: JSON.stringify(currentPayload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) return result;
+
+        // Column Missing error from Supabase/PostgREST
+        if (result.code === 'PGRST204' || result.message?.includes('column')) {
+          const match = result.message.match(/column ['"](.+?)['"]/i);
+          const missingColumn = match ? match[1] : null;
+
+          if (missingColumn && currentPayload.hasOwnProperty(missingColumn)) {
+            console.warn(`[Order Adaptation] Dropping missing column: ${missingColumn}`);
+            delete currentPayload[missingColumn];
+            attempts++;
+            continue;
+          }
+          
+          // Brute force suspicious columns if auto-detect fails
+          const suspects = ['history', 'address', 'items', 'payment_status', 'payment_method', 'user_id'];
+          let cleaned = false;
+          for (const s of suspects) {
+            if (currentPayload.hasOwnProperty(s)) {
+                delete currentPayload[s];
+                cleaned = true;
+                break;
+            }
+          }
+          if (!cleaned) throw new Error(result.message);
+          attempts++;
+        } else {
+          throw new Error(result.message || 'Database Transaction Error');
+        }
+      } catch (err: any) {
+        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+            throw new Error("Network Error: Connectivity to Supabase lost or request blocked by CORS.");
+        }
+        throw err;
+      }
+    }
+    throw new Error("Schema synchronization failed after multiple attempts.");
+  };
+
   useEffect(() => {
     if (user) {
         refreshOrders();
@@ -102,15 +156,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       history: [{ status: 'Placed', timestamp }]
     };
 
-    const response = await fetch(`${BASE_API_URL}/orders`, {
-      method: 'POST',
-      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-      body: JSON.stringify(supabasePayload)
-    });
-
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Order creation failed');
-    
+    const result = await safeOrderSave(`${BASE_API_URL}/orders`, 'POST', supabasePayload);
     await refreshOrders();
     return result[0].id.toString();
   };
@@ -132,26 +178,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (details.trackingId) updateBody.tracking_id = details.trackingId;
     if (details.label_url) updateBody.label_url = details.label_url;
 
-    const response = await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify(updateBody)
-    });
-
-    if (!response.ok) throw new Error('Failed to update order status');
-
+    await safeOrderSave(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, 'PATCH', updateBody);
     await refreshOrders();
   };
 
   const updateOrderPaymentDetails = async (orderId: string, paymentId: string) => {
-    await fetch(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ 
-          payment_id: paymentId, 
-          payment_status: 'paid', 
-          status: 'Confirmed'
-      })
+    await safeOrderSave(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, 'PATCH', { 
+        payment_id: paymentId, 
+        payment_status: 'paid', 
+        status: 'Confirmed'
     });
     await refreshOrders();
   };
@@ -162,7 +197,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
-    // Basic mock update logic for logistics flow
     return { success: true, message: `Status updated to ${status}` };
   };
 

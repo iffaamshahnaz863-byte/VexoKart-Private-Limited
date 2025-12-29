@@ -1,12 +1,13 @@
-
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 
 const ProfilePage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserSession } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -14,24 +15,28 @@ const ProfilePage: React.FC = () => {
     navigate('/login');
   };
 
+  const toggleSMS = () => {
+    if (!user) return;
+    const updated = { ...user, sms_enabled: !(user.sms_enabled ?? true) };
+    updateUserSession(updated);
+  };
+
   const menuItems = [
     { name: 'Order History', link: '/orders', icon: 'M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5' },
+    { name: 'In-App Inbox', link: '/notifications', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', count: unreadCount },
     { name: 'My Favorites', link: '/wishlist', icon: 'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z' },
     { name: 'Shipping Addresses', link: '/addresses', icon: 'M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M21 10.5c0 7.142-7.5 11.25-9 11.25S3 17.642 3 10.5a9 9 0 1118 0z' },
-    { name: 'Payment Wallets', link: '#', icon: 'M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h6m3-3.75l-3-3m3 3l3 3m-3-3v6m-9-1.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z' },
     { name: 'Account Settings', link: '#', icon: 'M10.343 3.94c.09-.542.56-1.025 1.11-1.226l.542-.202c.636-.236 1.353.076 1.583.706l.328 1.002a.86.86 0 001.32.397l.83-.564c.6-.403 1.39.098 1.583.73l.288.948a.86.86 0 001.192.51l.942-.29c.65-.202 1.33.284 1.33.943v.568c0 .659-.68 1.145-1.33.943l-.942-.29a.86.86 0 00-1.192.51l-.288.948c-.193.632-.983 1.133-1.583.73l-.83-.564a.86.86 0 00-1.32.397l-.328 1.002c-.23.63-.947.942-1.583.706l-.542-.202c-.55-.201-1.02-.684-1.11-1.226l-.26-1.53c-.09-.542.23-1.055.77-1.226l1.036-.328c.54-.17.94-.66 1.03-1.202l.26-1.53z' }
   ];
 
   if (!user) return null;
   
-  // Fix: Updated role strings to 'admin' and 'vendor' to fix type overlap errors
   const panelLink = user.role === 'admin' ? { link: '/admin', text: 'Admin Hub' } : user.role === 'vendor' ? { link: '/vendor', text: 'Vendor Console' } : null;
 
   return (
-    <div className="bg-surface min-h-screen">
+    <div className="bg-surface min-h-screen pb-20">
       <Header title="My Account" />
       <div className="p-4 space-y-6 max-w-2xl mx-auto">
-        {/* User Badge */}
         <div className="bg-white p-6 rounded-3xl shadow-premium border border-border flex items-center space-x-5">
           <div className="relative">
             <img src={`https://ui-avatars.com/api/?name=${user.name}&background=FF8A00&color=fff`} alt="User Avatar" className="w-20 h-20 rounded-2xl border-2 border-white shadow-lg" />
@@ -42,7 +47,6 @@ const ProfilePage: React.FC = () => {
             <p className="text-text-muted text-xs font-semibold">{user.email}</p>
             <div className="flex gap-2 mt-2">
                <span className="text-[8px] font-black uppercase tracking-widest bg-accent/10 text-accent px-2 py-0.5 rounded-full border border-accent/20">Premier Member</span>
-               {/* Fix: Updated comparison to lowercase 'user' to align with User type definition */}
                {user.role !== 'user' && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{user.role}</span>}
             </div>
           </div>
@@ -65,16 +69,36 @@ const ProfilePage: React.FC = () => {
         <div className="bg-white rounded-3xl shadow-premium border border-border overflow-hidden">
           {menuItems.map((item, index) => (
              <Link to={item.link} key={item.name} className={`flex items-center p-5 cursor-pointer hover:bg-surface transition-colors ${index !== menuItems.length - 1 ? 'border-b border-border' : ''}`}>
-              <div className="w-10 h-10 bg-surface rounded-xl flex items-center justify-center text-accent">
+              <div className="w-10 h-10 bg-surface rounded-xl flex items-center justify-center text-accent relative">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                 </svg>
+                {item.count && item.count > 0 ? (
+                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                      {item.count}
+                   </span>
+                ) : null}
               </div>
               <span className="ml-4 text-sm font-bold text-text-main uppercase tracking-tight">{item.name}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-text-muted ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
             </Link>
           ))}
         </div>
+
+        {/* Requirement 8: SMS Consent Setting */}
+        <GlassmorphicCard className="p-6">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Notification Preferences</h3>
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="text-sm font-bold text-text-main">Order SMS Updates</p>
+                    <p className="text-xs text-text-muted">Receive real-time tracking via SMS</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={user.sms_enabled ?? true} onChange={toggleSMS} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+            </div>
+        </GlassmorphicCard>
 
         <button onClick={handleLogout} className="w-full bg-red-50 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-2xl border border-red-100 hover:bg-red-500 hover:text-white transition-all active:scale-95">
           Secure Logout

@@ -1,7 +1,8 @@
-
 import React, { useState } from 'react';
 import { SearchIcon } from './icons/SearchIcon';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   title: string;
@@ -11,6 +12,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ title, showSearch = false }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { unreadCount } = useNotifications();
+  const { isAuthenticated } = useAuth();
   const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
 
   const handleSearch = (e: React.FormEvent) => {
@@ -35,6 +38,19 @@ const Header: React.FC<HeaderProps> = ({ title, showSearch = false }) => {
             Vexo<span className="text-accent">Kart</span>
           </h1>
         </Link>
+
+        {isAuthenticated && (
+          <Link to="/notifications" className="relative p-2 text-text-main hover:bg-surface rounded-full transition-colors">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+             </svg>
+             {unreadCount > 0 && (
+               <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+               </span>
+             )}
+          </Link>
+        )}
       </div>
       {showSearch && (
          <form onSubmit={handleSearch} className="mt-3 relative group">

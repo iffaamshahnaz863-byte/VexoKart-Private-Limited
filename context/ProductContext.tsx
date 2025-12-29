@@ -49,7 +49,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          const cat = currentCats.find(c => Number(c.id) === Number(item.category_id));
+          const catId = item.category_id || (item.category && !isNaN(Number(item.category)) ? Number(item.category) : null);
+          const cat = currentCats.find(c => Number(c.id) === Number(catId));
           
           let productImages: string[] = [];
           if (Array.isArray(item.images) && item.images.length > 0) {
@@ -73,7 +74,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             originalPrice: Number(item.original_price || item.price || 0),
             stock: Number(item.stock) || 0,
             images: productImages,
-            category: cat ? cat.name : (item.category || 'General'),
+            category: cat ? cat.name : (typeof item.category === 'string' ? item.category : 'General'),
             vendorId: item.vendor_id ? item.vendor_id.toString() : 'internal',
             status: item.status || 'approved',
             rating: Number(item.rating) || 0,
@@ -82,14 +83,16 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             highlights: item.highlights || [],
             specifications: item.specifications || {},
             sellerInfo: item.seller_info || 'VexoKart Partner',
-            returnPolicy: item.return_policy || 'Standard Returns',
+            returnPolicy: item.return_policy || '7 Day Replacement',
             warranty: item.warranty || 'No Warranty',
             videoUrl: item.video_url || '',
             approved_at: item.approved_at,
             approved_by: item.approved_by,
             rejectionReason: item.rejection_reason,
             allow_online: item.allow_online ?? true,
-            allow_cod: item.allow_cod ?? true
+            allow_cod: item.allow_cod ?? true,
+            colors: Array.isArray(item.colors) ? item.colors : [],
+            sizes: Array.isArray(item.sizes) ? item.sizes : []
           };
         });
         setProducts(mappedProducts);
@@ -111,20 +114,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const getProduct = (id: number) => products.find(p => p.id === id);
 
-  /**
-   * AUTONOMOUS SCHEMA ADAPTER
-   * Resolves PGRST204 errors by identifying and stripping missing columns from the payload.
-   */
   const safeSupabaseSave = async (url: string, method: string, payload: any) => {
-    console.log(`[ProductContext] Adaptive Save Initiated (${method})`);
-    
     let currentPayload = { ...payload };
-    
-    // Safety check: Never send 'id' in a PATCH/POST body as Supabase Primary Keys are immutable
     if (currentPayload.id) delete currentPayload.id;
 
     let attempts = 0;
-    const maxAttempts = 15;
+    const maxAttempts = 12;
 
     while (attempts < maxAttempts) {
       try {
@@ -136,58 +131,42 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         const result = await response.json();
 
-        if (response.ok) {
-          console.log("[ProductContext] Save Success!");
-          return result;
-        }
+        if (response.ok) return result;
 
-        // PGRST204: Missing Column. Dynamically strip and retry.
         if (result.code === 'PGRST204') {
-          console.warn(`[ProductContext] DB error: ${result.message}`);
-          
-          // Match 'column_name' from messages like "Could not find the 'xyz' column..."
           const match = result.message.match(/column ['"](.+?)['"]/i);
           const missingColumn = match ? match[1] : null;
 
           if (missingColumn && currentPayload.hasOwnProperty(missingColumn)) {
-            console.warn(`[ProductContext] Removing unsupported column '${missingColumn}' and retrying...`);
+            console.warn(`[Adapter] Dropping column: ${missingColumn}`);
             delete currentPayload[missingColumn];
             attempts++;
             continue;
           }
 
-          // Emergency strip of likely non-standard columns if regex fails
-          const suspects = ['category', 'category_id', 'images', 'allow_online', 'allow_cod', 'vendor_id', 'status', 'approved_by', 'approved_at', 'original_price'];
+          const suspects = ['colors', 'sizes', 'category', 'original_price', 'allow_online', 'allow_cod', 'vendor_id', 'images'];
           let stripped = false;
           for (const key of suspects) {
               if (currentPayload.hasOwnProperty(key)) {
-                  console.warn(`[ProductContext] Emergency stripping suspect column: ${key}`);
                   delete currentPayload[key];
                   stripped = true;
                   break; 
               }
           }
-
-          if (!stripped) {
-            console.error("[ProductContext] No more columns can be safely stripped. Aborting.");
-            throw new Error(`Fatal Database Mismatch: ${JSON.stringify(result)}`);
-          }
+          if (!stripped) throw new Error(`Schema mismatch: ${JSON.stringify(result)}`);
           attempts++;
         } else {
-          console.error("[ProductContext] Database Logic Error:", JSON.stringify(result));
-          throw new Error(result.message || 'Database rejected the request.');
+          throw new Error(result.message || 'Database error');
         }
       } catch (err: any) {
-        console.error("[ProductContext] Request Exception:", err.message || JSON.stringify(err));
         throw err;
       }
     }
-    
-    throw new Error("Maximum schema adaptation attempts reached.");
+    throw new Error("Unable to synchronize with database schema.");
   };
 
   const addProduct = async (productData: any) => {
-    // Correctly resolve Category ID/Name for sync
+    // Determine category ID accurately
     let selectedCategoryId = null;
     let matchedCategoryName = 'General';
 
@@ -203,17 +182,22 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const supabasePayload: any = {
       name: productData.name,
       description: productData.description,
-      price: productData.price,
-      stock: productData.stock || 0,
+      price: Number(productData.price),
+      original_price: Number(productData.originalPrice || productData.price),
+      stock: Number(productData.stock || 0),
       image: productData.images?.[0] || '', 
       images: productData.images || [], 
-      status: 'approved',
-      vendor_id: productData.vendor_id, 
+      status: 'approved', // Requirement: AUTO-APPROVE
+      vendor_id: Number(productData.vendor_id) || null, 
       created_at: new Date().toISOString(),
       allow_online: productData.allow_online ?? true,
       allow_cod: productData.allow_cod ?? true,
       category_id: selectedCategoryId,
-      category: matchedCategoryName
+      category: matchedCategoryName,
+      colors: productData.colors || [],
+      sizes: productData.sizes || [],
+      highlights: productData.highlights || [],
+      specifications: productData.specifications || {}
     };
     
     await safeSupabaseSave(`${BASE_API_URL}/products`, 'POST', supabasePayload);
@@ -224,27 +208,26 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     let selectedCategoryId = null;
     let matchedCategoryName = 'General';
 
-    if (!isNaN(Number(product.category))) {
-        selectedCategoryId = Number(product.category);
-        matchedCategoryName = categories.find(c => Number(c.id) === selectedCategoryId)?.name || 'General';
-    } else {
-        const found = categories.find(c => c.name === product.category);
-        selectedCategoryId = found ? Number(found.id) : null;
-        matchedCategoryName = product.category || 'General';
-    }
+    const cat = categories.find(c => c.name === product.category || c.id === Number(product.category));
+    selectedCategoryId = cat ? cat.id : null;
+    matchedCategoryName = cat ? cat.name : product.category;
 
     const supabaseUpdate: any = {
       name: product.name,
       description: product.description,
-      price: product.price,
-      stock: product.stock,
-      status: 'approved',
+      price: Number(product.price),
+      original_price: Number(product.originalPrice || product.price),
+      stock: Number(product.stock),
       image: product.images?.[0] || '',
       images: product.images || [],
       allow_online: product.allow_online,
       allow_cod: product.allow_cod,
       category_id: selectedCategoryId,
-      category: matchedCategoryName
+      category: matchedCategoryName,
+      colors: product.colors,
+      sizes: product.sizes,
+      highlights: product.highlights,
+      specifications: product.specifications
     };
 
     await safeSupabaseSave(`${BASE_API_URL}/products?id=eq.${product.id}`, 'PATCH', supabaseUpdate);
@@ -252,10 +235,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const deleteProduct = async (productId: number) => {
-    await fetch(`${BASE_API_URL}/products?id=eq.${productId}`, {
-      method: 'DELETE',
-      headers: API_HEADERS
-    });
+    await fetch(`${BASE_API_URL}/products?id=eq.${productId}`, { method: 'DELETE', headers: API_HEADERS });
     await refreshProducts();
   };
 
@@ -275,11 +255,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     await fetch(`${BASE_API_URL}/products?id=eq.${productId}`, {
       method: 'PATCH',
       headers: API_HEADERS,
-      body: JSON.stringify({ 
-        status: 'approved', 
-        approved_by: approvedBy, 
-        approved_at: new Date().toISOString() 
-      })
+      body: JSON.stringify({ status: 'approved', approved_by: approvedBy, approved_at: new Date().toISOString() })
     });
     await refreshProducts();
   };
@@ -310,20 +286,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const newCount = updatedReviews.length;
     const newRating = Number(((p.rating * (p.reviewCount || 0) + reviewData.rating) / newCount).toFixed(1));
     
-    try {
-        await fetch(`${BASE_API_URL}/products?id=eq.${productId}`, {
-          method: 'PATCH',
-          headers: API_HEADERS,
-          body: JSON.stringify({ 
-              reviews: updatedReviews, 
-              review_count: newCount, 
-              rating: newRating 
-          })
-        });
-        await refreshProducts();
-    } catch (e) {
-        console.warn("Review storage failed.");
-    }
+    await fetch(`${BASE_API_URL}/products?id=eq.${productId}`, {
+        method: 'PATCH',
+        headers: API_HEADERS,
+        body: JSON.stringify({ reviews: updatedReviews, review_count: newCount, rating: newRating })
+    });
+    await refreshProducts();
   };
 
   return (
