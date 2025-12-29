@@ -30,14 +30,11 @@ const VendorOrdersPage: React.FC = () => {
         }
     }, [user]);
 
-    // Part 1.2: Frontend filtering for vendor specific orders and items
+    // Filter orders to show only those belonging to this vendor
     const vendorOrders = useMemo(() => {
         if (!currentVendor) return [];
 
-        console.log('[VendorOrders] Debug - All Orders:', orders);
-        console.log('[VendorOrders] Debug - Current Vendor:', currentVendor);
-
-        const filtered = orders.map(order => {
+        return orders.map(order => {
             const items = Array.isArray(order.items) ? order.items : [];
             
             // Filter only items belonging to THIS vendor
@@ -70,20 +67,16 @@ const VendorOrdersPage: React.FC = () => {
             if (statusFilter === 'pending') return ['Placed', 'Confirmed'].includes(o.status);
             return o.status === statusFilter;
         });
-
-        console.log('[VendorOrders] Debug - Filtered Result:', filtered);
-        return filtered;
     }, [orders, currentVendor, statusFilter]);
 
     const handlePackAndLabel = async (order: VendorAugmentedOrder) => {
         setIsGeneratingLabel(order.id);
         try {
-            // Part 2: Simulate Supabase Storage Upload
-            // In production, you'd use supabase.storage.from('shipping-labels').upload(...)
-            // We'll generate a consistent mock URL that represents the file in storage
+            // Simulate Cloud Label Generation
+            // In a real app, this URL would point to a generated PDF stored in Supabase Storage
             const mockStorageUrl = `https://storage.vexokart.com/shipping-labels/order_${order.id}_label.pdf`;
             
-            // Update status and save label URL
+            // Update status to 'Packed' and save label URL
             await updateOrderLabelInfo(order.id, mockStorageUrl);
             
             alert('Order marked as Packed. Shipping label generated successfully.');

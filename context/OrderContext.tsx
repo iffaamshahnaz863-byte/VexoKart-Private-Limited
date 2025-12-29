@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { Order, OrderStatus, PaymentStatus } from '../types';
+import { Order, OrderStatus, PaymentStatus, StatusHistory } from '../types';
 import { useNotifications } from './NotificationContext';
 import { useAuth } from './AuthContext';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -8,7 +8,7 @@ interface OrderContextType {
   orders: Order[];
   isLoading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory' | 'payment_status'>) => Promise<string>;
-  updateOrderStatus: (orderId: string, status: OrderStatus, details?: { courierName?: string; trackingId?: string; label_url?: string }) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus, details?: { courierName?: string; trackingId?: string; label_url?: string; note?: string; actor?: StatusHistory['actor'] }) => Promise<void>;
   updateOrderPaymentDetails: (orderId: string, paymentId: string) => Promise<void>;
   updateOrderLabelInfo: (orderId: string, labelUrl: string) => Promise<string>;
   updateOrderByToken: (token: string, status: OrderStatus, note?: string) => Promise<{ success: boolean; message: string }>;
@@ -19,7 +19,7 @@ interface OrderContextType {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-const ORDER_FIELDS = 'id,created_at,status,total_amount,address,user_id,items,payment_method,payment_status,courier_name,tracking_id,label_url,history';
+const ORDER_FIELDS = 'id,created_at,status,total_amount,address,user_id,items,payment_method,payment_status,courier_name,tracking_id,label_url,history,qr_token';
 
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { notifyOrderUpdate } = useNotifications();
@@ -57,10 +57,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 userId: userId,
                 userEmail: matchedUser?.email || o.email || '',
                 shippingAddress: o.address || {} as any,
-                statusHistory: o.history || [{ status: o.status || 'Placed', timestamp: o.created_at }],
+                statusHistory: o.history || [{ status: o.status || 'Placed', timestamp: o.created_at, actor: 'System' }],
                 courierName: o.courier_name,
                 trackingId: o.tracking_id,
                 label_url: o.label_url,
+                qrToken: o.qr_token,
                 scanLogs: o.scan_logs || []
             };
         });
@@ -76,10 +77,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  /**
-   * ADAPTIVE SAVE UTILITY (Shared Pattern)
-   * Prevents "Failed to fetch" by stripping columns not present in the DB schema.
-   */
   const safeOrderSave = async (url: string, method: string, payload: any) => {
     let currentPayload = { ...payload };
     let attempts = 0;
@@ -94,10 +91,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         });
 
         const result = await response.json();
-
         if (response.ok) return result;
 
-        // Column Missing error from Supabase/PostgREST
         if (result.code === 'PGRST204' || result.message?.includes('column')) {
           const match = result.message.match(/column ['"](.+?)['"]/i);
           const missingColumn = match ? match[1] : null;
@@ -109,8 +104,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             continue;
           }
           
-          // Brute force suspicious columns if auto-detect fails
-          const suspects = ['history', 'address', 'items', 'payment_status', 'payment_method', 'user_id'];
+          const suspects = ['history', 'address', 'items', 'payment_status', 'payment_method', 'user_id', 'label_url', 'qr_token'];
           let cleaned = false;
           for (const s of suspects) {
             if (currentPayload.hasOwnProperty(s)) {
@@ -126,7 +120,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       } catch (err: any) {
         if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-            throw new Error("Network Error: Connectivity to Supabase lost or request blocked by CORS.");
+            throw new Error("Network Error: Connectivity to Supabase lost.");
         }
         throw err;
       }
@@ -143,6 +137,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addOrder = async (orderData: any): Promise<string> => {
     const timestamp = new Date().toISOString();
     const paymentStatus: PaymentStatus = orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'paid';
+    
+    // Generate a secure QR token for courier scanning
+    const qrToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
     const supabasePayload = {
       created_at: timestamp,
@@ -153,7 +150,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       payment_method: orderData.payment_method,
       payment_status: paymentStatus,
       status: 'Placed',
-      history: [{ status: 'Placed', timestamp }]
+      qr_token: qrToken,
+      history: [{ status: 'Placed', timestamp, actor: 'System' }]
     };
 
     const result = await safeOrderSave(`${BASE_API_URL}/orders`, 'POST', supabasePayload);
@@ -166,7 +164,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (!order) return;
 
     const timestamp = new Date().toISOString();
-    const newHistory = [...(order.statusHistory || []), { status, timestamp }];
+    const newHistoryEntry: StatusHistory = { 
+      status, 
+      timestamp, 
+      note: details.note, 
+      actor: details.actor || (user?.role === 'vendor' ? 'Vendor' : user?.role === 'admin' ? 'Admin' : 'System')
+    };
+    
+    const newHistory = [...(order.statusHistory || []), newHistoryEntry];
 
     const updateBody: any = { 
       status, 
@@ -179,6 +184,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (details.label_url) updateBody.label_url = details.label_url;
 
     await safeOrderSave(`${BASE_API_URL}/orders?id=eq.${encodeURIComponent(orderId)}`, 'PATCH', updateBody);
+    
+    // Trigger in-app notification for the user
+    const matchedUser = users.find(u => u.id === order.userId);
+    if (matchedUser) {
+        notifyOrderUpdate({ ...order, status }, matchedUser);
+    }
+    
     await refreshOrders();
   };
 
@@ -192,16 +204,27 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const updateOrderLabelInfo = async (orderId: string, labelUrl: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) throw new Error("Order not found");
+    
     await updateOrderStatus(orderId, 'Packed', { label_url: labelUrl });
-    return 'token_gen';
+    return order.qrToken || 'token_gen';
   };
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
-    return { success: true, message: `Status updated to ${status}` };
+    const order = orders.find(o => o.qrToken === token);
+    if (!order) return { success: false, message: 'Invalid or expired scan token.' };
+
+    try {
+        await updateOrderStatus(order.id, status, { note, actor: 'Courier' });
+        return { success: true, message: `Status updated to ${status} successfully.` };
+    } catch (err: any) {
+        return { success: false, message: err.message || 'Update failed.' };
+    }
   };
 
   const getOrderById = (id: string) => orders.find(o => o.id === id);
-  const getOrderByToken = (token: string) => undefined;
+  const getOrderByToken = (token: string) => orders.find(o => o.qrToken === token);
 
   return (
     <OrderContext.Provider value={{ 

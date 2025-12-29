@@ -1,4 +1,3 @@
-
 export interface Review {
   id: string;
   author: string;
@@ -70,6 +69,8 @@ export interface OrderItem {
     vendor_email?: string;
     color?: string;
     size?: string;
+    sku?: string;
+    weight?: number; // in grams
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -78,6 +79,17 @@ export type PaymentStatus = 'paid' | 'cod_pending' | 'failed';
 export interface StatusHistory {
     status: OrderStatus;
     timestamp: string;
+    note?: string;
+    actor?: 'System' | 'User' | 'Vendor' | 'Courier' | 'Admin';
+}
+
+export interface CourierScanLog {
+    id: string;
+    orderId: string;
+    statusSet: OrderStatus;
+    note?: string;
+    scannedAt: string;
+    ipAddress?: string;
 }
 
 export interface Order {
@@ -96,6 +108,8 @@ export interface Order {
     courierName?: string;
     trackingId?: string;
     label_url?: string;
+    qrToken?: string; // Secure token for courier scan page
+    totalWeight?: number;
 }
 
 export interface Address {
@@ -160,7 +174,6 @@ export interface NotificationLog {
   is_read?: boolean;
 }
 
-// Fix for AdminCode missing error: Add AdminCode interface
 export interface AdminCode {
   id: string;
   code: string;
@@ -173,7 +186,6 @@ export interface AdminCode {
   usedBy?: string;
 }
 
-// Fix for NotificationSettings missing error: Add NotificationSettings interface
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
