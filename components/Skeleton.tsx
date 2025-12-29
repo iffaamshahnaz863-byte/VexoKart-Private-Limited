@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface SkeletonProps {
@@ -17,9 +16,9 @@ const Skeleton: React.FC<SkeletonProps> = ({ className = "", light = false }) =>
 };
 
 export const ProductCardSkeleton: React.FC = () => (
-    <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm">
-        <Skeleton className="w-full h-48 rounded-none" light={false} />
-        <div className="p-4 space-y-3">
+    <div className="bg-white border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col h-full">
+        <Skeleton className="w-full aspect-square max-h-[160px] rounded-none" light={false} />
+        <div className="p-4 space-y-3 flex-grow">
             <Skeleton className="h-4 w-4/5" light={false} />
             <Skeleton className="h-3 w-1/2" light={false} />
             <div className="flex justify-between items-center pt-3">

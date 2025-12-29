@@ -27,7 +27,7 @@ const ProductDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('description');
   const [showAddedToast, setShowAddedToast] = useState(false);
   
-  // Requirement: Variants state
+  // Variants state
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
   
@@ -70,9 +70,7 @@ const ProductDetailPage: React.FC = () => {
   const similarProducts = products.filter(p => p.category === product.category && p.id !== product.id && p.status === 'approved').slice(0, 4);
 
   const displayImages = useMemo(() => {
-      // If a color variant with a specific image is selected, we could prioritize it, 
-      // but requirement says Detail page uses full gallery.
-      return product.images.length > 0 ? product.images : ['https://via.placeholder.com/600x600?text=No+Image+Available'];
+      return product.images.length > 0 ? product.images : ['https://placehold.co/600x600/F8F9FA/A0A0A0?text=VexoKart'];
   }, [product]);
 
   const handleAddToCart = () => {
@@ -98,6 +96,10 @@ const ProductDetailPage: React.FC = () => {
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/F8F9FA/A0A0A0?text=Product+Image';
+  };
+
   return (
     <div className="min-h-screen bg-white pb-32">
       <Toast message="Added to Bag" isVisible={showAddedToast} onClose={() => setShowAddedToast(false)} />
@@ -112,12 +114,18 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Gallery Slider */}
-      <div className="relative w-full aspect-[3/4] bg-surface overflow-hidden group">
+      {/* Gallery Slider - Enforced 1:1 and 320px Max Height */}
+      <div className="relative w-full aspect-square max-h-[320px] bg-surface overflow-hidden group mx-auto">
           <div className="flex transition-transform duration-500 h-full" style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}>
               {displayImages.map((img, idx) => (
                   <div key={idx} className="w-full h-full flex-shrink-0 flex items-center justify-center">
-                    <img src={img} className="w-full h-full object-cover" alt={`${product.name} ${idx}`} />
+                    <img 
+                      src={img} 
+                      className="w-full h-full object-cover" 
+                      alt={`${product.name} ${idx}`} 
+                      onError={handleImageError}
+                      loading={idx === 0 ? "eager" : "lazy"}
+                    />
                   </div>
               ))}
           </div>
@@ -173,7 +181,7 @@ const ProductDetailPage: React.FC = () => {
                             onClick={() => setSelectedColor(color.name)}
                             className={`flex-shrink-0 w-12 h-12 rounded-full border-2 p-0.5 transition-all ${selectedColor === color.name ? 'border-accent scale-110 shadow-lg' : 'border-border'}`}
                         >
-                            <img src={color.image} className="w-full h-full rounded-full object-cover" alt={color.name} />
+                            <img src={color.image} className="w-full h-full rounded-full object-cover" alt={color.name} onError={handleImageError} />
                         </button>
                     ))}
                 </div>

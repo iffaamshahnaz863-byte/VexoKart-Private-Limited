@@ -37,12 +37,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     setShowAddedToast(true);
   };
 
-  // Requirement: Auto-calculate discount percentage
+  // Auto-calculate discount percentage
   const mrp = Number(product.originalPrice || product.price);
   const sellingPrice = Number(product.price);
   const discountPercent = mrp > sellingPrice 
     ? Math.round(((mrp - sellingPrice) / mrp) * 100) 
     : 0;
+
+  // Image Fallback Handler
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/F8F9FA/A0A0A0?text=Product+Image';
+  };
 
   return (
     <>
@@ -56,10 +61,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </button>
 
         <Link to={`/product/${product.id}`} className="flex-grow flex flex-col">
-          <div className="relative aspect-[3/4] bg-surface flex items-center justify-center overflow-hidden">
+          <div className="relative w-full aspect-square max-h-[160px] bg-surface flex items-center justify-center overflow-hidden">
               <img
-                src={product.images[0]}
+                src={product.images[0] || 'https://placehold.co/400x400/F8F9FA/A0A0A0?text=VexoKart'}
                 alt={product.name}
+                loading="lazy"
+                onError={handleImageError}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
               {discountPercent > 0 && (
