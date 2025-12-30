@@ -1,12 +1,11 @@
 import React, { useMemo, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
 import { useVendors } from '../../context/VendorContext';
 
 const VendorDashboardPage: React.FC = () => {
-  const { products = [], refreshProducts } = useProducts();
+  const { products = [], isLoading: productsLoading, refreshProducts } = useProducts();
   const { orders = [], isLoading: ordersLoading, refreshOrders } = useOrders();
   const { currentVendor } = useVendors();
 
@@ -18,25 +17,21 @@ const VendorDashboardPage: React.FC = () => {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
 
-  // Robust filtering using both primary ID and associated User ID to ensure no data is missed
+  // CRITICAL FIX: Filtering strictly by vendor_id column
   const vendorProducts = useMemo(() => {
     if (!currentVendor) return [];
     const vid = String(currentVendor.id);
-    const uid = String(currentVendor.user_id);
-    return safeProducts.filter(p => String(p.vendorId) === vid || String(p.vendorId) === uid);
+    return safeProducts.filter(p => String(p.vendor_id) === vid);
   }, [currentVendor, safeProducts]);
   
   const vendorOrders = useMemo(() => {
     if (!currentVendor) return [];
     const vid = String(currentVendor.id);
-    const uid = String(currentVendor.user_id);
-    const vEmail = currentVendor.email?.toLowerCase();
 
     return safeOrders.filter(order => 
         order.items && order.items.some(item => {
             const itemVid = String(item.vendorId || (item as any).vendor_id || '');
-            const itemVEmail = String((item as any).vendor_email || '').toLowerCase();
-            return itemVid === vid || itemVid === uid || (vEmail && itemVEmail === vEmail);
+            return itemVid === vid;
         })
     );
   }, [currentVendor, safeOrders]);
@@ -44,18 +39,14 @@ const VendorDashboardPage: React.FC = () => {
   const totalRevenue = useMemo(() => {
     if (!currentVendor) return 0;
     const vid = String(currentVendor.id);
-    const uid = String(currentVendor.user_id);
-    const vEmail = currentVendor.email?.toLowerCase();
 
     return vendorOrders.reduce((total, order) => {
         if (order.status === 'Cancelled') return total;
         
-        // Sum only items that belong to THIS vendor in this order
         const vendorItemsTotal = order.items
             .filter(item => {
                 const itemVid = String(item.vendorId || (item as any).vendor_id || '');
-                const itemVEmail = String((item as any).vendor_email || '').toLowerCase();
-                return itemVid === vid || itemVid === uid || (vEmail && itemVEmail === vEmail);
+                return itemVid === vid;
             })
             .reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
         return total + vendorItemsTotal;
@@ -132,21 +123,7 @@ const VendorDashboardPage: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-text-main font-black italic text-xl uppercase tracking-tight">Recent Activity</p>
-                        <p className="text-text-muted text-sm mt-2 leading-relaxed">Your store has processed <span className="text-text-main font-bold">{vendorOrders.length}</span> orders. {pendingOrders > 0 ? `You have ${pendingOrders} orders waiting for shipment labels.` : 'All your orders are current.'}</p>
-                    </div>
-                    <div className="pt-4 flex justify-center gap-4">
-                         <button 
-                            onClick={() => window.location.hash = '#/vendor/orders'}
-                            className="bg-accent text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-accent/20 hover:-translate-y-1 transition-all"
-                         >
-                            Manage Orders
-                         </button>
-                         <button 
-                            onClick={() => window.location.hash = '#/vendor/products'}
-                            className="bg-surface text-text-main px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all border border-border"
-                         >
-                            Inventory
-                         </button>
+                        <p className="text-text-muted text-sm mt-2 leading-relaxed">Your store has processed <span className="text-text-main font-bold">{vendorOrders.length}</span> orders.</p>
                     </div>
                 </div>
             ) : (
@@ -156,14 +133,8 @@ const VendorDashboardPage: React.FC = () => {
                     </div>
                     <div className="max-w-xs mx-auto">
                         <p className="text-text-main font-black italic uppercase tracking-tight">No Sales Data</p>
-                        <p className="text-text-muted text-xs mt-2 leading-relaxed">Your storefront is live and ready to receive customers. Listing more trending products can help drive your first sale.</p>
+                        <p className="text-text-muted text-xs mt-2 leading-relaxed">Listing more products helps drive your first sale.</p>
                     </div>
-                    <button 
-                        onClick={() => window.location.hash = '#/vendor/products/new'}
-                        className="text-accent text-[10px] font-black uppercase tracking-widest mt-6 border-b-2 border-accent pb-1 hover:opacity-70 transition-opacity"
-                    >
-                        Publish New Listing
-                    </button>
                 </div>
             )}
         </GlassmorphicCard>

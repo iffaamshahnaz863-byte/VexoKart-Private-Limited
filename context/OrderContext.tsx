@@ -36,21 +36,30 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         url += `&user_id=eq.${user.id}`;
       }
 
-      const response = await fetch(url, { headers: API_HEADERS });
+      const response = await fetch(url, { 
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
+      });
+      
+      if (!response.ok) throw new Error(`Fetch failed with status ${response.status}`);
+      
       const data = await response.json();
       
       if (Array.isArray(data)) {
         const mapped = data.map(o => ({
             ...o,
             id: o.id.toString(),
-            total_amount: Number(o.total_amount),
-            status_history: Array.isArray(o.status_history) ? o.status_history : [],
-            items: Array.isArray(o.items) ? o.items : []
+            total: Number(o.total_amount || o.total || 0),
+            total_amount: Number(o.total_amount || o.total || 0),
+            shippingAddress: o.address || o.shippingAddress || o.shipping_address,
+            statusHistory: o.statusHistory || o.status_history || [],
+            qrToken: o.qrToken || o.qr_token,
+            date: o.created_at,
+            userEmail: user.email 
         }));
         setOrders(mapped);
       }
     } catch (e) {
-      console.error(e);
+      console.error("[OrderContext] refreshOrders error:", e);
     } finally {
       setIsLoading(false);
     }
@@ -71,104 +80,137 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       total_amount: orderData.total,
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'failed',
-      shipping_address: orderData.shippingAddress,
+      address: orderData.shippingAddress, 
       status: 'Placed',
       qr_token: qrToken,
       status_history: [{ status: 'Placed', timestamp, actor: 'System' }],
       created_at: timestamp
     };
 
-    const res = await fetch(`${BASE_API_URL}/orders`, {
-      method: 'POST',
-      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message || 'Failed to place order');
-    
-    await refreshOrders();
-    return result[0].id.toString();
+    try {
+        const res = await fetch(`${BASE_API_URL}/orders`, {
+          method: 'POST',
+          headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.message || `Server responded with ${res.status}`);
+        }
+
+        const result = await res.json();
+        if (!result || result.length === 0) throw new Error("Order creation returned no data.");
+        
+        await refreshOrders();
+        return result[0].id.toString();
+    } catch (err: any) {
+        console.error("[OrderContext] addOrder Error:", err);
+        throw new Error(err.message || "Failed to connect to order service. Check your connection.");
+    }
   };
 
   const createPaymentOrder = async (orderId: string, amount: number): Promise<string> => {
-    const res = await fetch(`${EDGE_FUNCTION_URL}/create_payment_order`, {
-      method: 'POST',
-      headers: { ...API_HEADERS },
-      body: JSON.stringify({ orderId, amount })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Failed to create payment order');
-    return data.id; // Razorpay Order ID
+    try {
+        const res = await fetch(`${EDGE_FUNCTION_URL}/create_payment_order`, {
+          method: 'POST',
+          headers: { ...API_HEADERS },
+          body: JSON.stringify({ orderId, amount })
+        });
+        if (!res.ok) throw new Error("Payment gateway unreachable.");
+        const data = await res.json();
+        return data.id; 
+    } catch (err: any) {
+        console.error("[OrderContext] createPaymentOrder Error:", err);
+        throw new Error("Unable to initialize digital payment. Please try COD or check connectivity.");
+    }
   };
 
   const verifyPayment = async (paymentData: any): Promise<boolean> => {
-    const res = await fetch(`${EDGE_FUNCTION_URL}/verify_payment`, {
-      method: 'POST',
-      headers: { ...API_HEADERS },
-      body: JSON.stringify(paymentData)
-    });
-    const data = await res.json();
-    if (data.success) {
-        await refreshOrders();
+    try {
+        const res = await fetch(`${EDGE_FUNCTION_URL}/verify_payment`, {
+          method: 'POST',
+          headers: { ...API_HEADERS },
+          body: JSON.stringify(paymentData)
+        });
+        const data = await res.json();
+        if (data.success) {
+            await refreshOrders();
+        }
+        return data.success;
+    } catch (err) {
+        console.error("[OrderContext] verifyPayment Error:", err);
+        return false;
     }
-    return data.success;
   };
 
   const generateShippingLabel = async (orderId: string): Promise<string> => {
-    const res = await fetch(`${EDGE_FUNCTION_URL}/generate_shipping_label`, {
-      method: 'POST',
-      headers: { ...API_HEADERS },
-      body: JSON.stringify({ orderId })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Failed to generate shipping label');
-    
-    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
-        method: 'PATCH',
-        headers: API_HEADERS,
-        body: JSON.stringify({ label_url: data.label_url, status: 'Packed' })
-    });
-    
-    await refreshOrders();
-    return data.label_url;
+    try {
+        const res = await fetch(`${EDGE_FUNCTION_URL}/generate_shipping_label`, {
+          method: 'POST',
+          headers: { ...API_HEADERS },
+          body: JSON.stringify({ orderId })
+        });
+        if (!res.ok) throw new Error("Label service currently unavailable.");
+        const data = await res.json();
+        
+        await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+            method: 'PATCH',
+            headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ label_url: data.label_url, status: 'Packed' })
+        });
+        
+        await refreshOrders();
+        return data.label_url;
+    } catch (err: any) {
+        console.error("[OrderContext] generateShippingLabel Error:", err);
+        throw new Error(err.message || "Failed to process logistics request.");
+    }
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, details: any = {}) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const timestamp = new Date().toISOString();
-    const newHistory = [...(order.status_history || []), { 
-        status, 
-        timestamp, 
-        note: details.note, 
-        actor: details.actor || 'System' 
-    }];
+    try {
+        const timestamp = new Date().toISOString();
+        const currentHistory = order.statusHistory || order.status_history || [];
+        const newHistory = [...currentHistory, { 
+            status, 
+            timestamp, 
+            note: details.note, 
+            actor: details.actor || 'System' 
+        }];
 
-    const payload: any = { status, status_history: newHistory };
-    if (details.courier_name) payload.courier_name = details.courier_name;
-    if (details.tracking_id) payload.tracking_id = details.tracking_id;
+        const payload: any = { status, status_history: newHistory };
+        if (details.courier_name) payload.courier_name = details.courier_name;
+        if (details.tracking_id) payload.tracking_id = details.tracking_id;
 
-    await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify(payload)
-    });
-    
-    // Notify vendor/user via Edge Function if needed
-    if (['Packed', 'Shipped', 'Delivered'].includes(status)) {
-        fetch(`${EDGE_FUNCTION_URL}/send_notification`, {
-            method: 'POST',
-            headers: API_HEADERS,
-            body: JSON.stringify({ orderId, status })
-        }).catch(console.error);
+        const res = await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+          method: 'PATCH',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) throw new Error("Sync failed.");
+
+        // Gracefully handle edge function notifications (frequent source of 'Failed to fetch' due to CORS)
+        if (['Packed', 'Shipped', 'Delivered'].includes(status)) {
+            fetch(`${EDGE_FUNCTION_URL}/send_notification`, {
+                method: 'POST',
+                headers: API_HEADERS,
+                body: JSON.stringify({ orderId, status })
+            }).catch(e => console.warn("Background notification skipped:", e.message));
+        }
+
+        await refreshOrders();
+    } catch (err) {
+        console.error("[OrderContext] updateOrderStatus Error:", err);
     }
-
-    await refreshOrders();
   };
 
   const getOrderById = (id: string) => orders.find(o => o.id === id);
-  const getOrderByToken = (token: string) => orders.find(o => o.qr_token === token);
+  const getOrderByToken = (token: string) => orders.find(o => o.qrToken === token || o.qr_token === token);
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
     const order = getOrderByToken(token);
@@ -178,7 +220,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         await updateOrderStatus(order.id, status, { note, actor: 'Courier' });
         return { success: true, message: `Package marked as ${status} successfully.` };
     } catch (e) {
-        return { success: false, message: 'Update failed. Check connection.' };
+        return { success: false, message: 'Connection to logistics hub lost. Please try again.' };
     }
   };
 

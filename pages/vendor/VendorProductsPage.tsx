@@ -1,9 +1,7 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
-import { useAuth } from '../../context/AuthContext';
 import { useVendors } from '../../context/VendorContext';
 import { Product } from '../../types';
 
@@ -18,17 +16,29 @@ const getStatusPill = (status: Product['status']) => {
 
 const VendorProductsPage: React.FC = () => {
   const { currentVendor } = useVendors();
-  const { products, deleteProduct } = useProducts();
+  const { products, isLoading, deleteProduct } = useProducts();
   const navigate = useNavigate();
   
-  const vendorProducts = currentVendor ? products.filter(p => p.vendorId === currentVendor.id.toString()).reverse() : [];
+  // CRITICAL FIX: Filtering by normalized vendor_id column
+  const vendorProducts = currentVendor 
+    ? products.filter(p => p.vendor_id === currentVendor.id.toString()).reverse() 
+    : [];
+
+  if (isLoading && vendorProducts.length === 0) {
+    return (
+        <div className="p-20 text-center">
+            <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="mt-4 text-text-muted font-bold text-[10px] uppercase">Loading your catalog...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">My Products</h1>
-          <p className="text-text-muted mt-1 text-sm">Manage your storefront catalog. New listings require admin approval.</p>
+          <p className="text-text-muted mt-1 text-sm">Manage your storefront catalog.</p>
         </div>
         <button onClick={() => navigate('/vendor/products/new')} className="bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 px-6 rounded-xl shadow-xl shadow-accent/30 hover:-translate-y-1 active:translate-y-0 transition-all">
           Add New Product
@@ -76,12 +86,12 @@ const VendorProductsPage: React.FC = () => {
               ))}
             </tbody>
           </table>
-           {vendorProducts.length === 0 && (
+           {vendorProducts.length === 0 && !isLoading && (
              <div className="p-24 text-center">
                 <div className="bg-surface w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
                 </div>
-                <p className="text-text-muted font-bold tracking-tight italic">You haven't published any products yet.</p>
+                <p className="text-text-muted font-bold tracking-tight italic">No products added yet.</p>
                 <button onClick={() => navigate('/vendor/products/new')} className="text-accent text-[10px] font-black uppercase tracking-widest mt-6 bg-accent/5 px-6 py-3 rounded-xl border border-accent/20 hover:bg-accent hover:text-white transition-all">Publish your first product</button>
              </div>
            )}

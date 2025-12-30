@@ -47,7 +47,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     localStorage.setItem('vexokart-notification-settings', JSON.stringify(settings));
   }, [settings]);
 
-  // Sync inbox on user login
   useEffect(() => {
     if (user?.email) {
         fetchInbox(user.email);
@@ -61,12 +60,13 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       const res = await fetch(`${BASE_API_URL}/notifications_log?userId=eq.${encodeURIComponent(email)}&order=createdAt.desc`, {
         headers: API_HEADERS
       });
+      if (!res.ok) return;
       const data = await res.json();
       if (Array.isArray(data)) {
         setInbox(data);
       }
     } catch (e) {
-      console.warn("[Inbox Sync] Table missing or network error. Skipping...");
+      console.warn("[Inbox Sync] Network issue. Skipping inbox refresh...");
     }
   };
 
@@ -78,7 +78,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       await fetch(`${BASE_API_URL}/notifications_log?id=eq.${logId}`, {
         method: 'PATCH',
-        headers: API_HEADERS,
+        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
         body: JSON.stringify({ is_read: true })
       });
       setInbox(prev => prev.map(m => m.id === logId ? { ...m, is_read: true } : m));
@@ -95,7 +95,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       for (const id of unreadIds) {
         await fetch(`${BASE_API_URL}/notifications_log?id=eq.${id}`, {
           method: 'PATCH',
-          headers: API_HEADERS,
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
           body: JSON.stringify({ is_read: true })
         });
       }
@@ -105,7 +105,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
-  const saveLogToDB = async (log: Omit<NotificationLog, 'id' | 'createdAt'>) => {
+  const saveLogToDB = async (log: Omit<NotificationLog, 'id' | 'createdAt' | 'is_read'>) => {
     const timestamp = new Date().toISOString();
     const newLog = {
       ...log,
@@ -119,15 +119,16 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
         body: JSON.stringify(newLog)
       });
-      const data = await res.json();
-      if (Array.isArray(data)) {
+      const data = await res.json().catch(() => []);
+      if (Array.isArray(data) && data.length > 0) {
         setInbox(prev => [data[0], ...prev]);
         setLogs(prev => [data[0], ...prev].slice(0, 100));
+      } else {
+        setLogs(prev => [{ ...newLog, id: 'temp-' + Date.now() } as any, ...prev].slice(0, 100));
       }
     } catch (e) {
-      // Fail silently to prevent database schema issues from breaking the checkout flow
-      console.warn("[Notifications Log] Table missing. Log saved to local state only.");
-      setLogs(prev => [{ ...newLog, id: 'temp-' + Date.now() } as any, ...prev].slice(0, 50));
+      console.warn("[Notifications Log] DB sync skipped. Storing in local session.");
+      setLogs(prev => [{ ...newLog, id: 'temp-' + Date.now() } as any, ...prev].slice(0, 100));
     }
   };
 
@@ -143,11 +144,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         User Name: ${user.name}
         Order ID: #${order.id}
         Status: ${order.status}
-        /* Fix: order.total -> order.total_amount */
-        Total Amount: ₹${order.total_amount}
+        Total Amount: ₹${order.total_amount || order.total}
         
         Output JSON with:
-        "title": (Short engaging title e.g. Order Confirmed)
+        "title": (Short engaging title)
         "emailBody": (Professional HTML)
         "smsBody": (Strictly max 150 chars, start with "VexoKart: " and end with "- Team VexoKart")`,
         config: { responseMimeType: 'application/json' }
@@ -156,13 +156,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       const parsed = JSON.parse(response.text || '{}');
       aiContent.title = parsed.title || `Order Update: #${order.id}`;
       aiContent.email = parsed.emailBody;
-      /* Fix: order.total -> order.total_amount */
-      aiContent.sms = parsed.smsBody || `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total_amount}. - Team VexoKart`;
+      aiContent.sms = parsed.smsBody || `Hi ${user.name}, your order #${order.id} is ${order.status}! Total: ₹${order.total_amount || order.total}. - Team VexoKart`;
     } catch (err) {
+      console.warn("AI generation failed, using defaults:", err);
       aiContent.title = `Order ${order.status}`;
-      aiContent.email = `Order #${order.id} is ${order.status}. Thank you!`;
-      /* Fix: order.total -> order.total_amount */
-      aiContent.sms = `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total_amount}. - Team VexoKart`;
+      aiContent.email = `Order #${order.id} is now ${order.status}. Thank you for choosing VexoKart!`;
+      aiContent.sms = `Hi ${user.name}, your order #${order.id} is now ${order.status}. - Team VexoKart`;
     }
 
     const sendWithRetry = async (
@@ -175,7 +174,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         try {
           if (settings.testMode) {
             await new Promise(r => setTimeout(r, 600));
-            /* saveLogToDB now correctly handles additional metadata properties defined in types.ts */
             await saveLogToDB({ 
               userId: user.email, 
               orderId: order.id, 
@@ -192,7 +190,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
           if (channel === 'sms' && !smsConsent) return;
 
-          const result = await sendFn();
+          await sendFn();
           await saveLogToDB({ 
             userId: user.email, 
             orderId: order.id, 
@@ -204,9 +202,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             type: order.status, 
             retryCount: attempts 
           });
-          return result;
+          return;
         } catch (error: any) {
-          // Detect CORS/Browser restrictions
           const isNetworkError = error.message === 'Failed to fetch' || error.name === 'TypeError';
           attempts++;
 
@@ -217,8 +214,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
               title: aiContent.title,
               message: channel === 'sms' ? aiContent.sms : aiContent.email,
               channel, 
-              status: isNetworkError ? 'sent' : 'failed', // Mark as simulated-sent if blocked by CORS
-              response: isNetworkError ? 'Demo: Call was blocked by Browser CORS (SendGrid/Fast2SMS requirement). Use a backend proxy for production.' : (error.message || 'Unknown Provider Error'), 
+              status: isNetworkError ? 'sent' : 'failed', 
+              response: isNetworkError ? 'Browser CORS restriction simulated as sent.' : (error.message || 'Unknown Provider Error'), 
               type: order.status, 
               retryCount: attempts - 1 
             });
@@ -230,8 +227,9 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
     };
 
+    // Correctly await the delivery operations
     if (settings.emailEnabled) {
-      sendWithRetry('email', async () => {
+      await sendWithRetry('email', async () => {
         const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
           method: 'POST',
           headers: {
@@ -250,7 +248,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
 
     if (settings.smsEnabled && user.phone) {
-      sendWithRetry('sms', async () => {
+      await sendWithRetry('sms', async () => {
         const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
           method: 'POST',
           headers: {

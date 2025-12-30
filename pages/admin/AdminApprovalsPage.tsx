@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 // Changed import from context file to the dedicated hook file
 import { useProducts } from '../../hooks/useProducts';
@@ -8,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 
 const AdminApprovalsPage: React.FC = () => {
-  const { products, approveProduct, rejectProduct, disableProduct } = useProducts();
+  const { products, updateProduct, toggleProductStatus } = useProducts();
   const { getVendorById } = useVendors();
   const { user } = useAuth();
   const [filter, setFilter] = useState<'pending' | 'rejected' | 'all'>('pending');
@@ -20,42 +19,32 @@ const AdminApprovalsPage: React.FC = () => {
     return true;
   }).reverse();
 
-  const handleApprove = async (id: number) => {
+  const handleApprove = async (p: any) => {
     if (processingId) return;
     if (window.confirm("Approve this product for the marketplace? It will immediately go live for customers.")) {
-      setProcessingId(id);
-      console.log(`[AdminApprovals] Attempting to approve product ID: ${id}`);
-      
+      setProcessingId(p.id);
       try {
-        // Simulate API Call Latency
-        await new Promise(resolve => setTimeout(resolve, 800));
-        approveProduct(Number(id), user?.email);
-        console.log(`[AdminApprovals] Product ${id} approved successfully.`);
+        await updateProduct({ ...p, status: 'approved' });
       } catch (err) {
-        console.error(`[AdminApprovals] Failed to approve product ${id}`, err);
-        alert("Failed to approve product. Please check console for logs.");
+        console.error(`Failed to approve product ${p.id}`, err);
+        alert("Failed to approve product.");
       } finally {
         setProcessingId(null);
       }
     }
   };
 
-  const handleReject = async (id: number) => {
+  const handleReject = async (p: any) => {
     if (processingId) return;
     const reason = window.prompt("Please provide a reason for rejecting this product. This will be visible to the vendor:");
     
     if (reason && reason.trim()) {
-      setProcessingId(id);
-      console.log(`[AdminApprovals] Attempting to reject product ID: ${id} with reason: ${reason}`);
-      
+      setProcessingId(p.id);
       try {
-        // Simulate API Call Latency
-        await new Promise(resolve => setTimeout(resolve, 800));
-        rejectProduct(Number(id), reason.trim());
-        console.log(`[AdminApprovals] Product ${id} rejected successfully.`);
+        await updateProduct({ ...p, status: 'rejected', rejection_reason: reason.trim() } as any);
       } catch (err) {
-        console.error(`[AdminApprovals] Failed to reject product ${id}`, err);
-        alert("Failed to reject product. Please check console for logs.");
+        console.error(`Failed to reject product ${p.id}`, err);
+        alert("Failed to reject product.");
       } finally {
         setProcessingId(null);
       }
@@ -67,8 +56,7 @@ const AdminApprovalsPage: React.FC = () => {
     if (window.confirm("Disable this product? It will be hidden from the marketplace but not deleted.")) {
       setProcessingId(id);
       try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        disableProduct(Number(id));
+        await toggleProductStatus(id);
       } finally {
         setProcessingId(null);
       }
@@ -111,7 +99,7 @@ const AdminApprovalsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-border">
               {filteredProducts.map(p => {
-                const vendor = getVendorById(p.vendorId);
+                const vendor = getVendorById(p.vendor_id);
                 const isProcessing = processingId === p.id;
 
                 return (
@@ -140,8 +128,8 @@ const AdminApprovalsPage: React.FC = () => {
                     </td>
                     <td className="p-6">
                       <p className="font-black text-accent">₹{p.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                      {p.originalPrice && (
-                        <p className="text-[10px] text-text-muted line-through">₹{p.originalPrice.toLocaleString('en-IN')}</p>
+                      {p.original_price && (
+                        <p className="text-[10px] text-text-muted line-through">₹{p.original_price.toLocaleString('en-IN')}</p>
                       )}
                     </td>
                     <td className="p-6">
@@ -157,11 +145,8 @@ const AdminApprovalsPage: React.FC = () => {
                         }`}>
                           {p.status}
                         </span>
-                        {p.status === 'rejected' && p.rejectionReason && (
-                          <p className="text-[10px] text-red-400 mt-1 max-w-[150px] italic leading-tight">"{p.rejectionReason}"</p>
-                        )}
-                        {p.approved_at && (
-                          <p className="text-[9px] text-text-muted mt-1 uppercase tracking-tighter">Approved: {new Date(p.approved_at).toLocaleDateString()}</p>
+                        {p.status === 'rejected' && (p as any).rejection_reason && (
+                          <p className="text-[10px] text-red-400 mt-1 max-w-[150px] italic leading-tight">"{(p as any).rejection_reason}"</p>
                         )}
                       </div>
                     </td>
@@ -169,14 +154,14 @@ const AdminApprovalsPage: React.FC = () => {
                       {p.status === 'pending' && (
                         <>
                           <button 
-                            onClick={() => handleApprove(p.id)} 
+                            onClick={() => handleApprove(p)} 
                             disabled={!!processingId}
                             className="bg-green-500/10 text-green-500 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-green-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
                           >
-                            {isProcessing ? 'Processing...' : 'Approve'}
+                            Approve
                           </button>
                           <button 
-                            onClick={() => handleReject(p.id)} 
+                            onClick={() => handleReject(p)} 
                             disabled={!!processingId}
                             className="bg-red-500/10 text-red-500 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all shadow-sm disabled:opacity-50"
                           >
@@ -193,20 +178,11 @@ const AdminApprovalsPage: React.FC = () => {
                           Disable Listing
                         </button>
                       )}
-                      {p.status === 'disabled' && (
+                      {(p.status === 'disabled' || p.status === 'rejected') && (
                         <button 
-                          onClick={() => handleApprove(p.id)} 
+                          onClick={() => handleApprove(p)} 
                           disabled={!!processingId}
                           className="bg-accent/10 text-accent border border-accent/20 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-accent hover:text-white transition-all disabled:opacity-50"
-                        >
-                          Re-activate
-                        </button>
-                      )}
-                      {p.status === 'rejected' && (
-                        <button 
-                          onClick={() => handleApprove(p.id)} 
-                          disabled={!!processingId}
-                          className="text-accent text-[10px] font-black uppercase hover:underline disabled:opacity-50"
                         >
                           Review & Approve
                         </button>

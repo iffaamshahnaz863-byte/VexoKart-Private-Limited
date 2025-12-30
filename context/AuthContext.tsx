@@ -26,10 +26,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/**
- * Helper to ensure a user object has all required array properties
- * to prevent 'not iterable' errors and handle numeric IDs safely.
- */
 const sanitizeUser = (u: any): User => ({
   ...u,
   id: u.id ? Number(u.id) : 0,
@@ -50,15 +46,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await fetch(`${BASE_API_URL}/users?select=*`, { 
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
       });
+      if (!response.ok) return;
       const data = await response.json();
       if (Array.isArray(data)) {
         setAllUsers(data.map(sanitizeUser));
-      } else {
-        setAllUsers([]);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
-      setAllUsers([]);
     }
   };
 
@@ -71,11 +65,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (sessionUser) {
         try {
           const parsed = JSON.parse(sessionUser);
-          // Use ilike for robust session restoration
           const res = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(parsed.email)}&select=*`, { headers: API_HEADERS });
-          const userData = await res.json();
-          if (Array.isArray(userData) && userData.length > 0) {
-            setUser(sanitizeUser(userData[0]));
+          if (res.ok) {
+              const userData = await res.json();
+              if (Array.isArray(userData) && userData.length > 0) {
+                setUser(sanitizeUser(userData[0]));
+              }
           }
         } catch (e) {
           console.error("Session restoration failed:", e);
@@ -94,63 +89,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, pass: string) => {
     try {
-      // Use ilike for case-insensitive email matching to prevent "User not found" errors
       const query = `email=ilike.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
-      const data = await res.json();
       
+      if (!res.ok) throw new Error("Auth service currently unavailable.");
+      
+      const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const loggedUser = sanitizeUser(data[0]);
         updateUserSession(loggedUser);
         return;
       }
       
-      // Secondary check to provide specific feedback
       const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
-      const checkData = await checkRes.json();
+      const checkData = await checkRes.json().catch(() => []);
       
       if (Array.isArray(checkData) && checkData.length === 0) {
           throw new Error('User not found. Please register first.');
       }
       
-      throw new Error('Invalid email or password');
+      throw new Error('Invalid credentials.');
     } catch (err: any) {
-      console.error("Login attempt failed:", err);
-      throw new Error(err.message || 'Authentication service unreachable');
+      console.error("Login Error:", err);
+      throw new Error(err.message || 'Network error. Please check your internet.');
     }
   };
 
   const signup = async (name: string, email: string, phone: string, pass: string) => {
-    // Check if user exists using case-insensitive lookup
-    const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
-    const existing = await checkRes.json();
-    if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
+    try {
+        const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+        const existing = await checkRes.json().catch(() => []);
+        if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
 
-    // Payloads strictly exclude 'id' to let Postgres handle identity auto-generation
-    const newUser = {
-      name, 
-      email: email.toLowerCase(), 
-      phone, 
-      password: pass, 
-      role: 'user',
-      addresses: [], 
-      wishlist: [], 
-      recentlyViewed: [], 
-      created_at: new Date().toISOString()
-    };
+        const newUser = {
+          name, 
+          email: email.toLowerCase(), 
+          phone, 
+          password: pass, 
+          role: 'user',
+          addresses: [], 
+          wishlist: [], 
+          recentlyViewed: [], 
+          created_at: new Date().toISOString()
+        };
 
-    const res = await fetch(`${BASE_API_URL}/users`, {
-      method: 'POST',
-      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-      body: JSON.stringify(newUser)
-    });
-    
-    if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Signup rejected by server.');
+        const res = await fetch(`${BASE_API_URL}/users`, {
+          method: 'POST',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify(newUser)
+        });
+        
+        if (!res.ok) throw new Error('Account creation rejected. Try again later.');
+        
+        await fetchUsers();
+    } catch (err: any) {
+        console.error("Signup Error:", err);
+        throw new Error(err.message || "Connection failed.");
     }
-    
-    await fetchUsers();
   };
 
   const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
@@ -163,31 +158,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => {
-    const newUser = {
-      name: userData.name,
-      email: userData.email.toLowerCase(),
-      phone: userData.phone,
-      password: userData.pass,
-      role: userData.role,
-      addresses: [],
-      wishlist: [],
-      recentlyViewed: [],
-      created_at: new Date().toISOString()
-    };
+    try {
+        const newUser = {
+          name: userData.name,
+          email: userData.email.toLowerCase(),
+          phone: userData.phone,
+          password: userData.pass,
+          role: userData.role,
+          addresses: [],
+          wishlist: [],
+          recentlyViewed: [],
+          created_at: new Date().toISOString()
+        };
 
-    const res = await fetch(`${BASE_API_URL}/users`, {
-      method: 'POST',
-      headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-      body: JSON.stringify(newUser)
-    });
+        const res = await fetch(`${BASE_API_URL}/users`, {
+          method: 'POST',
+          headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+          body: JSON.stringify(newUser)
+        });
 
-    const createdUsers = await res.json();
-    if (!res.ok) throw new Error(createdUsers.message || 'Identity creation failed');
+        if (!res.ok) throw new Error('Identity creation failed');
+        
+        const createdUsers = await res.json();
+        const createdUser = sanitizeUser(createdUsers[0]);
 
-    const createdUser = sanitizeUser(createdUsers[0]);
-
-    if (userData.role === 'vendor' && vendorContext) {
-        try {
+        if (userData.role === 'vendor' && vendorContext) {
             await vendorContext.addVendorRecord({
                 user_id: createdUser.id.toString(),
                 store_name: userData.storeName || `${userData.name}'s Store`,
@@ -198,58 +193,78 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 status: 'pending'
             });
             await vendorContext.refreshVendors();
-        } catch (vErr) {
-            console.error("Vendor profile link failed:", vErr);
         }
-    }
 
-    await fetchUsers();
+        await fetchUsers();
+    } catch (err: any) {
+        console.error("AddUser Error:", err);
+        throw err;
+    }
   };
 
   const addAddress = async (address: Omit<Address, 'id'>) => {
     if (!user) return;
-    const newAddress = { ...address, id: Date.now().toString() };
-    const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
-    const updatedAddresses = [...currentAddresses, newAddress];
-    
-    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ addresses: updatedAddresses })
-    });
-    setUser({ ...user, addresses: updatedAddresses });
+    try {
+        const newAddress = { ...address, id: Date.now().toString() };
+        const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
+        const updatedAddresses = [...currentAddresses, newAddress];
+        
+        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
+          method: 'PATCH',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ addresses: updatedAddresses })
+        });
+        setUser({ ...user, addresses: updatedAddresses });
+    } catch (e) {
+        console.error("Address update failed:", e);
+    }
   };
 
   const updateAddress = async (address: Address) => {
     if (!user) return;
-    const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
-    const updatedAddresses = currentAddresses.map(a => a.id === address.id ? address : a);
-    
-    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ addresses: updatedAddresses })
-    });
-    setUser({ ...user, addresses: updatedAddresses });
+    try {
+        const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
+        const updatedAddresses = currentAddresses.map(a => a.id === address.id ? address : a);
+        
+        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
+          method: 'PATCH',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ addresses: updatedAddresses })
+        });
+        setUser({ ...user, addresses: updatedAddresses });
+    } catch (e) {
+        console.error("Address update failed:", e);
+    }
   };
 
   const deleteAddress = async (addressId: string) => {
     if (!user) return;
-    const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
-    const updatedAddresses = currentAddresses.filter(a => a.id !== addressId);
-    
-    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ addresses: updatedAddresses })
-    });
-    setUser({ ...user, addresses: updatedAddresses });
+    try {
+        const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
+        const updatedAddresses = currentAddresses.filter(a => a.id !== addressId);
+        
+        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
+          method: 'PATCH',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ addresses: updatedAddresses })
+        });
+        setUser({ ...user, addresses: updatedAddresses });
+    } catch (e) {
+        console.error("Address deletion failed:", e);
+    }
   };
 
   const deleteUser = async (email: string) => {
     if (email === 'admin@vexokart.com') return;
-    await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}`, { method: 'DELETE', headers: API_HEADERS });
-    await fetchUsers();
+    try {
+        await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}`, { 
+            method: 'DELETE', 
+            headers: { ...API_HEADERS, 'Prefer': 'return=minimal' } 
+        });
+        await fetchUsers();
+    } catch (e) {
+        console.error("User deletion failed:", e);
+    }
   };
 
   const addToWishlist = async (productId: number) => {
@@ -257,26 +272,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
     if (currentWishlist.includes(productId)) return;
     
-    const updated = [...currentWishlist, productId];
-    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ wishlist: updated })
-    });
-    setUser({ ...user, wishlist: updated });
+    try {
+        const updated = [...currentWishlist, productId];
+        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
+          method: 'PATCH',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ wishlist: updated })
+        });
+        setUser({ ...user, wishlist: updated });
+    } catch (e) {
+        console.error("Wishlist sync failed:", e);
+    }
   };
 
   const removeFromWishlist = async (productId: number) => {
     if (!user) return;
-    const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
-    const updated = currentWishlist.filter(id => id !== productId);
-    
-    await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ wishlist: updated })
-    });
-    setUser({ ...user, wishlist: updated });
+    try {
+        const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
+        const updated = currentWishlist.filter(id => id !== productId);
+        
+        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
+          method: 'PATCH',
+          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ wishlist: updated })
+        });
+        setUser({ ...user, wishlist: updated });
+    } catch (e) {
+        console.error("Wishlist sync failed:", e);
+    }
   };
 
   const isInWishlist = (productId: number) => {

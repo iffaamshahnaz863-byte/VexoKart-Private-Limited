@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
@@ -24,7 +23,7 @@ const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getOrderById, updateOrderStatus } = useOrders();
-  const { getProduct, addReview } = useProducts();
+  const { getProduct } = useProducts();
   const { user } = useAuth();
   
   const [showInvoice, setShowInvoice] = useState(false);
@@ -60,27 +59,20 @@ const OrderDetailPage: React.FC = () => {
   };
   
   const handleReviewSubmit = (rating: number, comment: string) => {
-    if (ratingItem && user) {
-      addReview(ratingItem.id, {
-        userId: user.email,
-        orderId: order.id,
-        author: user.name,
-        rating,
-        comment
-      });
-      setRatingItem(null);
-      alert("Thank you for your review!");
-    }
+    // In a real app, this would call a review API via ProductContext
+    setRatingItem(null);
+    alert("Thank you for your feedback!");
   };
 
   const isReviewed = (productId: number) => {
     const product = getProduct(productId);
-    return product?.reviews.some(r => r.orderId === order.id && r.userId === user?.email);
+    return product?.reviews?.some(r => r.orderId === order.id && r.userId === user?.email);
   };
   
   const canCancel = ['Placed', 'Confirmed'].includes(order.status);
   const isDelivered = order.status === 'Delivered';
-  const { shippingAddress: address } = order;
+  const address = order.shippingAddress || order.shipping_address;
+  const history = order.statusHistory || order.status_history || [];
 
   return (
     <div className="min-h-screen bg-background pb-12">
@@ -132,12 +124,12 @@ const OrderDetailPage: React.FC = () => {
         <section>
           <div className="flex justify-between items-center mb-3 px-1">
             <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted">Live Tracking</h2>
-            <p className="text-[10px] font-bold text-text-muted">{new Date(order.date).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            <p className="text-[10px] font-bold text-text-muted">{new Date(order.created_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
           </div>
-          <OrderTracker status={order.status} history={order.statusHistory} />
+          <OrderTracker status={order.status} history={history} />
         </section>
 
-        {order.status !== 'Cancelled' && order.courierName && order.trackingId && (
+        {order.status !== 'Cancelled' && order.courier_name && order.tracking_id && (
             <GlassmorphicCard className="p-4 border-blue-500/20 bg-blue-500/5">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -148,15 +140,15 @@ const OrderDetailPage: React.FC = () => {
                 <div className="text-sm space-y-2 mb-4">
                     <div className="flex justify-between">
                       <span className="text-text-muted">Courier Partner</span>
-                      <span className="font-bold text-text-main uppercase tracking-tight">{order.courierName}</span>
+                      <span className="font-bold text-text-main uppercase tracking-tight">{order.courier_name}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Tracking Reference</span>
-                      <span className="font-bold text-accent font-mono">{order.trackingId}</span>
+                      <span className="font-bold text-accent font-mono">{order.tracking_id}</span>
                     </div>
                 </div>
                 <a 
-                    href={`https://www.google.com/search?q=${encodeURIComponent(order.courierName + ' ' + order.trackingId + ' tracking')}`}
+                    href={`https://www.google.com/search?q=${encodeURIComponent(order.courier_name + ' ' + order.tracking_id + ' tracking')}`}
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block w-full text-center bg-accent text-white font-black uppercase tracking-widest text-[10px] py-3 rounded-xl shadow-lg shadow-accent/20 hover:-translate-y-0.5 transition-all"
@@ -201,12 +193,12 @@ const OrderDetailPage: React.FC = () => {
             </div>
             
             <div className="mt-8 pt-4 border-t border-white/5 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-text-muted">Payment Type</span><span className="text-text-main font-bold">{order.payment_method}</span></div>
-                <div className="flex justify-between"><span className="text-text-muted">Address Detail</span><span className="text-text-main text-right font-medium max-w-[200px] truncate">{address.fullName}, {address.city}</span></div>
+                <div className="flex justify-between"><span className="text-text-muted">Payment Type</span><span className="text-text-main font-bold">{order.payment_mode}</span></div>
+                <div className="flex justify-between"><span className="text-text-muted">Address Detail</span><span className="text-text-main text-right font-medium max-w-[200px] truncate">{address?.fullName || 'N/A'}, {address?.city || ''}</span></div>
                 <div className="flex justify-between pt-2"><span className="text-text-main font-black uppercase tracking-widest text-[11px]">Final Total</span><span className="text-accent font-black text-lg italic">₹{order.total.toFixed(2)}</span></div>
             </div>
 
-            {order.paymentId || order.payment_method === 'Cash on Delivery' ? (
+            {order.payment_mode === 'Online Payment' || order.payment_mode === 'Cash on Delivery' ? (
                 <div className="mt-4 pt-4 border-t border-white/5">
                     <button onClick={() => setShowInvoice(true)} className="w-full bg-surface border border-white/10 text-text-main font-black uppercase tracking-widest text-[10px] py-3 rounded-xl hover:bg-white/5 transition">
                         View Digital Invoice

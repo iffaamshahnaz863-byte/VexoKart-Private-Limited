@@ -73,22 +73,28 @@ export async function getCroppedImg(
     throw new Error('No 2d context for crop');
   }
 
-  // Set the size of the final cropped canvas
-  croppedCanvas.width = pixelCrop.width;
-  croppedCanvas.height = pixelCrop.height;
-
-  // Extract the cropped pixels from the main canvas
-  const data = ctx.getImageData(
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height
-  );
+  // Set the size of the final cropped canvas (Limit max dimensions to 800px)
+  const maxDim = 800;
+  let finalWidth = pixelCrop.width;
+  let finalHeight = pixelCrop.height;
   
-  croppedCtx.putImageData(data, 0, 0);
+  if (finalWidth > maxDim) {
+      finalHeight = (maxDim / finalWidth) * finalHeight;
+      finalWidth = maxDim;
+  }
 
-  // Optimization: Compress to JPEG 0.6 (60%) for better mobile storage/loading performance
+  croppedCanvas.width = finalWidth;
+  croppedCanvas.height = finalHeight;
+
+  // Extract and scale the cropped pixels
+  croppedCtx.drawImage(
+    canvas,
+    pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+    0, 0, finalWidth, finalHeight
+  );
+
+  // Optimization: Compress to JPEG 0.5 (50%) to stay under DB size limits for base64
   return new Promise((resolve) => {
-    resolve(croppedCanvas.toDataURL('image/jpeg', 0.6));
+    resolve(croppedCanvas.toDataURL('image/jpeg', 0.5));
   });
 }

@@ -14,8 +14,9 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   
   useEffect(() => {
-    if (user?.email && !currentVendor && !isVendorLoading) {
-      fetchCurrentVendor(user.email);
+    // CRITICAL: Fetch vendor by user.id as per strict relationship requirements
+    if (user?.id && !currentVendor && !isVendorLoading) {
+      fetchCurrentVendor(user.id.toString());
     }
   }, [user, currentVendor, isVendorLoading]);
 
@@ -44,7 +45,7 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
     );
   }
 
-  // Error State (e.g., Profile not found or network error)
+  // Error State
   if (vendorError || (!isVendorLoading && !currentVendor)) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
@@ -54,25 +55,22 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
                 </svg>
             </div>
             <h2 className="text-xl font-black text-text-main uppercase italic tracking-tight mb-2">Workspace Unavailable</h2>
-            <p className="text-text-secondary mb-8 max-w-xs mx-auto text-sm leading-relaxed">{vendorError || "We couldn't verify your store credentials in the marketplace database."}</p>
+            <p className="text-text-secondary mb-8 max-w-xs mx-auto text-sm leading-relaxed">{vendorError || "Merchant profile record not found."}</p>
             <div className="flex gap-4 justify-center">
                 <button onClick={handleLogout} className="px-6 py-3 border border-border rounded-xl text-xs font-bold hover:bg-surface transition-all">Logout</button>
                 <button 
-                    onClick={() => user?.email && fetchCurrentVendor(user.email)} 
+                    onClick={() => user?.id && fetchCurrentVendor(user.id.toString())} 
                     className="px-6 py-3 bg-accent text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20 active:scale-95 transition-all"
                 >
                     Retry Sync
                 </button>
             </div>
-            <p className="mt-12 text-[10px] text-text-muted font-bold uppercase tracking-tighter">VexoKart Marketplace Protocol v2.4</p>
         </div>
     );
   }
 
-  // Double check currentVendor for TS safety
   if (!currentVendor) return null;
 
-  // Approval Status Guard
   if (currentVendor.status !== 'approved') {
     return <VendorStatusPage vendor={currentVendor} />;
   }

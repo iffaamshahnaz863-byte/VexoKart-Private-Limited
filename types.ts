@@ -80,19 +80,26 @@ export interface StatusHistory {
 export interface Order {
     id: string;
     user_id: number;
-    vendor_id?: string; // Main vendor or 'split'
+    vendor_id?: string;
     items: OrderItem[];
-    total_amount: number;
+    total: number; // Standardized for UI
+    total_amount?: number; // DB compatibility
     payment_mode: 'Online Payment' | 'Cash on Delivery';
     payment_status: PaymentStatus;
-    shipping_address: Address;
+    shippingAddress: Address; // Standardized for UI
+    shipping_address?: Address; // DB compatibility
     status: OrderStatus;
-    status_history: StatusHistory[];
+    statusHistory: StatusHistory[]; // Standardized for UI
+    status_history?: StatusHistory[]; // DB compatibility
     label_url?: string;
     tracking_id?: string;
     courier_name?: string;
     qr_token?: string;
+    qrToken?: string; // Standardized for UI
     created_at: string;
+    date?: string; // Virtual for UI
+    userEmail?: string; // Virtual for UI
+    paymentId?: string; // Virtual for UI
 }
 
 export interface Address {
@@ -142,7 +149,6 @@ export interface NotificationLog {
   channel: 'email' | 'sms' | 'in-app';
   status: 'sent' | 'failed';
   is_read: boolean;
-  /* Fixed properties to resolve Omit mismatches in NotificationContext */
   response?: string;
   type?: string;
   retryCount?: number;
@@ -152,7 +158,6 @@ export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
   testMode: boolean;
-  /* Added properties missing from original NotificationSettings but used in DEFAULT_SETTINGS */
   smtpHost: string;
   smtpUser: string;
   smtpPass: string;
@@ -162,7 +167,6 @@ export interface NotificationSettings {
   smsTemplateId: string;
 }
 
-/* Added missing AdminCode interface */
 export interface AdminCode {
   id: string;
   code: string;
@@ -175,7 +179,6 @@ export interface AdminCode {
   usedBy?: string;
 }
 
-/* Added missing Banner interface */
 export interface Banner {
   id: number;
   image_url: string;

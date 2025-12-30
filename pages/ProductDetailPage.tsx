@@ -33,7 +33,7 @@ const ProductDetailPage: React.FC = () => {
   
   const productId = parseInt(id || '');
   const product = getProduct(productId);
-  const vendor = product ? getVendorById(product.vendorId) : null;
+  const vendor = product ? getVendorById(product.vendor_id) : null;
 
   useEffect(() => {
     if (product && isAuthenticated) {
@@ -43,9 +43,18 @@ const ProductDetailPage: React.FC = () => {
     window.scrollTo(0, 0);
     
     // Auto-select first variant if available
-    if (product?.colors?.length) setSelectedColor(product.colors[0].name);
-    if (product?.sizes?.length) setSelectedSize(product.sizes[0]);
+    if (product?.variants?.length) {
+        const firstColor = product.variants.find(v => v.type === 'color');
+        const firstSize = product.variants.find(v => v.type === 'size');
+        if (firstColor) setSelectedColor(firstColor.value);
+        if (firstSize) setSelectedSize(firstSize.value);
+    }
   }, [productId, product, isAuthenticated]);
+
+  const displayImages = useMemo(() => {
+      if (!product) return ['https://placehold.co/600x600/F8F9FA/A0A0A0?text=VexoKart'];
+      return product.images.length > 0 ? product.images : ['https://placehold.co/600x600/F8F9FA/A0A0A0?text=VexoKart'];
+  }, [product]);
 
   if (!product) {
     return (
@@ -63,18 +72,15 @@ const ProductDetailPage: React.FC = () => {
   }
 
   const isWishlisted = isInWishlist(product.id);
-  const mrp = Number(product.originalPrice || product.price);
+  const mrp = Number(product.original_price || product.price);
   const sellingPrice = Number(product.price);
   const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
   
-  const similarProducts = products.filter(p => p.category === product.category && p.id !== product.id && p.status === 'approved').slice(0, 4);
-
-  const displayImages = useMemo(() => {
-      return product.images.length > 0 ? product.images : ['https://placehold.co/600x600/F8F9FA/A0A0A0?text=VexoKart'];
-  }, [product]);
+  const similarProducts = products.filter(p => p.category_id === product.category_id && p.id !== product.id && p.status === 'approved').slice(0, 4);
 
   const handleAddToCart = () => {
-    if (product.sizes?.length && !selectedSize) {
+    const hasSizes = product.variants?.some(v => v.type === 'size');
+    if (hasSizes && !selectedSize) {
         alert("Please select a size first.");
         return;
     }
@@ -99,6 +105,9 @@ const ProductDetailPage: React.FC = () => {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/F8F9FA/A0A0A0?text=Product+Image';
   };
+
+  const colors = product.variants?.filter(v => v.type === 'color') || [];
+  const sizes = product.variants?.filter(v => v.type === 'size') || [];
 
   return (
     <div className="min-h-screen bg-white pb-32">
@@ -146,7 +155,7 @@ const ProductDetailPage: React.FC = () => {
         {/* Basic Info */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-accent bg-accent/10 px-2 py-1 rounded uppercase tracking-widest">{product.category}</span>
+            <span className="text-[10px] font-black text-accent bg-accent/10 px-2 py-1 rounded uppercase tracking-widest">{product.category || 'General'}</span>
             <div className="flex items-center gap-1.5 bg-green-50 px-2 py-1 rounded border border-green-100">
                 <span className="text-xs font-black text-green-700">{product.rating || '4.2'}</span>
                 <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -171,37 +180,37 @@ const ProductDetailPage: React.FC = () => {
         </div>
 
         {/* Variant Selectors */}
-        {product.colors && product.colors.length > 0 && (
+        {colors.length > 0 && (
             <div className="space-y-3 pt-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Selected Shade: <span className="text-text-main">{selectedColor}</span></p>
                 <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
-                    {product.colors.map((color, idx) => (
+                    {colors.map((color, idx) => (
                         <button 
                             key={idx}
-                            onClick={() => setSelectedColor(color.name)}
-                            className={`flex-shrink-0 w-12 h-12 rounded-full border-2 p-0.5 transition-all ${selectedColor === color.name ? 'border-accent scale-110 shadow-lg' : 'border-border'}`}
+                            onClick={() => setSelectedColor(color.value)}
+                            className={`flex-shrink-0 w-12 h-12 rounded-full border-2 p-0.5 transition-all ${selectedColor === color.value ? 'border-accent scale-110 shadow-lg' : 'border-border'}`}
                         >
-                            <img src={color.image} className="w-full h-full rounded-full object-cover" alt={color.name} onError={handleImageError} />
+                            <img src={color.image || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Color'} className="w-full h-full rounded-full object-cover" alt={color.name} onError={handleImageError} />
                         </button>
                     ))}
                 </div>
             </div>
         )}
 
-        {product.sizes && product.sizes.length > 0 && (
+        {sizes.length > 0 && (
              <div className="space-y-3 pt-2">
                 <div className="flex justify-between items-center">
                     <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Select Fit</p>
                     <button className="text-[9px] font-black uppercase text-accent tracking-tighter">Size Chart</button>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                    {product.sizes.map((size) => (
+                    {sizes.map((size) => (
                         <button 
-                            key={size}
-                            onClick={() => setSelectedSize(size)}
-                            className={`w-12 h-12 rounded-xl text-xs font-black transition-all flex items-center justify-center border-2 ${selectedSize === size ? 'border-accent bg-accent text-white shadow-xl shadow-accent/20' : 'border-border bg-white text-text-main hover:border-accent'}`}
+                            key={size.value}
+                            onClick={() => setSelectedSize(size.value)}
+                            className={`w-12 h-12 rounded-xl text-xs font-black transition-all flex items-center justify-center border-2 ${selectedSize === size.value ? 'border-accent bg-accent text-white shadow-xl shadow-accent/20' : 'border-border bg-white text-text-main hover:border-accent'}`}
                         >
-                            {size}
+                            {size.value}
                         </button>
                     ))}
                 </div>
@@ -245,14 +254,14 @@ const ProductDetailPage: React.FC = () => {
                         </div>
                         <div className="p-4 bg-surface rounded-2xl border border-border">
                             <p className="text-[9px] font-black text-text-muted uppercase mb-1">Returns</p>
-                            <p className="text-xs font-bold text-text-main italic">{product.returnPolicy || '7 Day Replacement'}</p>
+                            <p className="text-xs font-bold text-text-main italic">{product.return_policy || '7 Day Replacement'}</p>
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        {product.allow_cod && (
+                        {product.payment_modes?.includes('cod') && (
                             <span className="bg-green-50 text-green-600 text-[8px] font-black uppercase px-2 py-1 rounded border border-green-100 tracking-widest">COD Available</span>
                         )}
-                        {product.allow_online && (
+                        {product.payment_modes?.includes('online') && (
                             <span className="bg-blue-50 text-blue-600 text-[8px] font-black uppercase px-2 py-1 rounded border border-blue-100 tracking-widest">Digital Ready</span>
                         )}
                     </div>
