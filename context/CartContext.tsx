@@ -1,8 +1,7 @@
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { CartItem, Product } from '../types';
-import { useAuth } from './AuthContext';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { CartItem, Product } from '../types.ts';
+import { useAuth } from './AuthContext.tsx';
+import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -20,7 +19,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { user } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Local state as primary for speed, but sync to Supabase if user is logged in
   useEffect(() => {
     const local = localStorage.getItem('vexokart-cart');
     if (local) setCartItems(JSON.parse(local));

@@ -1,32 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCart } from '../hooks/useCart';
-import { useAuth } from '../context/AuthContext';
-import { useOrders } from '../context/OrderContext';
-import GlassmorphicCard from '../components/GlassmorphicCard';
-import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
-import { Address, OrderItem } from '../types';
+import { useCart } from '../hooks/useCart.ts';
+import { useAuth } from '../context/AuthContext.tsx';
+import { useOrders } from '../context/OrderContext.tsx';
+import GlassmorphicCard from '../components/GlassmorphicCard.tsx';
+import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon.tsx';
+import { Address, OrderItem } from '../types.ts';
 
+/**
+ * PRODUCTION SECURE GATEWAY CONFIGURATION
+ */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
+const FIXED_PAYMENT_AMOUNT_PAISE = 2000; // ₹20.00
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
-  const { addOrder, createPaymentOrder } = useOrders();
+  const { addOrder } = useOrders();
   const navigate = useNavigate();
 
-  const canPayOnline = useMemo(
-    () => cartItems.every(i => i.payment_modes?.includes('online') ?? true),
-    [cartItems]
-  );
-  const canPayCOD = useMemo(
-    () => cartItems.every(i => i.payment_modes?.includes('cod') ?? true),
-    [cartItems]
-  );
-
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>(
-    canPayOnline ? 'card' : 'cod'
-  );
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
@@ -36,31 +29,14 @@ const CheckoutPage: React.FC = () => {
     }
   }, [user]);
 
-  // Razorpay SDK loader
-  const loadRazorpay = () =>
-    new Promise<boolean>((resolve) => {
-      if ((window as any).Razorpay) return resolve(true);
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-
   const handlePlaceOrder = async () => {
     if (!user || !selectedAddress) {
       alert('Please select delivery address');
       return;
     }
 
-    if (!cartTotal || cartTotal <= 0) {
-      alert('Invalid order amount');
-      return;
-    }
-
     setIsProcessing(true);
 
-    // Prepare order payload (BUT DO NOT CREATE ORDER YET)
     const orderItems: OrderItem[] = cartItems.map(item => ({
       id: item.id,
       name: item.name,
@@ -72,68 +48,60 @@ const CheckoutPage: React.FC = () => {
       size: item.selectedSize,
     }));
 
-    const orderPayload = {
-      items: orderItems,
-      total: cartTotal,
-      shippingAddress: selectedAddress,
-      payment_method:
-        paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
+    const finalizeOrder = async () => {
+      const orderPayload = {
+        items: orderItems,
+        total: cartTotal,
+        shippingAddress: selectedAddress,
+        payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
+      };
+      await addOrder(orderPayload);
+      clearCart();
+      navigate('/order-success', { state: { address: selectedAddress } });
     };
 
     try {
-      // 🟢 COD FLOW → ORDER DIRECT
       if (paymentMethod === 'cod') {
-        await addOrder(orderPayload);
-        clearCart();
-        navigate('/order-success', { state: { address: selectedAddress } });
+        await finalizeOrder();
         return;
       }
 
-      // 🟢 ONLINE PAYMENT FLOW
-      const rzpOrder = await createPaymentOrder(cartTotal);
-
-      const loaded = await loadRazorpay();
-      if (!loaded) throw new Error('Razorpay SDK failed to load');
+      // NATIVE RAZORPAY INTEGRATION (LIVE)
+      if (!(window as any).Razorpay) {
+        alert("Payment gateway not loaded. Please check your connection.");
+        setIsProcessing(false);
+        return;
+      }
 
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
-        amount: rzpOrder.amount,
+        amount: FIXED_PAYMENT_AMOUNT_PAISE,
         currency: 'INR',
-        name: 'VexoKart',
-        description: 'Secure Online Payment',
-        order_id: rzpOrder.id,
-
-        handler: async () => {
-          // ✅ PAYMENT SUCCESS → NOW CREATE ORDER
-          await addOrder(orderPayload);
-          clearCart();
-          navigate('/order-success', { state: { address: selectedAddress } });
+        name: 'VexoKart Premium',
+        description: 'Secure Order Settlement',
+        image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo-icon.png',
+        handler: async (response: any) => {
+          // ON SUCCESS: Proceed with local order creation
+          await finalizeOrder();
         },
-
-        modal: {
-          ondismiss: () => {
-            // ❌ PAYMENT CANCELLED → NO ORDER CREATED
-            setIsProcessing(false);
-          },
-        },
-
         prefill: {
           name: user.name,
           email: user.email,
           contact: selectedAddress.phone,
         },
-
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+          },
+        },
         theme: { color: '#FF8A00' },
       };
 
       const rzp = new (window as any).Razorpay(options);
-
-      rzp.on('payment.failed', () => {
-        // ❌ PAYMENT FAILED → NO ORDER CREATED
-        alert('Payment failed. Order not placed.');
+      rzp.on('payment.failed', (err: any) => {
+        alert(`Payment failed: ${err.error.description}`);
         setIsProcessing(false);
       });
-
       rzp.open();
 
     } catch (err: any) {
@@ -176,15 +144,11 @@ const CheckoutPage: React.FC = () => {
 
         <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Channel</h2>
-
           <div className="space-y-3">
-            {canPayOnline && (
               <div
                 onClick={() => setPaymentMethod('card')}
                 className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  paymentMethod === 'card'
-                    ? 'border-accent bg-accent/5'
-                    : 'border-border bg-surface'
+                  paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-surface'
                 }`}
               >
                 <div>
@@ -195,15 +159,11 @@ const CheckoutPage: React.FC = () => {
                     {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
                 </div>
               </div>
-            )}
 
-            {canPayCOD && (
               <div
                 onClick={() => setPaymentMethod('cod')}
                 className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  paymentMethod === 'cod'
-                    ? 'border-accent bg-accent/5'
-                    : 'border-border bg-surface'
+                  paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-surface'
                 }`}
               >
                 <div>
@@ -214,7 +174,6 @@ const CheckoutPage: React.FC = () => {
                     {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
                 </div>
               </div>
-            )}
           </div>
         </GlassmorphicCard>
       </div>
@@ -229,7 +188,7 @@ const CheckoutPage: React.FC = () => {
             ? 'Synchronizing Secure Layers...'
             : paymentMethod === 'cod'
             ? 'Confirm Order (COD)'
-            : `INITIALIZE SECURE PAYMENT ₹${cartTotal.toLocaleString('en-IN')}`}
+            : `INITIALIZE SECURE PAYMENT ₹20`}
         </button>
       </div>
     </div>

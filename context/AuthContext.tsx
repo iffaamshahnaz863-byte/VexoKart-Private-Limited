@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { User, Address } from '../types';
-import { VendorContext } from './VendorContext';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { User, Address } from '../types.ts';
+import { VendorContext } from './VendorContext.tsx';
+import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
 interface AuthContextType {
   user: User | null;

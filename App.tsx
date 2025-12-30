@@ -1,61 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
-import HomePage from './pages/HomePage';
-import ProductsPage from './pages/ProductsPage';
-import ProductDetailPage from './pages/ProductDetailPage';
-import CartPage from './pages/CartPage';
-import ProfilePage from './pages/ProfilePage';
-import CheckoutPage from './pages/CheckoutPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import MyOrdersPage from './pages/MyOrdersPage';
-import OrderDetailPage from './pages/OrderDetailPage';
-import OrderSuccessPage from './pages/OrderSuccessPage';
-import ShippingAddressesPage from './pages/ShippingAddressesPage';
-import AddressFormPage from './pages/AddressFormPage';
-import WishlistPage from './pages/WishlistPage';
-import NotificationsPage from './pages/NotificationsPage';
-import BottomNav from './components/BottomNav';
-import SplashScreen from './components/SplashScreen';
-import { CartProvider } from './context/CartContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { OrderProvider } from './context/OrderContext';
-import { ProductProvider } from './context/ProductContext';
-import { CategoryProvider } from './context/CategoryContext';
-import { RecentlyViewedProvider } from './context/RecentlyViewedContext';
-import { VendorProvider, useVendors } from './context/VendorContext';
-import { AdminCodeProvider } from './context/AdminCodeContext';
-import { BannerProvider } from './context/BannerContext';
-import { NotificationProvider } from './context/NotificationContext';
+import HomePage from './pages/HomePage.tsx';
+import ProductsPage from './pages/ProductsPage.tsx';
+import ProductDetailPage from './pages/ProductDetailPage.tsx';
+import CartPage from './pages/CartPage.tsx';
+import ProfilePage from './pages/ProfilePage.tsx';
+import CheckoutPage from './pages/CheckoutPage.tsx';
+import LoginPage from './pages/LoginPage.tsx';
+import SignupPage from './pages/SignupPage.tsx';
+import MyOrdersPage from './pages/MyOrdersPage.tsx';
+import OrderDetailPage from './pages/OrderDetailPage.tsx';
+import OrderSuccessPage from './pages/OrderSuccessPage.tsx';
+import ShippingAddressesPage from './pages/ShippingAddressesPage.tsx';
+import AddressFormPage from './pages/AddressFormPage.tsx';
+import WishlistPage from './pages/WishlistPage.tsx';
+import NotificationsPage from './pages/NotificationsPage.tsx';
+import BottomNav from './components/BottomNav.tsx';
+import SplashScreen from './components/SplashScreen.tsx';
+import { CartProvider } from './context/CartContext.tsx';
+import { AuthProvider, useAuth } from './context/AuthContext.tsx';
+import { OrderProvider } from './context/OrderContext.tsx';
+import { ProductProvider } from './context/ProductContext.tsx';
+import { CategoryProvider } from './context/CategoryContext.tsx';
+import { RecentlyViewedProvider } from './context/RecentlyViewedContext.tsx';
+import { VendorProvider } from './context/VendorContext.tsx';
+import { AdminCodeProvider } from './context/AdminCodeContext.tsx';
+import { BannerProvider } from './context/BannerContext.tsx';
+import { NotificationProvider } from './context/NotificationContext.tsx';
 
 // Auth Pages
-import VendorSignupPage from './pages/VendorSignupPage';
+import VendorSignupPage from './pages/VendorSignupPage.tsx';
 
 // Admin Imports
-import AdminLayout from './pages/admin/AdminLayout';
-import AdminDashboardPage from './pages/admin/AdminDashboardPage';
-import AdminProductsPage from './pages/admin/AdminProductsPage';
-import AdminProductFormPage from './pages/admin/AdminProductFormPage';
-import AdminOrdersPage from './pages/admin/AdminOrdersPage';
-import AdminUsersPage from './pages/admin/AdminUsersPage';
-import AdminCategoriesPage from './pages/admin/AdminCategoriesPage';
-import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage';
-import AdminVendorsPage from './pages/admin/AdminVendorsPage';
-import AdminCodesPage from './pages/admin/AdminCodesPage';
-import AdminBannersPage from './pages/admin/AdminBannersPage';
-import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
+import AdminLayout from './pages/admin/AdminLayout.tsx';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage.tsx';
+import AdminProductsPage from './pages/admin/AdminProductsPage.tsx';
+import AdminProductFormPage from './pages/admin/AdminProductFormPage.tsx';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage.tsx';
+import AdminUsersPage from './pages/admin/AdminUsersPage.tsx';
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage.tsx';
+import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage.tsx';
+import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
+import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
+import AdminBannersPage from './pages/admin/AdminBannersPage.tsx';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
 
 // Vendor Imports
-import VendorLayout from './pages/vendor/VendorLayout';
-import VendorDashboardPage from './pages/vendor/VendorDashboardPage';
-import VendorProductsPage from './pages/vendor/VendorProductsPage';
-import VendorProductFormPage from './pages/vendor/VendorProductFormPage';
-import VendorOrdersPage from './pages/vendor/VendorOrdersPage';
-import VendorProfilePage from './pages/vendor/VendorProfilePage';
-import VendorStatusPage from './pages/vendor/VendorStatusPage';
+import VendorLayout from './pages/vendor/VendorLayout.tsx';
+import VendorDashboardPage from './pages/vendor/VendorDashboardPage.tsx';
+import VendorProductsPage from './pages/vendor/VendorProductsPage.tsx';
+import VendorProductFormPage from './pages/vendor/VendorProductFormPage.tsx';
+import VendorOrdersPage from './pages/vendor/VendorOrdersPage.tsx';
+import VendorProfilePage from './pages/vendor/VendorProfilePage.tsx';
 
 // Logistics/Courier Imports
-import CourierScanPage from './pages/CourierScanPage';
+import CourierScanPage from './pages/CourierScanPage.tsx';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
