@@ -7,136 +7,127 @@ import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { Address, OrderItem } from '../types';
 
-/**
- * CRITICAL: Production LIVE Razorpay Configuration
- * Settlement identity: VexoKart Live Settlement Hub
- */
-const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL'; 
+const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const { addOrder, createPaymentOrder, verifyPayment } = useOrders();
   const navigate = useNavigate();
-  
-  const canPayOnline = useMemo(() => cartItems.every(item => item.payment_modes?.includes('online') ?? true), [cartItems]);
-  const canPayCOD = useMemo(() => cartItems.every(item => item.payment_modes?.includes('cod') ?? true), [cartItems]);
 
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>(canPayOnline ? 'card' : 'cod');
+  const canPayOnline = useMemo(
+    () => cartItems.every(item => item.payment_modes?.includes('online') ?? true),
+    [cartItems]
+  );
+  const canPayCOD = useMemo(
+    () => cartItems.every(item => item.payment_modes?.includes('cod') ?? true),
+    [cartItems]
+  );
+
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>(
+    canPayOnline ? 'card' : 'cod'
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
   useEffect(() => {
-    if (user?.addresses && user.addresses.length > 0) {
+    if (user?.addresses?.length) {
       setSelectedAddress(user.addresses[0]);
     }
   }, [user]);
 
-  /**
-   * PRODUCTION SECURITY: ENVIRONMENT VALIDATION
-   * Live payments MUST NOT run in restricted iframes, simulation previews, or Bolt/StackBlitz sandboxes.
-   */
-  const checkExecutionEnvironment = () => {
-    // 1. Check if inside an iframe
-    const isIframe = window.self !== window.top;
-    
-    // 2. Check for common preview/restricted hostnames
-    const hostname = window.location.hostname;
-    const isRestrictedHost = hostname.includes('stackblitz') || 
-                             hostname.includes('webcontainer') ||
-                             hostname.includes('bolt') ||
-                             hostname.includes('preview');
-    
-    return !(isIframe || isRestrictedHost);
+  // ✅ Razorpay SDK auto loader
+  const loadRazorpay = () => {
+    return new Promise<boolean>((resolve) => {
+      if ((window as any).Razorpay) return resolve(true);
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   };
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress || !user) {
-      alert("Please select a valid delivery destination.");
+      alert('Please select a delivery address');
       return;
     }
 
-    // STRICT: Block live transactions in restricted environments
-    if (paymentMethod === 'card' && !checkExecutionEnvironment()) {
-        alert("LIVE PRODUCTION SECURITY: Live payments can only be completed in a real browser environment. Please open VexoKart in a new tab or a full browser window to settle payment.");
-        return;
-    }
-    
-    if (typeof cartTotal !== 'number' || isNaN(cartTotal) || cartTotal <= 0) {
-      alert("System Alert: Order total integrity check failed. Please refresh your bag.");
+    if (!cartTotal || cartTotal <= 0) {
+      alert('Invalid cart total');
       return;
     }
 
     setIsProcessing(true);
-    
+
     try {
       const orderItems: OrderItem[] = cartItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.images[0],
-          vendorId: item.vendor_id,
-          color: item.selectedColor,
-          size: item.selectedSize
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.images[0],
+        vendorId: item.vendor_id,
+        color: item.selectedColor,
+        size: item.selectedSize,
       }));
 
       const orderPayload = {
-          items: orderItems,
-          total: cartTotal, 
-          shippingAddress: selectedAddress, 
-          payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'
+        items: orderItems,
+        total: cartTotal,
+        shippingAddress: selectedAddress,
+        payment_method:
+          paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
       };
 
-      // 1. DATA LAYER: Initialize Order Record in Database
+      // 1️⃣ Create order in DB
       const newOrderId = await addOrder(orderPayload);
 
       if (paymentMethod === 'cod') {
-        alert("Order Success! Please keep cash ready for delivery.");
+        alert('Order placed successfully (COD)');
         clearCart();
         navigate('/orders');
         return;
       }
 
-      // 2. SETTLEMENT LAYER: Create Live Razorpay Order via Supabase Edge Function
-      const rzpResponse = await createPaymentOrder(cartTotal);
+      // 2️⃣ Create Razorpay order (Supabase Edge Function)
+      const rzpOrder = await createPaymentOrder(cartTotal);
 
-      // 3. UI LAYER: Launch Official Razorpay Secure Checkout Popup
-      if (!(window as any).Razorpay) {
-        throw new Error("Razorpay Gateway Error: SDK not detected. Please disable ad-blockers and reload the page.");
+      // 3️⃣ Load Razorpay SDK
+      const loaded = await loadRazorpay();
+      if (!loaded) {
+        throw new Error('Razorpay SDK failed to load');
       }
 
+      // 4️⃣ Open Razorpay popup
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
-        amount: rzpResponse.amount, // Exactly as returned by the backend (usually Paise)
+        amount: rzpOrder.amount,
         currency: 'INR',
-        name: 'VexoKart Secure Settlement',
-        description: `Reference #${newOrderId}`,
-        image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo-icon.png',
-        order_id: rzpResponse.id, // Mandatory live Order ID
-        handler: async (paymentResponse: any) => {
-          setIsProcessing(true);
+        name: 'VexoKart',
+        description: `Order #${newOrderId}`,
+        order_id: rzpOrder.id,
+        handler: async (response: any) => {
           try {
-              // 4. VERIFICATION LAYER: Production Digital Signature Verification
-              const isVerified = await verifyPayment({
-                orderId: newOrderId,
-                razorpay_order_id: paymentResponse.razorpay_order_id,
-                razorpay_payment_id: paymentResponse.razorpay_payment_id,
-                razorpay_signature: paymentResponse.razorpay_signature
-              });
-              
-              if (isVerified) {
-                alert("Settlement Successful! Your order is being processed for dispatch.");
-                clearCart();
-                navigate('/orders');
-              } else {
-                alert("Security Protocol Alert: Digital verification failed. This transaction is pending manual audit.");
-                setIsProcessing(false);
-              }
-          } catch (e) {
-              console.error("[Settlement Verification] Critical Error:", e);
-              alert("A system error occurred during verification. Your payment is safe and will be audited manually.");
+            const verified = await verifyPayment({
+              orderId: newOrderId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            if (verified) {
+              alert('Payment successful');
+              clearCart();
+              navigate('/orders');
+            } else {
+              alert('Payment verification failed');
               setIsProcessing(false);
+            }
+          } catch {
+            alert('Verification error');
+            setIsProcessing(false);
           }
         },
         prefill: {
@@ -145,144 +136,99 @@ const CheckoutPage: React.FC = () => {
           contact: selectedAddress.phone,
         },
         modal: {
-          ondismiss: () => {
-            console.log("Settlement flow closed by user.");
-            setIsProcessing(false);
-          }
+          ondismiss: () => setIsProcessing(false),
         },
         theme: { color: '#FF8A00' },
       };
 
       const rzp = new (window as any).Razorpay(options);
-      
-      rzp.on('payment.failed', (failResponse: any) => {
-        console.error("Gateway Rejection:", failResponse.error);
-        alert(`Settlement Rejected: ${failResponse.error.description}`);
-        setIsProcessing(false);
-      });
-
-      // Opens in a secure popup window
       rzp.open();
 
     } catch (err: any) {
-      console.error("[Checkout Critical Exception]", err.message);
-      alert(err.message || "An unexpected network error halted the checkout process. Please try again.");
+      console.error(err);
+      alert(err.message || 'Checkout failed');
       setIsProcessing(false);
     }
   };
 
-  const addresses = (user?.addresses && Array.isArray(user.addresses)) ? user.addresses : [];
-
   return (
     <div className="bg-surface min-h-screen">
-      <div className="sticky top-0 z-10 p-4 bg-white/80 backdrop-blur-md flex items-center border-b border-border shadow-sm">
+      <div className="sticky top-0 z-10 p-4 bg-white flex items-center border-b">
         <button onClick={() => navigate('/cart')} className="p-2 -ml-2 mr-2">
-          <ChevronLeftIcon className="h-6 w-6 text-text-main" />
+          <ChevronLeftIcon className="h-6 w-6" />
         </button>
-        <h1 className="text-xl font-black text-text-main italic tracking-tight uppercase">Checkout</h1>
+        <h1 className="text-xl font-black uppercase">Checkout</h1>
       </div>
 
-      <div className="p-4 space-y-6 pb-24 max-w-2xl mx-auto">
+      <div className="p-4 pb-24 max-w-2xl mx-auto space-y-6">
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Destination Identity</h2>
-          {addresses.length > 0 ? (
-            <div className="space-y-3">
-              {addresses.map(address => (
-                <div 
-                  key={address.id} 
-                  onClick={() => setSelectedAddress(address)} 
-                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${selectedAddress?.id === address.id ? 'border-accent bg-accent/5' : 'border-border bg-white hover:border-accent/30'}`}
-                >
-                  <div className="flex justify-between items-start">
-                    <p className="font-bold text-text-main">{address.fullName}</p>
-                    {selectedAddress?.id === address.id && (
-                        <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-secondary mt-1">{address.street}, {address.city}, {address.state} {address.zip}</p>
-                  <p className="text-[10px] font-bold text-accent mt-2 uppercase tracking-widest">{address.phone}</p>
-                </div>
-              ))}
+          <h2 className="text-xs font-black uppercase mb-4">
+            Delivery Address
+          </h2>
+
+          {user?.addresses?.map(address => (
+            <div
+              key={address.id}
+              onClick={() => setSelectedAddress(address)}
+              className={`p-4 rounded-xl border-2 cursor-pointer mb-2 ${
+                selectedAddress?.id === address.id
+                  ? 'border-accent'
+                  : 'border-border'
+              }`}
+            >
+              <p className="font-bold">{address.fullName}</p>
+              <p className="text-xs">
+                {address.street}, {address.city}, {address.state}
+              </p>
+              <p className="text-xs font-bold">{address.phone}</p>
             </div>
-          ) : (
-             <div className="text-center py-6 bg-surface rounded-xl border border-dashed border-border">
-                <p className="text-text-muted text-xs font-bold italic uppercase">No delivery addresses on record</p>
-             </div>
-          )}
-          <button onClick={() => navigate('/addresses/new')} className="w-full mt-4 text-accent text-[10px] font-black uppercase tracking-widest border border-accent/20 py-3 rounded-xl hover:bg-accent/5 transition-all">
-            Establish New Identity
-          </button>
+          ))}
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Configuration</h2>
-          <div className="grid grid-cols-1 gap-3">
-              {canPayOnline && (
-                  <div 
-                      onClick={() => setPaymentMethod('card')} 
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
-                  >
-                      <div>
-                          <p className="font-bold text-text-main">Digital Transaction (Secure Live)</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Secure UPI, Cards, NetBanking</p>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
-                          {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
-                      </div>
-                  </div>
-              )}
-              {canPayCOD && (
-                  <div 
-                      onClick={() => setPaymentMethod('cod')} 
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
-                  >
-                      <div>
-                          <p className="font-bold text-text-main">Cash Handover</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Settle with Handover Agent</p>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
-                          {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
-                      </div>
-                  </div>
-              )}
-          </div>
-        </GlassmorphicCard>
+          <h2 className="text-xs font-black uppercase mb-4">
+            Payment Method
+          </h2>
 
-        <GlassmorphicCard className="p-6 mb-10">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Invoice Summary</h2>
-          <div className="space-y-3">
-            {cartItems.map(item => (
-                <div key={item.id} className="flex justify-between text-xs font-bold">
-                    <span className="text-text-secondary truncate pr-4">
-                        {item.name} 
-                        {(item.selectedColor || item.selectedSize) && (
-                            <span className="text-text-muted font-normal ml-1">
-                                ({[item.selectedColor, item.selectedSize].filter(Boolean).join('/')})
-                            </span>
-                        )}
-                        <span className="text-accent ml-2">x{item.quantity}</span>
-                    </span>
-                    <span className="text-text-main shrink-0">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
-                </div>
-            ))}
-          </div>
-          <div className="border-t border-dashed border-border my-4"></div>
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Net Payable</span>
-            <span className="text-2xl font-black text-text-main italic tracking-tighter">₹{cartTotal.toLocaleString('en-IN')}</span>
-          </div>
+          {canPayOnline && (
+            <div
+              onClick={() => setPaymentMethod('card')}
+              className={`p-4 rounded-xl border-2 cursor-pointer mb-2 ${
+                paymentMethod === 'card'
+                  ? 'border-accent'
+                  : 'border-border'
+              }`}
+            >
+              Online Payment (UPI / Card)
+            </div>
+          )}
+
+          {canPayCOD && (
+            <div
+              onClick={() => setPaymentMethod('cod')}
+              className={`p-4 rounded-xl border-2 cursor-pointer ${
+                paymentMethod === 'cod'
+                  ? 'border-accent'
+                  : 'border-border'
+              }`}
+            >
+              Cash on Delivery
+            </div>
+          )}
         </GlassmorphicCard>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-20">
-        <button 
-          onClick={handlePlaceOrder} 
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
+        <button
+          onClick={handlePlaceOrder}
           disabled={isProcessing || !selectedAddress}
-          className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50" 
+          className="w-full bg-accent text-white py-4 rounded-xl font-black uppercase"
         >
-          {isProcessing ? 'Synchronizing Secure Gateway...' : paymentMethod === 'cod' ? `Confirm Order (COD)` : `INITIALIZE SECURE PAYMENT ₹${cartTotal.toLocaleString('en-IN')}`}
+          {isProcessing
+            ? 'Processing...'
+            : paymentMethod === 'cod'
+            ? 'Confirm Order (COD)'
+            : `INITIALIZE SECURE PAYMENT ₹${cartTotal}`}
         </button>
       </div>
     </div>
