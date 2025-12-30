@@ -36,7 +36,7 @@ const CheckoutPage: React.FC = () => {
     }
   }, [user]);
 
-  // ✅ Razorpay SDK loader
+  // Razorpay SDK loader
   const loadRazorpay = () =>
     new Promise<boolean>((resolve) => {
       if ((window as any).Razorpay) return resolve(true);
@@ -49,82 +49,94 @@ const CheckoutPage: React.FC = () => {
 
   const handlePlaceOrder = async () => {
     if (!user || !selectedAddress) {
-      alert('Please select a delivery address');
+      alert('Please select delivery address');
       return;
     }
 
     if (!cartTotal || cartTotal <= 0) {
-      alert('Invalid order total');
+      alert('Invalid order amount');
       return;
     }
 
     setIsProcessing(true);
 
+    // Prepare order payload (BUT DO NOT CREATE ORDER YET)
+    const orderItems: OrderItem[] = cartItems.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      image: item.images[0],
+      vendorId: item.vendor_id,
+      color: item.selectedColor,
+      size: item.selectedSize,
+    }));
+
+    const orderPayload = {
+      items: orderItems,
+      total: cartTotal,
+      shippingAddress: selectedAddress,
+      payment_method:
+        paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
+    };
+
     try {
-      // 1️⃣ Prepare order items
-      const orderItems: OrderItem[] = cartItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.images[0],
-        vendorId: item.vendor_id,
-        color: item.selectedColor,
-        size: item.selectedSize,
-      }));
-
-      const orderPayload = {
-        items: orderItems,
-        total: cartTotal,
-        shippingAddress: selectedAddress,
-        payment_method:
-          paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
-      };
-
-      // 2️⃣ Create order in database
-      const orderId = await addOrder(orderPayload);
-
-      // 3️⃣ COD flow
+      // 🟢 COD FLOW → ORDER DIRECT
       if (paymentMethod === 'cod') {
+        await addOrder(orderPayload);
         alert('Order placed successfully (COD)');
         clearCart();
         navigate('/orders');
         return;
       }
 
-      // 4️⃣ Create Razorpay order (Edge Function)
+      // 🟢 ONLINE PAYMENT FLOW
       const rzpOrder = await createPaymentOrder(cartTotal);
 
-      // 5️⃣ Load Razorpay SDK
       const loaded = await loadRazorpay();
       if (!loaded) throw new Error('Razorpay SDK failed to load');
 
-      // 6️⃣ Razorpay options
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
         amount: rzpOrder.amount,
         currency: 'INR',
         name: 'VexoKart',
-        description: `Order #${orderId}`,
+        description: 'Secure Online Payment',
         order_id: rzpOrder.id,
+
+        handler: async () => {
+          // ✅ PAYMENT SUCCESS → NOW CREATE ORDER
+          await addOrder(orderPayload);
+
+          alert('✅ Payment successful! Order confirmed.');
+          clearCart();
+          navigate('/orders');
+        },
+
+        modal: {
+          ondismiss: () => {
+            // ❌ PAYMENT CANCELLED → NO ORDER CREATED
+            setIsProcessing(false);
+          },
+        },
+
         prefill: {
           name: user.name,
           email: user.email,
           contact: selectedAddress.phone,
         },
-        handler: () => {
-          // ✅ PAYMENT SUCCESS (verification skipped intentionally)
-          alert('Payment successful');
-          clearCart();
-          navigate('/orders');
-        },
-        modal: {
-          ondismiss: () => setIsProcessing(false),
-        },
+
         theme: { color: '#FF8A00' },
       };
 
       const rzp = new (window as any).Razorpay(options);
+
+      rzp.on('payment.failed', () => {
+        // ❌ PAYMENT FAILED → NO ORDER CREATED
+        alert('Payment failed. Order not placed.');
+        setIsProcessing(false);
+      });
+
       rzp.open();
 
     } catch (err: any) {
@@ -206,7 +218,7 @@ const CheckoutPage: React.FC = () => {
             ? 'Processing...'
             : paymentMethod === 'cod'
             ? 'Confirm Order (COD)'
-            : `INITIALIZE SECURE PAYMENT ₹${cartTotal}`}
+            : `PAY ₹${cartTotal}`}
         </button>
       </div>
     </div>
