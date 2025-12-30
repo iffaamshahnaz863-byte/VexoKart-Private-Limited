@@ -2,14 +2,14 @@ import React, { createContext, useState, useEffect, ReactNode, useContext } from
 import { Order, OrderStatus, PaymentStatus, StatusHistory } from '../types';
 import { useNotifications } from './NotificationContext';
 import { useAuth } from './AuthContext';
-import { BASE_API_URL, API_HEADERS, EDGE_FUNCTION_URL } from '../constants';
+import { BASE_API_URL, API_HEADERS, EDGE_FUNCTION_URL, SUPABASE_URL, SUPABASE_KEY } from '../constants';
 
 interface OrderContextType {
   orders: Order[];
   isLoading: boolean;
   addOrder: (orderData: any) => Promise<string>;
   updateOrderStatus: (orderId: string, status: OrderStatus, details?: any) => Promise<void>;
-  createPaymentOrder: (orderId: string, amount: number) => Promise<string>;
+  createPaymentOrder: (orderId: string, amount: number) => Promise<{ id: string; amount: number }>;
   verifyPayment: (paymentData: any) => Promise<boolean>;
   generateShippingLabel: (orderId: string) => Promise<string>;
   getOrderById: (orderId: string) => Order | undefined;
@@ -50,11 +50,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             id: o.id.toString(),
             total: Number(o.total_amount || 0),
             total_amount: Number(o.total_amount || 0),
-            // Standardizing identity: UI expects object, DB might return numeric ID
-            // If it's a numeric ID, we'll try to find it in user addresses if available
             shippingAddress: (o.shipping_address && typeof o.shipping_address === 'object') 
                 ? o.shipping_address 
-                : user.addresses.find(a => a.id === String(o.shipping_address)) || {},
+                : (user.addresses?.find(a => a.id === String(o.shipping_address)) || {}),
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
@@ -77,12 +75,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const timestamp = new Date().toISOString();
     const qrToken = Math.random().toString(36).substring(2, 15);
     
-    // CRITICAL: Ensure all numeric fields are strictly numeric to prevent Postgres errors
     const numericTotal = Number(orderData.total);
     const numericUserId = Number(user?.id);
-    
-    // The error "invalid input syntax for type numeric" on a JSON string 
-    // indicates that the 'shipping_address' column is numeric and expects the ID only.
     const numericAddressId = orderData.shippingAddress?.id ? Number(orderData.shippingAddress.id) : null;
 
     if (isNaN(numericTotal)) throw new Error("Order calculation failed: invalid numeric total.");
@@ -95,10 +89,10 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       total_amount: numericTotal, 
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'failed',
-      shipping_address: numericAddressId, // STRICTLY NUMERIC ID ONLY
+      shipping_address: numericAddressId,
       status: 'Placed',
       qr_token: qrToken,
-      status_history: [{ status: 'Placed', timestamp, actor: 'System' }],
+      status_history: [{ status: 'Placed', timestamp, actor: 'User' }],
       created_at: timestamp
     };
 
@@ -111,9 +105,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
-            // Stringify error to prevent [object Object] logs
-            console.error("[Database Rejection Detailed]", JSON.stringify(errorData, null, 2));
-            throw new Error(errorData.message || `Database rejected the order payload (${res.status})`);
+            console.error("[OrderContext] Database Rejection:", JSON.stringify(errorData));
+            throw new Error(errorData.message || `Order initialization rejected by server.`);
         }
 
         const result = await res.json();
@@ -125,23 +118,31 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  const createPaymentOrder = async (orderId: string, amount: number): Promise<string> => {
+  /**
+   * CRITICAL: Using 'super-handler' Edge Function for live payment orchestration
+   */
+  const createPaymentOrder = async (orderId: string, amount: number): Promise<{ id: string; amount: number }> => {
     try {
-        // Real Live Gateway Request
-        const res = await fetch(`${EDGE_FUNCTION_URL}/create_payment_order`, {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/super-handler`, {
           method: 'POST',
-          headers: { ...API_HEADERS },
-          body: JSON.stringify({ orderId, amount: Number(amount) })
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          },
+          body: JSON.stringify({ 
+            amount: amount 
+          })
         });
         
         if (res.ok) {
             const data = await res.json();
-            if (!data.id) throw new Error("Gateway failed to return Order ID");
-            return data.id; 
+            if (!data.id) throw new Error("Gateway Synchronization Failed: No ID returned.");
+            return { id: data.id, amount: data.amount }; 
         }
         
-        const errText = await res.text();
-        throw new Error(`Gateway Error: ${errText}`);
+        const errorData = await res.json().catch(() => ({ message: 'Unknown Error' }));
+        throw new Error(errorData.message || `Payment API Error: ${res.status}`);
     } catch (err: any) {
         console.error("[Razorpay Sync] Production Failure:", err.message);
         throw err;
@@ -150,7 +151,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const verifyPayment = async (paymentData: any): Promise<boolean> => {
     try {
-        // Production signature verification
         const res = await fetch(`${EDGE_FUNCTION_URL}/verify_payment`, {
           method: 'POST',
           headers: { ...API_HEADERS },
@@ -159,8 +159,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (res.ok) {
             const data = await res.json();
-            if (data.success) await refreshOrders();
-            return data.success;
+            if (data.success) {
+                // Manually update local status to 'paid' after successful verification
+                await fetch(`${BASE_API_URL}/orders?id=eq.${paymentData.orderId}`, {
+                    method: 'PATCH',
+                    headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ payment_status: 'paid' })
+                });
+                await refreshOrders();
+                return true;
+            }
         }
         return false;
     } catch (err: any) {

@@ -9,7 +9,7 @@ import { Address, OrderItem } from '../types';
 
 /**
  * CRITICAL: Production LIVE Razorpay Configuration
- * DO NOT USE TEST KEYS.
+ * Identity: VexoKart Live Settlement
  */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL'; 
 
@@ -34,23 +34,17 @@ const CheckoutPage: React.FC = () => {
 
   /**
    * PRODUCTION SECURITY: ENVIRONMENT VALIDATION
-   * Live payments MUST NOT run in restricted iframes, simulation previews, or sandboxes.
+   * Payments MUST NOT run in restricted iframes or simulation previews.
    */
   const checkExecutionEnvironment = () => {
-    // 1. Check if inside an iframe
     const isIframe = window.self !== window.top;
-    
-    // 2. Check for common preview/restricted hostnames
     const hostname = window.location.hostname;
     const isRestrictedHost = hostname.includes('stackblitz') || 
                              hostname.includes('webcontainer') ||
                              hostname.includes('bolt') ||
                              hostname.includes('preview');
     
-    if (isIframe || isRestrictedHost) {
-        return false;
-    }
-    return true;
+    return !(isIframe || isRestrictedHost);
   };
 
   const handlePlaceOrder = async () => {
@@ -59,14 +53,13 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
-    // Block live transactions in restricted preview environments as per requirements
     if (paymentMethod === 'card' && !checkExecutionEnvironment()) {
         alert("LIVE PRODUCTION SECURITY: Live payments can only be completed in a real browser environment. Please open VexoKart in a new tab or a full browser window.");
         return;
     }
     
     if (typeof cartTotal !== 'number' || isNaN(cartTotal) || cartTotal <= 0) {
-      alert("System Error: Order total is invalid. Please reload your bag.");
+      alert("System Error: Order calculation failed. Please reload your bag.");
       return;
     }
 
@@ -79,11 +72,11 @@ const CheckoutPage: React.FC = () => {
           price: item.price,
           quantity: item.quantity,
           image: item.images[0],
-          vendorId: item.vendor_id
+          vendorId: item.vendor_id,
+          color: item.selectedColor,
+          size: item.selectedSize
       }));
 
-      // NOTE: shippingAddress object is passed here, but OrderContext addOrder 
-      // extracts the numeric ID for the 'shipping_address' column.
       const orderPayload = {
           items: orderItems,
           total: cartTotal, 
@@ -95,45 +88,51 @@ const CheckoutPage: React.FC = () => {
       const newOrderId = await addOrder(orderPayload);
 
       if (paymentMethod === 'cod') {
-        alert("Order Success! Please keep cash ready for delivery.");
+        alert("Order Successful! Please keep cash ready for delivery.");
         clearCart();
         navigate('/orders');
         return;
       }
 
-      // 2. Production Razorpay Flow: Create Order ID on Backend
-      const rzpOrderId = await createPaymentOrder(newOrderId, cartTotal);
+      // 2. Production Razorpay Flow: Create Order via Edge Function 'super-handler'
+      const rzpData = await createPaymentOrder(newOrderId, cartTotal);
 
       // 3. Launch Official Razorpay Checkout Popup
       if (!(window as any).Razorpay) {
-        throw new Error("Razorpay SDK not detected. Please disable ad-blockers and refresh.");
+        throw new Error("Razorpay SDK not detected. Please disable ad-blockers and refresh the page.");
       }
 
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
-        amount: Math.round(cartTotal * 100), // STRICT: Convert to Paise
+        amount: rzpData.amount, // Returned by super-handler (Paise)
         currency: 'INR',
-        name: 'VexoKart Secure Checkout',
+        name: 'VexoKart Secure Settlement',
         description: `Order Reference #${newOrderId}`,
         image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo-icon.png',
-        order_id: rzpOrderId,
+        order_id: rzpData.id,
         handler: async (response: any) => {
           setIsProcessing(true);
-          // 4. Server-side signature verification
-          const isVerified = await verifyPayment({
-            orderId: newOrderId,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature
-          });
-          
-          if (isVerified) {
-            alert("Digital Transaction Success! Thank you for shopping.");
-            clearCart();
-            navigate('/orders');
-          } else {
-            alert("Security Alert: Payment verification failed. Please contact support.");
-            setIsProcessing(false);
+          try {
+              // 4. Server-side signature verification
+              const isVerified = await verifyPayment({
+                orderId: newOrderId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              });
+              
+              if (isVerified) {
+                alert("Digital Transaction Success! Thank you for choosing VexoKart.");
+                clearCart();
+                navigate('/orders');
+              } else {
+                alert("Security Alert: Digital signature verification failed. Our team will audit this transaction.");
+                setIsProcessing(false);
+              }
+          } catch (e) {
+              console.error("Verification Critical Error:", e);
+              alert("A system error occurred during verification. Please contact support.");
+              setIsProcessing(false);
           }
         },
         prefill: {
@@ -143,7 +142,7 @@ const CheckoutPage: React.FC = () => {
         },
         modal: {
           ondismiss: () => {
-            console.log("Payment window closed by user.");
+            console.log("Payment flow cancelled by customer.");
             setIsProcessing(false);
           }
         },
@@ -158,12 +157,12 @@ const CheckoutPage: React.FC = () => {
         setIsProcessing(false);
       });
 
-      // Opens in a secure popup as per documentation
+      // Opens in a secure popup as per official Razorpay documentation
       rzp.open();
 
     } catch (err: any) {
       console.error("[Checkout Critical Failure]", err.message);
-      alert(err.message || "Checkout halted due to a connection error.");
+      alert(err.message || "An unexpected error halted the checkout process.");
       setIsProcessing(false);
     }
   };
@@ -214,7 +213,7 @@ const CheckoutPage: React.FC = () => {
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Payment Method</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Channel</h2>
           <div className="grid grid-cols-1 gap-3">
               {canPayOnline && (
                   <div 
@@ -222,8 +221,8 @@ const CheckoutPage: React.FC = () => {
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
                   >
                       <div>
-                          <p className="font-bold text-text-main">Digital Transaction (Secure Live)</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">UPI, Cards, NetBanking</p>
+                          <p className="font-bold text-text-main">Digital Settlement (Live)</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Secure UPI, Cards, NetBanking</p>
                       </div>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
                           {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
@@ -237,7 +236,7 @@ const CheckoutPage: React.FC = () => {
                   >
                       <div>
                           <p className="font-bold text-text-main">Cash On Delivery</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Settle with Courier</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Settle with Handover</p>
                       </div>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
                           {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
@@ -252,7 +251,15 @@ const CheckoutPage: React.FC = () => {
           <div className="space-y-3">
             {cartItems.map(item => (
                 <div key={item.id} className="flex justify-between text-xs font-bold">
-                    <span className="text-text-secondary truncate pr-4">{item.name} <span className="text-accent">x{item.quantity}</span></span>
+                    <span className="text-text-secondary truncate pr-4">
+                        {item.name} 
+                        {(item.selectedColor || item.selectedSize) && (
+                            <span className="text-text-muted font-normal ml-1">
+                                ({[item.selectedColor, item.selectedSize].filter(Boolean).join('/')})
+                            </span>
+                        )}
+                        <span className="text-accent ml-2">x{item.quantity}</span>
+                    </span>
                     <span className="text-text-main shrink-0">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
                 </div>
             ))}
@@ -271,7 +278,7 @@ const CheckoutPage: React.FC = () => {
           disabled={isProcessing || !selectedAddress}
           className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50" 
         >
-          {isProcessing ? 'Synchronizing Secure Gateway...' : paymentMethod === 'cod' ? `Confirm Order (COD)` : `Pay Now ₹${cartTotal.toLocaleString('en-IN')}`}
+          {isProcessing ? 'Synchronizing Secure Layers...' : paymentMethod === 'cod' ? `Confirm Order (COD)` : `Initialize Secure Payment ₹${cartTotal.toLocaleString('en-IN')}`}
         </button>
       </div>
     </div>
