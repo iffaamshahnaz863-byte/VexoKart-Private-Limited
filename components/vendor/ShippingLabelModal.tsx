@@ -12,22 +12,49 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
   const [pageSize, setPageSize] = useState<'A4' | '4x6'>('A4');
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Fallback for safety
-  const address = order.shippingAddress || {
-    fullName: 'Customer Name',
-    street: 'Street Details Missing',
-    city: 'City',
-    state: 'State',
-    zip: '000000',
-    phone: 'No Phone'
+  // 1) ROBUST DATA BINDING & NORMALIZATION
+  // REQUIREMENT: The shipping label must read data ONLY from shipping_address.
+  const rawAddress = order.shipping_address;
+  
+  const getSafeValue = (val: any) => {
+    if (val === undefined || val === null) return 'N/A';
+    const str = String(val).trim();
+    const lower = str.toLowerCase();
+    
+    // Explicitly check for user-reported bad placeholders
+    if (str === '' || 
+        str === '000000' || 
+        lower === 'no phone' || 
+        lower === 'none' || 
+        lower === 'n/a' || 
+        lower === 'street details missing') {
+      return 'N/A';
+    }
+    return str;
   };
 
-  // Generate QR code encoding only the secure token for scanning
-  const scanUrl = `${window.location.origin}/#/scan/${order.qrToken}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(scanUrl)}`;
+  const address = {
+    fullName: getSafeValue(rawAddress?.fullName),
+    street: getSafeValue(rawAddress?.street),
+    city: getSafeValue(rawAddress?.city),
+    state: getSafeValue(rawAddress?.state),
+    zip: getSafeValue(rawAddress?.zip),
+    phone: getSafeValue(rawAddress?.phone)
+  };
+
+  // 2) QR CODE GENERATION (CRITICAL PAYLOAD)
+  const qrPayloadObj = {
+    orderId: String(order.id),
+    paymentMode: order.payment_mode === 'Cash on Delivery' ? 'COD' : 'ONLINE',
+    amount: Number(order.total || order.total_amount || 0),
+    phone: address.phone
+  };
+
+  const qrPayload = JSON.stringify(qrPayloadObj);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrPayload)}&ecc=M`;
   
-  // Barcode for internal warehouse scanning
-  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${order.id}&scale=2&rotate=N&includetext=true`;
+  // 3) BARCODE Value mapping
+  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(order.id)}&scale=2&rotate=N&includetext=true`;
 
   const handlePrint = () => {
     if (!printRef.current) return;
@@ -63,8 +90,11 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
           </div>
           <script>
             window.onload = () => {
-              window.print();
-              window.onafterprint = () => window.close();
+              // Tiny delay to ensure QR/Barcode images are loaded from external APIs
+              setTimeout(() => {
+                window.print();
+                window.onafterprint = () => window.close();
+              }, 500);
             };
           </script>
         </body>
@@ -73,7 +103,6 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
     printWindow.document.close();
   };
 
-  /* Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_mode' instead. */
   const isCOD = order.payment_mode === 'Cash on Delivery';
 
   return (
@@ -83,7 +112,7 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
         <div className="p-6 border-b border-border flex justify-between items-center bg-white shrink-0">
           <div>
             <h2 className="text-xl font-black text-text-main italic tracking-tight uppercase">Fulfillment Station</h2>
-            <p className="text-text-muted text-xs font-bold uppercase tracking-widest mt-1">Meesho-Compatible Shipping Format</p>
+            <p className="text-text-muted text-xs font-bold uppercase tracking-widest mt-1">Production Ready Shipping Format</p>
           </div>
           <div className="flex gap-3">
              <div className="flex bg-surface p-1 rounded-xl border border-border">
@@ -126,7 +155,7 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                              </div>
                              <div className="space-y-1">
                                 <p className="text-[12px] font-black uppercase text-gray-400">Order Ref: <span className="text-black ml-1">#{order.id}</span></p>
-                                <p className="text-[12px] font-black uppercase text-gray-400">Date: <span className="text-black ml-1">{new Date(order.date).toLocaleDateString()}</span></p>
+                                <p className="text-[12px] font-black uppercase text-gray-400">Date: <span className="text-black ml-1">{new Date(order.date || order.created_at).toLocaleDateString()}</span></p>
                              </div>
                         </div>
                     </div>
@@ -141,7 +170,7 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                              <img src={barcodeUrl} alt="Shipment Barcode" className="h-24 w-full object-contain" />
                              <p className="text-[12px] font-bold tracking-[0.6em] mt-4 font-mono text-black uppercase">{order.id}</p>
                              <div className="mt-4 pt-4 border-t border-black/10 w-full text-center">
-                                <p className="text-[11px] font-black uppercase text-gray-500">Shipment ID: <span className="text-black">VXK-{order.id.slice(-6).toUpperCase()}</span></p>
+                                <p className="text-[11px] font-black uppercase text-gray-500">Shipment ID: <span className="text-black">VXK-{order.id.toString().slice(-6).toUpperCase()}</span></p>
                              </div>
                         </div>
                     </div>
@@ -154,12 +183,12 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM5 9a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" /></svg>
                                 Ship From (Seller):
                             </p>
-                            <h3 className="font-black text-xl uppercase leading-tight italic mb-3 text-black">{vendor.store_name}</h3>
+                            <h3 className="font-black text-xl uppercase leading-tight italic mb-3 text-black">{vendor.store_name || 'N/A'}</h3>
                             <div className="text-sm font-bold leading-relaxed text-gray-800 space-y-1">
                                 <p className="line-clamp-3">{vendor.store_address || 'VexoKart Fulfillment Hub, Sector 4'}</p>
                                 <div className="pt-4 space-y-0.5">
                                     <p className="text-[11px] font-black text-gray-500 uppercase tracking-tight">Vendor ID: <span className="text-black">VXK-{vendor.id}</span></p>
-                                    <p className="text-[11px] font-black text-gray-500 uppercase tracking-tight">Contact: <span className="text-black">{vendor.phone}</span></p>
+                                    <p className="text-[11px] font-black text-gray-500 uppercase tracking-tight">Contact: <span className="text-black">{vendor.phone || 'N/A'}</span></p>
                                 </div>
                             </div>
                         </div>
@@ -219,20 +248,19 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                             <p className="text-2xl font-black italic uppercase tracking-tighter text-black">
                                 {order.payment_status === 'paid' ? 'Prepaid Transaction' : 'Collect Cash (COD)'}
                             </p>
-                            {/* Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_mode' instead. */}
                             <p className="text-[11px] font-bold text-gray-500 mt-2 uppercase">Method: {order.payment_mode}</p>
                          </div>
                          <div className="text-right">
                              <div className="inline-block border-[6px] border-black p-6 bg-gray-50 rounded-xl shadow-sm">
                                 <p className="text-[12px] font-black uppercase tracking-[0.2em] mb-2 text-center text-gray-400">Total Collectible Value</p>
-                                <p className="text-6xl font-black italic tracking-tighter text-black leading-none">₹{order.total.toLocaleString('en-IN')}</p>
+                                <p className="text-6xl font-black italic tracking-tighter text-black leading-none">₹{(order.total || order.total_amount || 0).toLocaleString('en-IN')}</p>
                              </div>
                          </div>
                     </div>
 
                     <div className="mt-12 flex justify-between items-end border-t-2 border-black/10 pt-6">
                         <div className="space-y-1">
-                            <p className="text-[9px] font-black uppercase text-gray-400 italic leading-none">Digital Verification Code: {order.qrToken?.slice(0, 8).toUpperCase()}</p>
+                            <p className="text-[9px] font-black uppercase text-gray-400 italic leading-none">Digital Verification Code: {(order.qrToken || order.id.toString()).slice(0, 8).toUpperCase()}</p>
                             <p className="text-[9px] font-black uppercase text-gray-400 leading-none">VexoKart Logistics Chain v3.4 • Verified Authenticity</p>
                         </div>
                         <p className="text-[12px] font-black tracking-tighter uppercase italic text-black bg-gray-100 px-3 py-1 rounded">Platform Support ID: 1800-VXK-LOGS</p>
