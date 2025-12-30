@@ -9,7 +9,7 @@ interface OrderContextType {
   isLoading: boolean;
   addOrder: (orderData: any) => Promise<string>;
   updateOrderStatus: (orderId: string, status: OrderStatus, details?: any) => Promise<void>;
-  createPaymentOrder: (orderId: string, amount: number) => Promise<{ id: string; amount: number }>;
+  createPaymentOrder: (amount: number) => Promise<{ id: string; amount: number }>;
   verifyPayment: (paymentData: any) => Promise<boolean>;
   generateShippingLabel: (orderId: string) => Promise<string>;
   getOrderById: (orderId: string) => Order | undefined;
@@ -75,12 +75,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const timestamp = new Date().toISOString();
     const qrToken = Math.random().toString(36).substring(2, 15);
     
+    // Ensure numeric casting for financial and identity columns to prevent Postgres syntax errors
     const numericTotal = Number(orderData.total);
     const numericUserId = Number(user?.id);
+    
+    // Extract strictly numeric ID for the shipping_address column
     const numericAddressId = orderData.shippingAddress?.id ? Number(orderData.shippingAddress.id) : null;
 
-    if (isNaN(numericTotal)) throw new Error("Order calculation failed: invalid numeric total.");
-    if (!numericAddressId || isNaN(numericAddressId)) throw new Error("Delivery destination missing: invalid address ID.");
+    if (isNaN(numericTotal)) throw new Error("Order calculation integrity failed: total must be numeric.");
+    if (!numericAddressId || isNaN(numericAddressId)) throw new Error("Shipping destination required: address ID must be numeric.");
 
     const payload = {
       user_id: numericUserId,
@@ -89,7 +92,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       total_amount: numericTotal, 
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'failed',
-      shipping_address: numericAddressId,
+      shipping_address: numericAddressId, // STRICTLY NUMERIC ID
       status: 'Placed',
       qr_token: qrToken,
       status_history: [{ status: 'Placed', timestamp, actor: 'User' }],
@@ -105,30 +108,31 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
-            console.error("[OrderContext] Database Rejection:", JSON.stringify(errorData));
-            throw new Error(errorData.message || `Order initialization rejected by server.`);
+            console.error("[OrderContext DB Rejection]", JSON.stringify(errorData, null, 2));
+            throw new Error(errorData.message || `Order initialization failed: ${res.status}`);
         }
 
         const result = await res.json();
         await refreshOrders();
         return result[0].id.toString();
     } catch (err: any) {
-        console.error("[OrderContext] addOrder Exception:", err.message);
+        console.error("[OrderContext] addOrder Critical Failure:", err.message);
         throw err;
     }
   };
 
   /**
-   * CRITICAL: Using 'super-handler' Edge Function for live payment orchestration
+   * BACKEND API CALL SETUP (MANDATORY)
+   * Orchestrates the Razorpay order creation via Supabase super-handler Edge Function.
    */
-  const createPaymentOrder = async (orderId: string, amount: number): Promise<{ id: string; amount: number }> => {
+  const createPaymentOrder = async (amount: number): Promise<{ id: string; amount: number }> => {
     try {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/super-handler`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
+            'Authorization': `Bearer ${SUPABASE_KEY}` // Required for Edge Function access
           },
           body: JSON.stringify({ 
             amount: amount 
@@ -137,14 +141,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (res.ok) {
             const data = await res.json();
-            if (!data.id) throw new Error("Gateway Synchronization Failed: No ID returned.");
+            if (!data.id) throw new Error("Gateway Synchronization Error: Response missing 'id'.");
+            // Expecting amount in response as per spec point 7
             return { id: data.id, amount: data.amount }; 
         }
         
-        const errorData = await res.json().catch(() => ({ message: 'Unknown Error' }));
-        throw new Error(errorData.message || `Payment API Error: ${res.status}`);
+        const errorText = await res.text();
+        console.error("[Edge Function Error]", errorText);
+        throw new Error(`Edge Function call failed (${res.status}): ${errorText || 'Unknown Error'}`);
     } catch (err: any) {
-        console.error("[Razorpay Sync] Production Failure:", err.message);
+        console.error("[Payment Sync] Critical Exception:", err.message);
         throw err;
     }
   };
@@ -160,7 +166,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (res.ok) {
             const data = await res.json();
             if (data.success) {
-                // Manually update local status to 'paid' after successful verification
                 await fetch(`${BASE_API_URL}/orders?id=eq.${paymentData.orderId}`, {
                     method: 'PATCH',
                     headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
@@ -195,9 +200,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             await refreshOrders();
             return data.label_url;
         }
-        throw new Error("Logistics sync failed");
+        throw new Error("Logistics provider synchronization offline");
     } catch (err: any) {
-        const mockLabelUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=SHIP-${orderId}`;
+        const mockLabelUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=VXK-SHIP-${orderId}`;
         await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
             method: 'PATCH',
             headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
@@ -249,13 +254,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
     const order = getOrderByToken(token);
-    if (!order) return { success: false, message: 'Invalid manifest token.' };
+    if (!order) return { success: false, message: 'Identity verification failed.' };
 
     try {
         await updateOrderStatus(order.id, status, { note, actor: 'Courier' });
-        return { success: true, message: `Status updated to ${status}.` };
+        return { success: true, message: `Consignment status synchronized to ${status}.` };
     } catch (e) {
-        return { success: false, message: 'Fulfillment sync failed.' };
+        return { success: false, message: 'Fulfillment synchronization failed.' };
     }
   };
 

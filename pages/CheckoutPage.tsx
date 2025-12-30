@@ -8,8 +8,8 @@ import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { Address, OrderItem } from '../types';
 
 /**
- * CRITICAL: Production LIVE Razorpay Configuration
- * Identity: VexoKart Live Settlement
+ * CRITICAL: Production LIVE Razorpay Identity
+ * VexoKart Live Settlement Module
  */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL'; 
 
@@ -34,7 +34,7 @@ const CheckoutPage: React.FC = () => {
 
   /**
    * PRODUCTION SECURITY: ENVIRONMENT VALIDATION
-   * Payments MUST NOT run in restricted iframes or simulation previews.
+   * Live payments MUST NOT run in restricted iframes, simulation previews, or Bolt/StackBlitz sandboxes.
    */
   const checkExecutionEnvironment = () => {
     const isIframe = window.self !== window.top;
@@ -49,17 +49,18 @@ const CheckoutPage: React.FC = () => {
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress || !user) {
-      alert("Please select a valid delivery destination.");
+      alert("Please specify a shipping destination.");
       return;
     }
 
+    // STRICT: Prevent live transactions in non-browser environments
     if (paymentMethod === 'card' && !checkExecutionEnvironment()) {
         alert("LIVE PRODUCTION SECURITY: Live payments can only be completed in a real browser environment. Please open VexoKart in a new tab or a full browser window.");
         return;
     }
     
     if (typeof cartTotal !== 'number' || isNaN(cartTotal) || cartTotal <= 0) {
-      alert("System Error: Order calculation failed. Please reload your bag.");
+      alert("System Integrity Alert: Net amount is invalid. Please refresh your bag.");
       return;
     }
 
@@ -84,7 +85,7 @@ const CheckoutPage: React.FC = () => {
           payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'
       };
 
-      // 1. Initialize Order in Database
+      // 1. PERSISTENCE LAYER: Initialize Order Record
       const newOrderId = await addOrder(orderPayload);
 
       if (paymentMethod === 'cod') {
@@ -94,44 +95,44 @@ const CheckoutPage: React.FC = () => {
         return;
       }
 
-      // 2. Production Razorpay Flow: Create Order via Edge Function 'super-handler'
-      const rzpData = await createPaymentOrder(newOrderId, cartTotal);
+      // 2. SETTLEMENT LAYER: Synchronize with Live Gateway via Edge Function 'super-handler'
+      const response = await createPaymentOrder(cartTotal);
 
-      // 3. Launch Official Razorpay Checkout Popup
+      // 3. UI LAYER: Launch Official Razorpay Secure Checkout
       if (!(window as any).Razorpay) {
-        throw new Error("Razorpay SDK not detected. Please disable ad-blockers and refresh the page.");
+        throw new Error("Razorpay Gateway Error: SDK not detected. Please verify network connectivity and reload.");
       }
 
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
-        amount: rzpData.amount, // Returned by super-handler (Paise)
+        amount: response.amount, // Returned in Paise by super-handler
         currency: 'INR',
         name: 'VexoKart Secure Settlement',
-        description: `Order Reference #${newOrderId}`,
+        description: `Reference #${newOrderId}`,
         image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo-icon.png',
-        order_id: rzpData.id,
-        handler: async (response: any) => {
+        order_id: response.id, // Mandatory live Order ID
+        handler: async (paymentResponse: any) => {
           setIsProcessing(true);
           try {
-              // 4. Server-side signature verification
+              // 4. VERIFICATION LAYER: Production Digital Signature Verification
               const isVerified = await verifyPayment({
                 orderId: newOrderId,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
+                razorpay_order_id: paymentResponse.razorpay_order_id,
+                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                razorpay_signature: paymentResponse.razorpay_signature
               });
               
               if (isVerified) {
-                alert("Digital Transaction Success! Thank you for choosing VexoKart.");
+                alert("Settlement Successful! Order is being processed for dispatch.");
                 clearCart();
                 navigate('/orders');
               } else {
-                alert("Security Alert: Digital signature verification failed. Our team will audit this transaction.");
+                alert("Security Protocol Alert: Digital verification failed. Our team will review this transaction manually.");
                 setIsProcessing(false);
               }
           } catch (e) {
-              console.error("Verification Critical Error:", e);
-              alert("A system error occurred during verification. Please contact support.");
+              console.error("[Verification] Exception:", e);
+              alert("A system error occurred during verification. Transaction is pending audit.");
               setIsProcessing(false);
           }
         },
@@ -142,7 +143,7 @@ const CheckoutPage: React.FC = () => {
         },
         modal: {
           ondismiss: () => {
-            console.log("Payment flow cancelled by customer.");
+            console.warn("Settlement flow aborted by customer.");
             setIsProcessing(false);
           }
         },
@@ -151,18 +152,18 @@ const CheckoutPage: React.FC = () => {
 
       const rzp = new (window as any).Razorpay(options);
       
-      rzp.on('payment.failed', (response: any) => {
-        console.error("Payment Gateway Rejected:", response.error);
-        alert(`Transaction Failed: ${response.error.description}`);
+      rzp.on('payment.failed', (failResponse: any) => {
+        console.error("Gateway Rejection:", failResponse.error);
+        alert(`Settlement Rejected: ${failResponse.error.description}`);
         setIsProcessing(false);
       });
 
-      // Opens in a secure popup as per official Razorpay documentation
+      // Launch secure settlement popup
       rzp.open();
 
     } catch (err: any) {
-      console.error("[Checkout Critical Failure]", err.message);
-      alert(err.message || "An unexpected error halted the checkout process.");
+      console.error("[Checkout Exception]", err.message);
+      alert(err.message || "An unexpected error occurred. Please try again or contact support.");
       setIsProcessing(false);
     }
   };
@@ -180,7 +181,7 @@ const CheckoutPage: React.FC = () => {
 
       <div className="p-4 space-y-6 pb-24 max-w-2xl mx-auto">
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Destination Identity</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Destination Profile</h2>
           {addresses.length > 0 ? (
             <div className="space-y-3">
               {addresses.map(address => (
@@ -204,16 +205,16 @@ const CheckoutPage: React.FC = () => {
             </div>
           ) : (
              <div className="text-center py-6 bg-surface rounded-xl border border-dashed border-border">
-                <p className="text-text-muted text-xs font-bold italic uppercase">No delivery addresses on file</p>
+                <p className="text-text-muted text-xs font-bold italic uppercase">No addressing profiles found</p>
              </div>
           )}
           <button onClick={() => navigate('/addresses/new')} className="w-full mt-4 text-accent text-[10px] font-black uppercase tracking-widest border border-accent/20 py-3 rounded-xl hover:bg-accent/5 transition-all">
-            Add New Identity
+            Establish Delivery Point
           </button>
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Channel</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Configuration</h2>
           <div className="grid grid-cols-1 gap-3">
               {canPayOnline && (
                   <div 
@@ -221,8 +222,8 @@ const CheckoutPage: React.FC = () => {
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
                   >
                       <div>
-                          <p className="font-bold text-text-main">Digital Settlement (Live)</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Secure UPI, Cards, NetBanking</p>
+                          <p className="font-bold text-text-main">Digital Transaction (Secure Live)</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Cards, UPI, NetBanking</p>
                       </div>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
                           {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
@@ -235,8 +236,8 @@ const CheckoutPage: React.FC = () => {
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
                   >
                       <div>
-                          <p className="font-bold text-text-main">Cash On Delivery</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Settle with Handover</p>
+                          <p className="font-bold text-text-main">Cash Handover</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Settle with Fulfillment Agent</p>
                       </div>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
                           {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
@@ -247,7 +248,7 @@ const CheckoutPage: React.FC = () => {
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6 mb-10">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Invoice Manifest</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Invoice Summary</h2>
           <div className="space-y-3">
             {cartItems.map(item => (
                 <div key={item.id} className="flex justify-between text-xs font-bold">
@@ -266,7 +267,7 @@ const CheckoutPage: React.FC = () => {
           </div>
           <div className="border-t border-dashed border-border my-4"></div>
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Net Payable</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Final Payable</span>
             <span className="text-2xl font-black text-text-main italic tracking-tighter">₹{cartTotal.toLocaleString('en-IN')}</span>
           </div>
         </GlassmorphicCard>
@@ -278,7 +279,7 @@ const CheckoutPage: React.FC = () => {
           disabled={isProcessing || !selectedAddress}
           className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50" 
         >
-          {isProcessing ? 'Synchronizing Secure Layers...' : paymentMethod === 'cod' ? `Confirm Order (COD)` : `Initialize Secure Payment ₹${cartTotal.toLocaleString('en-IN')}`}
+          {isProcessing ? 'Synchronizing Secure Gateway...' : paymentMethod === 'cod' ? `Confirm Order (COD)` : `Initialize Secure Payment ₹${cartTotal.toLocaleString('en-IN')}`}
         </button>
       </div>
     </div>
