@@ -75,15 +75,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const timestamp = new Date().toISOString();
     const qrToken = Math.random().toString(36).substring(2, 15);
     
-    // Ensure numeric casting for financial and identity columns to prevent Postgres syntax errors
     const numericTotal = Number(orderData.total);
     const numericUserId = Number(user?.id);
-    
-    // Extract strictly numeric ID for the shipping_address column
     const numericAddressId = orderData.shippingAddress?.id ? Number(orderData.shippingAddress.id) : null;
 
-    if (isNaN(numericTotal)) throw new Error("Order calculation integrity failed: total must be numeric.");
-    if (!numericAddressId || isNaN(numericAddressId)) throw new Error("Shipping destination required: address ID must be numeric.");
+    if (isNaN(numericTotal)) throw new Error("Order calculation failed: invalid numeric total.");
+    if (!numericAddressId || isNaN(numericAddressId)) throw new Error("Delivery destination missing: invalid address ID.");
 
     const payload = {
       user_id: numericUserId,
@@ -92,7 +89,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       total_amount: numericTotal, 
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'failed',
-      shipping_address: numericAddressId, // STRICTLY NUMERIC ID
+      shipping_address: numericAddressId,
       status: 'Placed',
       qr_token: qrToken,
       status_history: [{ status: 'Placed', timestamp, actor: 'User' }],
@@ -108,49 +105,58 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
-            console.error("[OrderContext DB Rejection]", JSON.stringify(errorData, null, 2));
-            throw new Error(errorData.message || `Order initialization failed: ${res.status}`);
+            console.error("[OrderContext] Database Rejection:", JSON.stringify(errorData));
+            throw new Error(errorData.message || `Order initialization rejected by server.`);
         }
 
         const result = await res.json();
         await refreshOrders();
         return result[0].id.toString();
     } catch (err: any) {
-        console.error("[OrderContext] addOrder Critical Failure:", err.message);
+        console.error("[OrderContext] addOrder Exception:", err.message);
         throw err;
     }
   };
 
   /**
-   * BACKEND API CALL SETUP (MANDATORY)
-   * Orchestrates the Razorpay order creation via Supabase super-handler Edge Function.
+   * CRITICAL: Using 'super-handler' Edge Function for live payment orchestration.
+   * STRICT: Uses full URL and mandatory security headers.
    */
   const createPaymentOrder = async (amount: number): Promise<{ id: string; amount: number }> => {
+    const apiEndpoint = "https://ghzadiplpazekzgjbdxu.supabase.co/functions/v1/super-handler";
+    
     try {
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/super-handler`, {
+        const response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}` // Required for Edge Function access
+            'Authorization': `Bearer ${SUPABASE_KEY}`
           },
           body: JSON.stringify({ 
-            amount: amount 
+            amount: Number(amount) 
           })
         });
         
-        if (res.ok) {
-            const data = await res.json();
-            if (!data.id) throw new Error("Gateway Synchronization Error: Response missing 'id'.");
-            // Expecting amount in response as per spec point 7
-            return { id: data.id, amount: data.amount }; 
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Edge Function Rejected Request (${response.status}): ${errorText || 'Server Error'}`);
         }
         
-        const errorText = await res.text();
-        console.error("[Edge Function Error]", errorText);
-        throw new Error(`Edge Function call failed (${res.status}): ${errorText || 'Unknown Error'}`);
+        const data = await response.json();
+        if (!data.id) throw new Error("Gateway Response Error: Order identity missing from response.");
+        
+        // Response contains { id, amount, currency, status }
+        return { 
+          id: data.id, 
+          amount: data.amount 
+        }; 
     } catch (err: any) {
-        console.error("[Payment Sync] Critical Exception:", err.message);
+        console.error("[Razorpay Production Sync] Critical Failure:", err.message);
+        // Special handling for 'Failed to fetch' which is common in restricted browser environments
+        if (err.message === 'Failed to fetch') {
+            throw new Error("SECURE GATEWAY BLOCKED: The connection to the payment server was blocked by your browser or a network restriction. Please ensure you are not using a restricted preview/iframe and try again.");
+        }
         throw err;
     }
   };
@@ -200,9 +206,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             await refreshOrders();
             return data.label_url;
         }
-        throw new Error("Logistics provider synchronization offline");
+        throw new Error("Logistics sync failed");
     } catch (err: any) {
-        const mockLabelUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=VXK-SHIP-${orderId}`;
+        const mockLabelUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=SHIP-${orderId}`;
         await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
             method: 'PATCH',
             headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
@@ -254,13 +260,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
     const order = getOrderByToken(token);
-    if (!order) return { success: false, message: 'Identity verification failed.' };
+    if (!order) return { success: false, message: 'Invalid manifest token.' };
 
     try {
         await updateOrderStatus(order.id, status, { note, actor: 'Courier' });
-        return { success: true, message: `Consignment status synchronized to ${status}.` };
+        return { success: true, message: `Status updated to ${status}.` };
     } catch (e) {
-        return { success: false, message: 'Fulfillment synchronization failed.' };
+        return { success: false, message: 'Fulfillment sync failed.' };
     }
   };
 
