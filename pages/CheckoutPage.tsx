@@ -7,8 +7,8 @@ import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { Address, OrderItem } from '../types';
 
-// LIVE PRODUCTION KEY
-const RAZORPAY_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
+// REQUIRED: Use Razorpay TEST key as per instructions
+const RAZORPAY_KEY_ID = 'rzp_test_5yLpXmEa8u4mJ2'; 
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -29,15 +29,31 @@ const CheckoutPage: React.FC = () => {
     }
   }, [user]);
 
+  // CRITICAL: Razorpay MUST NOT run in restricted environments like iframes
+  const checkEnvironment = () => {
+    const isIframe = window.self !== window.top;
+    const isRestricted = window.location.hostname.includes('stackblitz') || window.location.hostname.includes('webcontainer');
+    
+    if (isIframe || isRestricted) {
+        console.warn("Secure Gateway restricted in current environment.");
+        return false;
+    }
+    return true;
+  };
+
   const handlePlaceOrder = async () => {
     if (!selectedAddress || !user) {
-      alert("Please select a shipping destination.");
+      alert("Please select a valid delivery destination.");
       return;
     }
+
+    if (paymentMethod === 'card' && !checkEnvironment()) {
+        alert("CRITICAL ERROR: Payment can only be completed in a real browser environment. Please open VexoKart in a new tab or full window.");
+        return;
+    }
     
-    // Sanity check for numeric amount
     if (typeof cartTotal !== 'number' || isNaN(cartTotal) || cartTotal <= 0) {
-      alert("Invalid shopping total. Please refresh your bag.");
+      alert("Bill calculation error. Please refresh your bag.");
       return;
     }
 
@@ -60,49 +76,31 @@ const CheckoutPage: React.FC = () => {
           payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'
       };
 
-      // 1. Create the Order in Database
+      // 1. Initialize Order in Backend (Strictly sending numeric Address ID inside context)
       const newOrderId = await addOrder(orderPayload);
 
       if (paymentMethod === 'cod') {
-        alert("Order Successfully Placed!");
+        alert("Order Success! Settle with cash on arrival.");
         clearCart();
         navigate('/orders');
         return;
       }
 
-      // 2. Initialize Payment Gateway Order
+      // 2. Generate Razorpay Order ID (Required for real gateway)
       const rzpOrderId = await createPaymentOrder(newOrderId, cartTotal);
 
-      // Support for simulation/demo mode
-      if (rzpOrderId.startsWith('sim_')) {
-          const success = await verifyPayment({
-            orderId: newOrderId,
-            razorpay_order_id: rzpOrderId,
-            razorpay_payment_id: 'sim_pay_' + Date.now(),
-            razorpay_signature: 'sim_sig_' + Date.now()
-          });
-          
-          if (success) {
-            alert("Digital Payment Simulated. Order Confirmed.");
-            clearCart();
-            navigate('/orders');
-          } else {
-            setIsProcessing(false);
-          }
-          return;
-      }
-
-      // 3. Launch Live Razorpay Modal
+      // 3. Verification of SDK
       if (!(window as any).Razorpay) {
-        throw new Error("Payment Gateway (Razorpay) failed to load. Check your internet.");
+        throw new Error("Razorpay Gateway failed to load. Check your network or firewall.");
       }
 
+      // 4. Launch Official Razorpay Checkout Modal
       const options = {
         key: RAZORPAY_KEY_ID,
-        amount: Math.round(cartTotal * 100), // Convert to Paise (Sub-units)
+        amount: Math.round(cartTotal * 100), // STRICT: Total converted to Paise
         currency: 'INR',
-        name: 'VexoKart',
-        description: `Checkout for Order #${newOrderId}`,
+        name: 'VexoKart Secure',
+        description: `Ref #${newOrderId} Payment`,
         image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo-icon.png',
         order_id: rzpOrderId,
         handler: async (response: any) => {
@@ -115,11 +113,11 @@ const CheckoutPage: React.FC = () => {
           });
           
           if (success) {
-            alert("Transaction Verified! Welcome to the VexoKart family.");
+            alert("Digital Transaction Complete! Thank you.");
             clearCart();
             navigate('/orders');
           } else {
-            alert("Payment authentication failed. Contact support if funds were deducted.");
+            alert("Digital verification failed. Please check your bank or contact support.");
             setIsProcessing(false);
           }
         },
@@ -130,6 +128,7 @@ const CheckoutPage: React.FC = () => {
         },
         modal: {
           ondismiss: () => {
+            console.log("User exited checkout flow.");
             setIsProcessing(false);
           }
         },
@@ -139,15 +138,15 @@ const CheckoutPage: React.FC = () => {
       const rzp = new (window as any).Razorpay(options);
       
       rzp.on('payment.failed', (response: any) => {
-        alert(`Payment Denied: ${response.error.description}`);
+        alert(`Gateway Rejected: ${response.error.description}`);
         setIsProcessing(false);
       });
 
       rzp.open();
 
     } catch (err: any) {
-      console.error("[Checkout] Error:", err);
-      alert(err.message || "Checkout failed. Please try again.");
+      console.error("[Checkout Flow] Failure:", err.message);
+      alert(err.message || "Checkout halted due to a system error.");
       setIsProcessing(false);
     }
   };
@@ -165,7 +164,7 @@ const CheckoutPage: React.FC = () => {
 
       <div className="p-4 space-y-6 pb-24 max-w-2xl mx-auto">
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Select Destination</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Destination Identity</h2>
           {addresses.length > 0 ? (
             <div className="space-y-3">
               {addresses.map(address => (
@@ -189,16 +188,16 @@ const CheckoutPage: React.FC = () => {
             </div>
           ) : (
              <div className="text-center py-6 bg-surface rounded-xl border border-dashed border-border">
-                <p className="text-text-muted text-xs font-bold italic uppercase">No addresses found</p>
+                <p className="text-text-muted text-xs font-bold italic uppercase">No shipping records found</p>
              </div>
           )}
           <button onClick={() => navigate('/addresses/new')} className="w-full mt-4 text-accent text-[10px] font-black uppercase tracking-widest border border-accent/20 py-3 rounded-xl hover:bg-accent/5 transition-all">
-            Add New Address
+            Establish New Destination
           </button>
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Payment Selection</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Channel</h2>
           <div className="grid grid-cols-1 gap-3">
               {canPayOnline && (
                   <div 
@@ -206,7 +205,7 @@ const CheckoutPage: React.FC = () => {
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
                   >
                       <div>
-                          <p className="font-bold text-text-main">Digital Transaction (Live)</p>
+                          <p className="font-bold text-text-main">Digital Transaction (Secure)</p>
                           <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">UPI, Cards, NetBanking</p>
                       </div>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
@@ -220,8 +219,8 @@ const CheckoutPage: React.FC = () => {
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
                   >
                       <div>
-                          <p className="font-bold text-text-main">Cash On Delivery</p>
-                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Settle at your doorstep</p>
+                          <p className="font-bold text-text-main">Cash Settlement</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Pay at doorstep</p>
                       </div>
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
                           {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
@@ -232,7 +231,7 @@ const CheckoutPage: React.FC = () => {
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6 mb-10">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Bill Summary</h2>
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Invoice Manifest</h2>
           <div className="space-y-3">
             {cartItems.map(item => (
                 <div key={item.id} className="flex justify-between text-xs font-bold">
@@ -255,7 +254,7 @@ const CheckoutPage: React.FC = () => {
           disabled={isProcessing || !selectedAddress}
           className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50" 
         >
-          {isProcessing ? 'Synchronizing Gateway...' : paymentMethod === 'cod' ? `Confirm Order (COD)` : `Pay Now ₹${cartTotal.toLocaleString()}`}
+          {isProcessing ? 'Synchronizing Secure Layer...' : paymentMethod === 'cod' ? `Finalize Order (COD)` : `Initialize Secure Payment ₹${cartTotal.toLocaleString()}`}
         </button>
       </div>
     </div>
