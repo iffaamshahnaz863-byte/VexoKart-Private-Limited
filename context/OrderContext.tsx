@@ -50,8 +50,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             id: o.id.toString(),
             total: Number(o.total_amount || 0),
             total_amount: Number(o.total_amount || 0),
-            // Standardizing identity: UI expects object, DB might return ID or JSON
-            shippingAddress: (o.shipping_address && typeof o.shipping_address === 'object') ? o.shipping_address : {},
+            // Standardizing identity: UI expects object, DB might return numeric ID
+            // If it's a numeric ID, we'll try to find it in user addresses if available
+            shippingAddress: (o.shipping_address && typeof o.shipping_address === 'object') 
+                ? o.shipping_address 
+                : user.addresses.find(a => a.id === String(o.shipping_address)) || {},
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
@@ -74,16 +77,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const timestamp = new Date().toISOString();
     const qrToken = Math.random().toString(36).substring(2, 15);
     
-    // CRITICAL FIX: Numeric column enforcement
+    // CRITICAL: Ensure all numeric fields are strictly numeric to prevent Postgres errors
     const numericTotal = Number(orderData.total);
     const numericUserId = Number(user?.id);
     
-    // Extracting numeric ID from the address object to fix "invalid input syntax for type numeric"
-    // Since the database column 'shipping_address' is numeric, it expects a reference/ID.
+    // The error "invalid input syntax for type numeric" on a JSON string 
+    // indicates that the 'shipping_address' column is numeric and expects the ID only.
     const numericAddressId = orderData.shippingAddress?.id ? Number(orderData.shippingAddress.id) : null;
 
-    if (isNaN(numericTotal)) throw new Error("Database Constraint: Order total must be numeric.");
-    if (!numericAddressId || isNaN(numericAddressId)) throw new Error("Database Constraint: Shipping address ID must be numeric.");
+    if (isNaN(numericTotal)) throw new Error("Order calculation failed: invalid numeric total.");
+    if (!numericAddressId || isNaN(numericAddressId)) throw new Error("Delivery destination missing: invalid address ID.");
 
     const payload = {
       user_id: numericUserId,
@@ -92,7 +95,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       total_amount: numericTotal, 
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === 'Cash on Delivery' ? 'cod_pending' : 'failed',
-      shipping_address: numericAddressId, // STRICTLY SENDING NUMERIC ID
+      shipping_address: numericAddressId, // STRICTLY NUMERIC ID ONLY
       status: 'Placed',
       qr_token: qrToken,
       status_history: [{ status: 'Placed', timestamp, actor: 'System' }],
@@ -108,8 +111,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
-            console.error("[OrderContext DB Error]", JSON.stringify(errorData, null, 2));
-            throw new Error(errorData.message || `Order initialization failed on server (${res.status})`);
+            // Stringify error to prevent [object Object] logs
+            console.error("[Database Rejection Detailed]", JSON.stringify(errorData, null, 2));
+            throw new Error(errorData.message || `Database rejected the order payload (${res.status})`);
         }
 
         const result = await res.json();
@@ -123,7 +127,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const createPaymentOrder = async (orderId: string, amount: number): Promise<string> => {
     try {
-        // Calling LIVE backend to generate real Razorpay Order ID
+        // Real Live Gateway Request
         const res = await fetch(`${EDGE_FUNCTION_URL}/create_payment_order`, {
           method: 'POST',
           headers: { ...API_HEADERS },
@@ -132,21 +136,21 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         if (res.ok) {
             const data = await res.json();
-            if (!data.id) throw new Error("Gateway failed to generate Order ID");
+            if (!data.id) throw new Error("Gateway failed to return Order ID");
             return data.id; 
         }
         
         const errText = await res.text();
-        throw new Error(`Payment Initialization Error: ${errText}`);
+        throw new Error(`Gateway Error: ${errText}`);
     } catch (err: any) {
-        console.error("[Payment Sync] Critical Failure:", err.message);
+        console.error("[Razorpay Sync] Production Failure:", err.message);
         throw err;
     }
   };
 
   const verifyPayment = async (paymentData: any): Promise<boolean> => {
     try {
-        // Real-time server-side signature verification
+        // Production signature verification
         const res = await fetch(`${EDGE_FUNCTION_URL}/verify_payment`, {
           method: 'POST',
           headers: { ...API_HEADERS },
@@ -183,7 +187,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             await refreshOrders();
             return data.label_url;
         }
-        throw new Error("Logistics provider synchronization failed");
+        throw new Error("Logistics sync failed");
     } catch (err: any) {
         const mockLabelUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=SHIP-${orderId}`;
         await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
@@ -237,13 +241,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
     const order = getOrderByToken(token);
-    if (!order) return { success: false, message: 'Invalid fulfillment token.' };
+    if (!order) return { success: false, message: 'Invalid manifest token.' };
 
     try {
         await updateOrderStatus(order.id, status, { note, actor: 'Courier' });
-        return { success: true, message: `Status synchronized to ${status}.` };
+        return { success: true, message: `Status updated to ${status}.` };
     } catch (e) {
-        return { success: false, message: 'Sync failed.' };
+        return { success: false, message: 'Fulfillment sync failed.' };
     }
   };
 
@@ -260,6 +264,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 export const useOrders = () => {
   const context = useContext(OrderContext);
-  if (!context) throw new Error('useOrders error');
+  if (!context) throw new Error('OrderContext missing');
   return context;
 };
