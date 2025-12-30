@@ -82,7 +82,8 @@ const HomePage: React.FC = () => {
                     className={`flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer transition-all ${selectedCatName === category.name ? 'scale-105 opacity-100' : 'opacity-60 hover:opacity-100'}`}
                 >
                     <div className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${selectedCatName === category.name ? 'border-accent shadow-lg shadow-accent/10' : 'border-border'}`}>
-                        <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                        {/* Fix: Property 'image' does not exist on type 'Category'. Use 'image_url' instead. */}
+                        <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" />
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-tighter text-center max-w-[64px] line-clamp-1">{category.name}</span>
                 </div>

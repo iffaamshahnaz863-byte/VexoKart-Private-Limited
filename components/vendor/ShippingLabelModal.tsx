@@ -73,7 +73,8 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
     printWindow.document.close();
   };
 
-  const isCOD = order.payment_method === 'Cash on Delivery';
+  /* Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_mode' instead. */
+  const isCOD = order.payment_mode === 'Cash on Delivery';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -218,7 +219,8 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, vendor, 
                             <p className="text-2xl font-black italic uppercase tracking-tighter text-black">
                                 {order.payment_status === 'paid' ? 'Prepaid Transaction' : 'Collect Cash (COD)'}
                             </p>
-                            <p className="text-[11px] font-bold text-gray-500 mt-2 uppercase">Method: {order.payment_method}</p>
+                            {/* Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_mode' instead. */}
+                            <p className="text-[11px] font-bold text-gray-500 mt-2 uppercase">Method: {order.payment_mode}</p>
                          </div>
                          <div className="text-right">
                              <div className="inline-block border-[6px] border-black p-6 bg-gray-50 rounded-xl shadow-sm">

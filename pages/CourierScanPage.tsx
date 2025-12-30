@@ -78,7 +78,8 @@ const CourierScanPage: React.FC = () => {
         );
     }
 
-    const isCOD = order?.payment_method === 'Cash on Delivery';
+    /* Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_mode' instead. */
+    const isCOD = order?.payment_mode === 'Cash on Delivery';
     const isPaid = order?.payment_status === 'paid';
 
     return (

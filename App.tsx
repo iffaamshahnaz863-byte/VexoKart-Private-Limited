@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
+import OrderSuccessPage from './pages/OrderSuccessPage';
 import ShippingAddressesPage from './pages/ShippingAddressesPage';
 import AddressFormPage from './pages/AddressFormPage';
 import WishlistPage from './pages/WishlistPage';
@@ -109,7 +110,7 @@ const AppContent: React.FC = () => {
   const isVendorPage = location.pathname.startsWith('/vendor');
   const isLogisticsPage = location.pathname.startsWith('/scan');
   
-  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
+  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout', '/order-success'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
 
   if (isInitializing) {
     return <SplashScreen onFinish={() => setIsInitializing(false)} />;
@@ -135,6 +136,7 @@ const AppContent: React.FC = () => {
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
           <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
+          <Route path="/order-success" element={<ProtectedRoute><OrderSuccessPage /></ProtectedRoute>} />
           <Route path="/addresses" element={<ProtectedRoute><ShippingAddressesPage /></ProtectedRoute>} />
           <Route path="/addresses/new" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
           <Route path="/addresses/edit/:id" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
