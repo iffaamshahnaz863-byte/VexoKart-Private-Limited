@@ -12,45 +12,42 @@ export interface Review {
 
 export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected';
 
-export interface ProductVariantColor {
+export interface ProductVariant {
+    type: 'color' | 'size' | 'custom';
     name: string;
-    image: string;
+    value: string;
+    image?: string;
 }
 
 export interface Product {
   id: number;
+  vendor_id: string;
   name: string;
-  category: string;
-  price: number;
-  originalPrice: number;
-  rating: number;
-  reviewCount: number;
-  images: string[];
   description: string;
-  reviews: Review[];
-  highlights?: string[];
-  stock: number;
-  specifications?: { [key: string]: string };
-  sellerInfo?: string;
-  returnPolicy?: string;
-  warranty?: string;
-  videoUrl?: string;
-  vendorId: string;
+  price: number;
+  original_price: number;
+  discount_percent: number;
+  images: string[];
+  category_id: number;
+  category?: string; // Virtual field for UI
   status: ProductStatus;
-  rejectionReason?: string;
-  approved_at?: string;
-  approved_by?: string;
-  allow_online: boolean;
-  allow_cod: boolean;
-  colors?: ProductVariantColor[];
-  sizes?: string[];
+  payment_modes: string[]; // ["online", "cod"]
+  variants: ProductVariant[];
+  stock: number;
+  highlights?: string[];
+  specifications?: { [key: string]: string };
+  rating: number;
+  review_count: number;
+  reviews: Review[];
+  created_at: string;
+  return_policy?: string;
 }
 
 export interface Category {
   id: number;
   name: string;
-  image: string;
-  status: boolean;
+  image_url: string;
+  created_at?: string;
 }
 
 export interface CartItem extends Product {
@@ -66,11 +63,8 @@ export interface OrderItem {
     quantity: number;
     image: string;
     vendorId: string;
-    vendor_email?: string;
     color?: string;
     size?: string;
-    sku?: string;
-    weight?: number; // in grams
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -83,33 +77,22 @@ export interface StatusHistory {
     actor?: 'System' | 'User' | 'Vendor' | 'Courier' | 'Admin';
 }
 
-export interface CourierScanLog {
-    id: string;
-    orderId: string;
-    statusSet: OrderStatus;
-    note?: string;
-    scannedAt: string;
-    ipAddress?: string;
-}
-
 export interface Order {
     id: string;
-    date: string;
+    user_id: number;
+    vendor_id?: string; // Main vendor or 'split'
     items: OrderItem[];
-    total: number;
-    status: OrderStatus;
+    total_amount: number;
+    payment_mode: 'Online Payment' | 'Cash on Delivery';
     payment_status: PaymentStatus;
-    payment_method: 'Online Payment' | 'Cash on Delivery';
-    userId: number;
-    userEmail: string;
-    shippingAddress: Address;
-    paymentId?: string;
-    statusHistory: StatusHistory[];
-    courierName?: string;
-    trackingId?: string;
+    shipping_address: Address;
+    status: OrderStatus;
+    status_history: StatusHistory[];
     label_url?: string;
-    qrToken?: string; // Secure token for courier scan page
-    totalWeight?: number;
+    tracking_id?: string;
+    courier_name?: string;
+    qr_token?: string;
+    created_at: string;
 }
 
 export interface Address {
@@ -127,7 +110,6 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  password?: string;
   role: 'user' | 'admin' | 'vendor';
   addresses: Address[];
   wishlist: number[];
@@ -136,27 +118,18 @@ export interface User {
   sms_enabled?: boolean;
 }
 
-export interface Banner {
-  id: number;
-  image_url: string;
-  title: string;
-  status: boolean;
-  display_order: number;
-  created_at: string;
-}
-
 export interface Vendor {
   id: number;
   user_id: string;
   store_name: string;
-  owner_name: string;
-  email: string;
-  phone: string;
   profile_image: string;
   status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  email: string;
+  phone: string;
+  owner_name: string;
+  store_address?: string;
   created_at: string;
   rejection_reason?: string;
-  store_address?: string;
 }
 
 export interface NotificationLog {
@@ -168,12 +141,28 @@ export interface NotificationLog {
   message: string;
   channel: 'email' | 'sms' | 'in-app';
   status: 'sent' | 'failed';
-  response: string;
-  type: OrderStatus | 'system';
-  retryCount: number;
-  is_read?: boolean;
+  is_read: boolean;
+  /* Fixed properties to resolve Omit mismatches in NotificationContext */
+  response?: string;
+  type?: string;
+  retryCount?: number;
 }
 
+export interface NotificationSettings {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  testMode: boolean;
+  /* Added properties missing from original NotificationSettings but used in DEFAULT_SETTINGS */
+  smtpHost: string;
+  smtpUser: string;
+  smtpPass: string;
+  emailFrom: string;
+  smsApiKey: string;
+  smsSenderId: string;
+  smsTemplateId: string;
+}
+
+/* Added missing AdminCode interface */
 export interface AdminCode {
   id: string;
   code: string;
@@ -186,15 +175,12 @@ export interface AdminCode {
   usedBy?: string;
 }
 
-export interface NotificationSettings {
-  emailEnabled: boolean;
-  smsEnabled: boolean;
-  smtpHost: string;
-  smtpUser: string;
-  smtpPass: string;
-  emailFrom: string;
-  smsApiKey: string;
-  smsSenderId: string;
-  smsTemplateId: string;
-  testMode: boolean;
+/* Added missing Banner interface */
+export interface Banner {
+  id: number;
+  image_url: string;
+  title: string;
+  status: boolean;
+  display_order: number;
+  created_at: string;
 }

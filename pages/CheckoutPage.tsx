@@ -6,49 +6,26 @@ import { useOrders } from '../context/OrderContext';
 import { useNotifications } from '../context/NotificationContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
-import { Address, Order, OrderItem } from '../types';
+import { Address, OrderItem } from '../types';
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
-  const { addOrder, updateOrderPaymentDetails, updateOrderStatus, getOrderById } = useOrders();
-  const { notifyOrderUpdate } = useNotifications();
+  const { addOrder, createPaymentOrder, verifyPayment, updateOrderStatus } = useOrders();
   const navigate = useNavigate();
   
-  const canPayOnline = useMemo(() => cartItems.every(item => item.allow_online ?? true), [cartItems]);
-  const canPayCOD = useMemo(() => cartItems.every(item => item.allow_cod ?? true), [cartItems]);
+  const canPayOnline = useMemo(() => cartItems.every(item => item.payment_modes?.includes('online') ?? true), [cartItems]);
+  const canPayCOD = useMemo(() => cartItems.every(item => item.payment_modes?.includes('cod') ?? true), [cartItems]);
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>(canPayOnline ? 'card' : 'cod');
-  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
   useEffect(() => {
-    if (user?.addresses && Array.isArray(user.addresses) && user.addresses.length > 0) {
+    if (user?.addresses && user.addresses.length > 0) {
       setSelectedAddress(user.addresses[0]);
     }
   }, [user]);
-
-  useEffect(() => {
-    if (!canPayOnline && paymentMethod === 'card') {
-        setPaymentMethod('cod');
-    } else if (!canPayCOD && paymentMethod === 'cod') {
-        setPaymentMethod('card');
-    }
-  }, [canPayOnline, canPayCOD, paymentMethod]);
-
-  const showSuccessAndNavigate = (orderId: string) => {
-    setOrderPlaced(true);
-    // Requirement 1 & 2: Trigger official notification on confirmation
-    const finalOrder = getOrderById(orderId);
-    if (finalOrder && user) {
-        notifyOrderUpdate(finalOrder, user);
-    }
-
-    setTimeout(() => {
-        clearCart();
-        navigate('/');
-    }, 3000);
-  }
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress || !user) {
@@ -56,82 +33,81 @@ const CheckoutPage: React.FC = () => {
       return;
     }
     
-    if (paymentMethod === 'card' && !canPayOnline) {
-        alert("Digital payment is not available for one or more items in your cart.");
-        return;
-    }
-    if (paymentMethod === 'cod' && !canPayCOD) {
-        alert("Cash on delivery is not available for one or more items in your cart.");
-        return;
-    }
-    
-    const orderItems: OrderItem[] = cartItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.images[0],
-        vendorId: item.vendorId
-    }));
-
-    const orderPayload: Omit<Order, 'id' | 'date' | 'status' | 'statusHistory' | 'payment_status'> = {
-        userId: user.id,
-        userEmail: user.email,
-        items: orderItems,
-        total: cartTotal,
-        shippingAddress: selectedAddress,
-        payment_method: (paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment') as "Online Payment" | "Cash on Delivery"
-    };
+    setIsProcessing(true);
     
     try {
+      const orderItems: OrderItem[] = cartItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.images[0],
+          vendorId: item.vendor_id
+      }));
+
+      const orderPayload = {
+          items: orderItems,
+          total: cartTotal,
+          shippingAddress: selectedAddress,
+          payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'
+      };
+
+      const newOrderId = await addOrder(orderPayload);
+
       if (paymentMethod === 'cod') {
-        const newOrderId = await addOrder(orderPayload);
-        await updateOrderStatus(newOrderId, 'Confirmed');
-        showSuccessAndNavigate(newOrderId);
+        alert("Order Placed Successfully!");
+        clearCart();
+        navigate('/orders');
         return;
       }
 
-      const newOrderId = await addOrder(orderPayload);
+      // Online Payment Flow via Edge Function
+      const razorpayOrderId = await createPaymentOrder(newOrderId, cartTotal);
+
       const options = {
-        key: 'rzp_test_RvSXZKknVfrNUA',
+        key: 'rzp_live_PLACEHOLDER', // In production, this would be fetched from Edge Function or Env
         amount: Math.round(cartTotal * 100),
         currency: 'INR',
         name: 'VexoKart',
         description: `Order #${newOrderId}`,
-        image: 'https://picsum.photos/seed/logo/128/128',
+        order_id: razorpayOrderId,
         handler: async (response: any) => {
-          await updateOrderPaymentDetails(newOrderId, response.razorpay_payment_id);
-          showSuccessAndNavigate(newOrderId);
+          const success = await verifyPayment({
+            orderId: newOrderId,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature
+          });
+          
+          if (success) {
+            alert("Payment Verified! Your order is confirmed.");
+            clearCart();
+            navigate('/orders');
+          } else {
+            alert("Payment verification failed. Please contact support.");
+          }
         },
         prefill: {
-          name: user?.name || 'Customer',
-          email: user?.email || '',
-          contact: selectedAddress.phone || '',
+          name: user.name,
+          email: user.email,
+          contact: selectedAddress.phone,
         },
         theme: { color: '#FF8A00' },
       };
 
-      const paymentObject = new (window as any).Razorpay(options);
-      paymentObject.on('payment.failed', (response: any) => {
-        alert(`Payment failed. Error: ${response.error.description}`);
-        navigate('/orders');
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (response: any) => {
+        alert(`Payment failed: ${response.error.description}`);
+        setIsProcessing(false);
       });
-      paymentObject.open();
-    } catch (err) {
-      console.error("Order process error:", err);
-      alert("Failed to process order. Please try again.");
+      rzp.open();
+
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to process order.");
+      setIsProcessing(false);
     }
   };
-
-  if (orderPlaced) {
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-green-400 mb-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <h1 className="text-2xl font-bold text-text-main uppercase italic">Order Confirmed!</h1>
-            <p className="text-text-muted mt-2 font-medium">Sending your confirmation message...</p>
-        </div>
-    );
-  }
 
   const addresses = (user?.addresses && Array.isArray(user.addresses)) ? user.addresses : [];
 
@@ -180,57 +156,45 @@ const CheckoutPage: React.FC = () => {
 
         <GlassmorphicCard className="p-6">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Payment Method</h2>
-          {!canPayOnline && !canPayCOD ? (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-center">
-                  <p className="text-xs font-bold text-red-600">Conflicting payment requirements in cart. One or more items are restricted to incompatible modes. Please check individual item availability.</p>
-              </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-                {canPayOnline && (
-                    <div 
-                        onClick={() => setPaymentMethod('card')} 
-                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
-                    >
-                        <div>
-                            <p className="font-bold text-text-main">Digital Transaction</p>
-                            <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Card, UPI, NetBanking</p>
-                        </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
-                            {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
-                        </div>
-                    </div>
-                )}
-                {canPayCOD && (
-                    <div 
-                        onClick={() => setPaymentMethod('cod')} 
-                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
-                    >
-                        <div>
-                            <p className="font-bold text-text-main">Cash On Delivery</p>
-                            <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Pay at your doorstep</p>
-                        </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
-                            {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
-                        </div>
-                    </div>
-                )}
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-3">
+              {canPayOnline && (
+                  <div 
+                      onClick={() => setPaymentMethod('card')} 
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
+                  >
+                      <div>
+                          <p className="font-bold text-text-main">Digital Transaction</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">UPI, Card, NetBanking</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
+                          {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
+                      </div>
+                  </div>
+              )}
+              {canPayCOD && (
+                  <div 
+                      onClick={() => setPaymentMethod('cod')} 
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-white'}`}
+                  >
+                      <div>
+                          <p className="font-bold text-text-main">Cash On Delivery</p>
+                          <p className="text-[10px] text-text-muted font-bold uppercase mt-0.5">Pay at doorstep</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
+                          {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
+                      </div>
+                  </div>
+              )}
+          </div>
         </GlassmorphicCard>
 
         <GlassmorphicCard className="p-6 mb-10">
           <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Final Summary</h2>
           <div className="space-y-3">
             {cartItems.map(item => (
-                <div key={item.id} className="flex flex-col gap-1">
-                    <div className="flex justify-between text-xs font-bold">
-                        <span className="text-text-secondary truncate pr-4">{item.name} <span className="text-accent">x{item.quantity}</span></span>
-                        <span className="text-text-main shrink-0">₹{(item.price * item.quantity).toLocaleString()}</span>
-                    </div>
-                    <div className="flex gap-2">
-                        {!item.allow_online && <span className="text-[8px] font-black uppercase text-orange-500">COD ONLY</span>}
-                        {!item.allow_cod && <span className="text-[8px] font-black uppercase text-blue-500">ONLINE ONLY</span>}
-                    </div>
+                <div key={item.id} className="flex justify-between text-xs font-bold">
+                    <span className="text-text-secondary truncate pr-4">{item.name} <span className="text-accent">x{item.quantity}</span></span>
+                    <span className="text-text-main shrink-0">₹{(item.price * item.quantity).toLocaleString()}</span>
                 </div>
             ))}
           </div>
@@ -245,10 +209,10 @@ const CheckoutPage: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-20">
         <button 
           onClick={handlePlaceOrder} 
+          disabled={isProcessing || !selectedAddress}
           className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-4 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50" 
-          disabled={!selectedAddress || (!canPayOnline && !canPayCOD)}
         >
-          {(!canPayOnline && !canPayCOD) ? 'Cart Restriction' : paymentMethod === 'cod' ? `Finalize Order (COD)` : `Pay Securely ₹${cartTotal.toLocaleString()}`}
+          {isProcessing ? 'Processing Transaction...' : paymentMethod === 'cod' ? `Finalize Order (COD)` : `Pay Securely ₹${cartTotal.toLocaleString()}`}
         </button>
       </div>
     </div>

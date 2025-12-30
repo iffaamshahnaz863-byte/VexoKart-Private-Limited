@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus } from '../../types';
@@ -15,7 +14,8 @@ const AdminOrdersPage: React.FC = () => {
   const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
 
   const handleStatusChange = (order: Order, status: OrderStatus) => {
-    if (status === 'Shipped' && !order.trackingId) {
+    /* Fix: Property 'trackingId' does not exist on type 'Order'. Did you mean 'tracking_id'? */
+    if (status === 'Shipped' && !order.tracking_id) {
       setSelectedOrder(order);
       setShippingModalOpen(true);
     } else {
@@ -25,7 +25,8 @@ const AdminOrdersPage: React.FC = () => {
 
   const handleShippingSubmit = (courierName: string, trackingId: string) => {
     if (selectedOrder) {
-      updateOrderStatus(selectedOrder.id, 'Shipped', { courierName, trackingId });
+      /* Fix: Use tracking_id key to satisfy updateOrderStatus requirements */
+      updateOrderStatus(selectedOrder.id, 'Shipped', { courier_name: courierName, tracking_id: trackingId });
     }
     setShippingModalOpen(false);
     setSelectedOrder(null);
@@ -59,7 +60,8 @@ const AdminOrdersPage: React.FC = () => {
       )}
       {isHistoryModalOpen && selectedOrder && (
         <OrderStatusHistoryModal
-          history={selectedOrder.statusHistory}
+          /* Fix: Property 'statusHistory' does not exist on type 'Order'. Did you mean 'status_history'? */
+          history={selectedOrder.status_history}
           onClose={() => setHistoryModalOpen(false)}
         />
       )}
@@ -71,7 +73,7 @@ const AdminOrdersPage: React.FC = () => {
               <tr className="border-b border-gray-700 text-text-muted">
                 <th className="p-4 font-semibold">Order ID</th>
                 <th className="p-4 font-semibold">Date</th>
-                <th className="p-4 font-semibold">Customer</th>
+                <th className="p-4 font-semibold">Customer ID</th>
                 <th className="p-4 font-semibold">Total</th>
                 <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold">Update Status</th>
@@ -82,9 +84,12 @@ const AdminOrdersPage: React.FC = () => {
               {orders.map(order => (
                 <tr key={order.id} className="border-b border-gray-800 hover:bg-surface/50">
                   <td className="p-4 text-text-main font-mono">#{order.id}</td>
-                  <td className="p-4">{new Date(order.date).toLocaleDateString()}</td>
-                  <td className="p-4">{order.userEmail}</td>
-                  <td className="p-4 font-semibold">₹{order.total.toFixed(2)}</td>
+                  {/* Fix: Property 'date' does not exist on type 'Order'. Did you mean 'created_at'? */}
+                  <td className="p-4">{new Date(order.created_at).toLocaleDateString()}</td>
+                  {/* Fix: Property 'userEmail' does not exist on type 'Order'. Displaying user_id instead. */}
+                  <td className="p-4">{order.user_id}</td>
+                  {/* Fix: Property 'total' does not exist on type 'Order'. Did you mean 'total_amount'? */}
+                  <td className="p-4 font-semibold">₹{order.total_amount.toFixed(2)}</td>
                   <td className="p-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}>
                         {order.status}

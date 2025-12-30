@@ -143,7 +143,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         User Name: ${user.name}
         Order ID: #${order.id}
         Status: ${order.status}
-        Total Amount: ₹${order.total}
+        /* Fix: order.total -> order.total_amount */
+        Total Amount: ₹${order.total_amount}
         
         Output JSON with:
         "title": (Short engaging title e.g. Order Confirmed)
@@ -155,11 +156,13 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       const parsed = JSON.parse(response.text || '{}');
       aiContent.title = parsed.title || `Order Update: #${order.id}`;
       aiContent.email = parsed.emailBody;
-      aiContent.sms = parsed.smsBody || `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total}. - Team VexoKart`;
+      /* Fix: order.total -> order.total_amount */
+      aiContent.sms = parsed.smsBody || `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total_amount}. - Team VexoKart`;
     } catch (err) {
       aiContent.title = `Order ${order.status}`;
       aiContent.email = `Order #${order.id} is ${order.status}. Thank you!`;
-      aiContent.sms = `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total}. - Team VexoKart`;
+      /* Fix: order.total -> order.total_amount */
+      aiContent.sms = `Hi ${user.name}, your order #${order.id} has been confirmed! Total: ₹${order.total_amount}. - Team VexoKart`;
     }
 
     const sendWithRetry = async (
@@ -172,6 +175,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         try {
           if (settings.testMode) {
             await new Promise(r => setTimeout(r, 600));
+            /* saveLogToDB now correctly handles additional metadata properties defined in types.ts */
             await saveLogToDB({ 
               userId: user.email, 
               orderId: order.id, 
