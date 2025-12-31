@@ -3,21 +3,26 @@ import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
 import { useVendors } from '../../context/VendorContext';
+import { useAuth } from '../../context/AuthContext';
 
 const VendorDashboardPage: React.FC = () => {
+  const { user } = useAuth();
   const { products = [], isLoading: productsLoading, refreshProducts } = useProducts();
   const { orders = [], isLoading: ordersLoading, refreshOrders } = useOrders();
-  const { currentVendor } = useVendors();
+  const { currentVendor, fetchCurrentVendor } = useVendors();
 
   useEffect(() => {
     refreshOrders();
     refreshProducts();
-  }, []);
+    if (user?.id && !currentVendor) {
+        fetchCurrentVendor(user.id.toString());
+    }
+  }, [user, currentVendor]);
 
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeProducts = Array.isArray(products) ? products : [];
 
-  // CRITICAL FIX: Filtering strictly by vendor_id column
+  // Filtering strictly by vendor_id column
   const vendorProducts = useMemo(() => {
     if (!currentVendor) return [];
     const vid = String(currentVendor.id);

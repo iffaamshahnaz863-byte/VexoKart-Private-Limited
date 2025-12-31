@@ -25,10 +25,10 @@ const VendorOrdersPage: React.FC = () => {
 
     useEffect(() => {
         refreshOrders();
-        if (user?.email && !currentVendor) {
-            fetchCurrentVendor(user.email);
+        if (user?.id && !currentVendor) {
+            fetchCurrentVendor(user.id.toString());
         }
-    }, [user]);
+    }, [user, currentVendor]);
 
     const vendorOrders = useMemo(() => {
         if (!currentVendor) return [];
@@ -80,7 +80,7 @@ const VendorOrdersPage: React.FC = () => {
 
     const handleShippingSubmit = (courierName: string, trackingId: string) => {
         if (selectedOrder) {
-            updateOrderStatus(selectedOrder.id, 'Shipped', { courierName, trackingId });
+            updateOrderStatus(selectedOrder.id, 'Shipped', { courier_name: courierName, tracking_id: trackingId });
         }
         setShippingModalOpen(false);
         setSelectedOrder(null);
@@ -196,6 +196,11 @@ const VendorOrdersPage: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    {vendorOrders.length === 0 && !isLoading && (
+                        <div className="p-20 text-center text-text-muted italic">
+                            No orders found for your storefront.
+                        </div>
+                    )}
                 </div>
             </GlassmorphicCard>
         </div>
