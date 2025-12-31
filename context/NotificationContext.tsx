@@ -157,9 +157,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
                 phone: userData.phone
             },
             orderDate: order.created_at,
+            // Include vendorName for each item so Edge Function can group correctly
             items: order.items.map(item => ({
                 ...item,
-                lineTotal: item.price * item.quantity
+                lineTotal: item.price * item.quantity,
+                vendorName: item.vendorName || 'VexoKart Direct'
             })),
             subtotal: baseSubtotal,
             gst: gstAmount,
@@ -168,17 +170,17 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             paymentStatus: paymentStatusText,
             shippingAddress: order.shippingAddress || order.shipping_address,
             
-            /* ✅ SELLER IDENTITY CONFIGURATION */
+            /* ✅ MARKETPLACE IDENTITY */
             seller: {
-              name: "BICT Computer Education (VexoKart)",
+              name: "VexoKart Authorized Marketplace",
               email: "bictcomputereducation1@gmail.com",
-              footer: "This is a system generated invoice"
+              footer: "This is a system generated invoice. Each item is billed by its respective authorized vendor."
             },
             emailConfig: {
               subject: `Your VexoKart Invoice – Order #${order.id}`,
               fromEmail: "bictcomputereducation1@gmail.com",
               fromName: "BICT Computer Education – VexoKart",
-              message: `Your order #${order.id} has been confirmed. Payment Method: ${order.payment_mode}. Status: ${paymentStatusText}. Please find your official TAX INVOICE attached as a PDF.`
+              message: `Your order #${order.id} from VexoKart Marketplace has been confirmed. Payment Method: ${order.payment_mode}. Please find your official TAX INVOICE attached as a PDF.`
             }
         };
 
@@ -189,7 +191,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
                 userId: userData.email,
                 orderId: order.id,
                 title: `Invoice Generated: #${order.id}`,
-                message: `Your tax invoice for Order #${order.id} has been dispatched from BICT Computer Education. Payment Method: ${order.payment_mode}.`,
+                message: `Your tax invoice for Order #${order.id} has been dispatched from VexoKart. It contains items from multiple authorized vendors.`,
                 channel: 'email',
                 status: 'sent',
                 response: 'Simulation: PDF dispatched via verified sender bictcomputereducation1@gmail.com',
@@ -216,7 +218,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             message: `Tax invoice for Order #${order.id} is attached as a PDF. Sent from bictcomputereducation1@gmail.com.`,
             channel: 'email',
             status: 'sent',
-            response: 'Live Edge Function: Invoice dispatched via BICT sender node',
+            response: 'Live Edge Function: Invoice dispatched via multi-vendor settlement node',
             type: 'Invoice'
         });
 

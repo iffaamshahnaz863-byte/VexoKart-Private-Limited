@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
+import { useVendors } from '../context/VendorContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { Address, OrderItem } from '../types';
@@ -18,6 +18,7 @@ const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const { addOrder } = useOrders();
+  const { vendors, getVendorById } = useVendors();
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
@@ -47,16 +48,20 @@ const CheckoutPage: React.FC = () => {
 
     setIsProcessing(true);
 
-    const orderItems: OrderItem[] = cartItems.map(item => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      image: item.images[0],
-      vendorId: item.vendor_id,
-      color: item.selectedColor,
-      size: item.selectedSize,
-    }));
+    const orderItems: OrderItem[] = cartItems.map(item => {
+      const vendor = getVendorById(item.vendor_id);
+      return {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.images[0],
+        vendorId: item.vendor_id,
+        vendorName: vendor?.store_name || 'VexoKart Direct',
+        color: item.selectedColor,
+        size: item.selectedSize,
+      };
+    });
 
     try {
       /* 🟢 CASH ON DELIVERY FLOW */

@@ -14,6 +14,14 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
   const isCOD = order.payment_mode === 'Cash on Delivery';
   const paymentStatusText = isCOD ? 'Payment Pending (COD)' : 'Paid';
 
+  // Group items by vendor name for the "Sold By" requirement
+  const groupedItems = order.items.reduce((acc, item) => {
+    const vName = item.vendorName || 'Unknown Seller';
+    if (!acc[vName]) acc[vName] = [];
+    acc[vName].push(item);
+    return acc;
+  }, {} as Record<string, typeof order.items>);
+
   const handlePrint = () => {
     window.print();
   };
@@ -28,10 +36,14 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
             <div className="flex justify-between items-start mb-8">
                 <div>
                     <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">TAX INVOICE</h1>
-                    <div className="mt-4">
-                        <p className="text-[10px] font-black uppercase text-gray-400">Sold By</p>
-                        <p className="font-bold text-gray-900">BICT Computer Education (VexoKart)</p>
-                        <p className="text-sm text-gray-600">bictcomputereducation1@gmail.com</p>
+                    <div className="mt-4 space-y-4">
+                        {Object.keys(groupedItems).map((vendorName, idx) => (
+                            <div key={idx}>
+                                <p className="text-[10px] font-black uppercase text-gray-400">Sold By</p>
+                                <p className="font-bold text-gray-900">{vendorName}</p>
+                                <p className="text-xs text-gray-500 uppercase tracking-tighter">Authorized Partner</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
                 <div className="text-right">
@@ -84,6 +96,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
                             <tr key={idx} className="text-sm">
                                 <td className="py-4 pr-4">
                                     <p className="font-bold text-gray-900">{item.name}</p>
+                                    <p className="text-[9px] font-black uppercase text-accent mt-0.5 tracking-tighter">Sold by: {item.vendorName || 'Unknown Seller'}</p>
                                     {item.color && <span className="text-[10px] text-gray-400 uppercase font-bold mr-2">Color: {item.color}</span>}
                                     {item.size && <span className="text-[10px] text-gray-400 uppercase font-bold">Size: {item.size}</span>}
                                 </td>
