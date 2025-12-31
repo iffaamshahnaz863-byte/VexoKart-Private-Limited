@@ -52,7 +52,6 @@ const MyOrdersPage: React.FC = () => {
             const isCOD = order.payment_mode === 'Cash on Delivery';
             const paymentStatusText = isCOD ? 'Payment Pending (COD)' : 'Paid';
             const hasInvoice = order.invoice_generated !== false && order.status !== 'Cancelled';
-            const primaryVendorName = order.items[0]?.vendorName || 'VexoKart Direct';
 
             return (
                 <GlassmorphicCard key={order.id} className="p-0 overflow-hidden border-none shadow-premium bg-white">
@@ -76,7 +75,7 @@ const MyOrdersPage: React.FC = () => {
                                   <img src={item.image} alt={item.name} className="w-14 h-14 rounded-xl object-cover border border-border bg-surface" />
                                   <div className="flex-grow min-w-0">
                                       <p className="text-xs font-black text-text-main truncate uppercase italic">{item.name}</p>
-                                      <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5">Sold by: {item.vendorName || 'VexoKart Direct'}</p>
+                                      <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5">Sold by: {item.vendor_name || 'VexoKart Direct'}</p>
                                       <div className="flex items-center gap-2 mt-1">
                                           <p className="text-[10px] font-bold text-text-secondary uppercase">Qty: {item.quantity}</p>
                                           {order.items.length > 1 && <p className="text-[9px] text-text-muted font-black uppercase">+ {order.items.length - 1} More</p>}

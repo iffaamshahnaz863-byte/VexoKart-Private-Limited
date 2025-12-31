@@ -173,7 +173,7 @@ const OrderDetailPage: React.FC = () => {
                          <img src={item.image} className="w-16 h-16 rounded-xl object-cover border border-border bg-surface" alt={item.name} />
                          <div className="flex-grow min-w-0">
                              <p className="text-xs font-black text-text-main truncate uppercase italic">{item.name}</p>
-                             <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5 italic">Sold by: {item.vendorName || 'VexoKart Direct'}</p>
+                             <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5 italic">Sold by: {item.vendor_name || 'VexoKart Direct'}</p>
                              <div className="flex gap-3 mt-1">
                                  <p className="text-[10px] font-bold text-text-muted uppercase">Qty: {item.quantity}</p>
                                  {item.size && <p className="text-[10px] font-bold text-text-muted uppercase">Size: {item.size}</p>}

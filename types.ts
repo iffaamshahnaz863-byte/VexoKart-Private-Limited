@@ -62,8 +62,8 @@ export interface OrderItem {
     price: number;
     quantity: number;
     image: string;
-    vendorId: string;
-    vendorName?: string;
+    vendor_id: string;
+    vendor_name?: string;
     color?: string;
     size?: string;
 }

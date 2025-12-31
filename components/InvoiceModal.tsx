@@ -16,7 +16,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
 
   // Group items by vendor name for the "Sold By" requirement
   const groupedItems = order.items.reduce((acc, item) => {
-    const vName = item.vendorName || 'Unknown Seller';
+    const vName = item.vendor_name || 'Unknown Seller';
     if (!acc[vName]) acc[vName] = [];
     acc[vName].push(item);
     return acc;
@@ -96,7 +96,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
                             <tr key={idx} className="text-sm">
                                 <td className="py-4 pr-4">
                                     <p className="font-bold text-gray-900">{item.name}</p>
-                                    <p className="text-[9px] font-black uppercase text-accent mt-0.5 tracking-tighter">Sold by: {item.vendorName || 'Unknown Seller'}</p>
+                                    <p className="text-[9px] font-black uppercase text-accent mt-0.5 tracking-tighter">Sold by: {item.vendor_name || 'Unknown Seller'}</p>
                                     {item.color && <span className="text-[10px] text-gray-400 uppercase font-bold mr-2">Color: {item.color}</span>}
                                     {item.size && <span className="text-[10px] text-gray-400 uppercase font-bold">Size: {item.size}</span>}
                                 </td>

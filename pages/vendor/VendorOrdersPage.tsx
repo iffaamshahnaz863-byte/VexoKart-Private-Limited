@@ -36,7 +36,8 @@ const VendorOrdersPage: React.FC = () => {
         return orders.map(order => {
             const items = Array.isArray(order.items) ? order.items : [];
             const matchedItems = items.filter(item => {
-                const itemVid = String(item.vendorId || (item as any).vendor_id || '');
+                // Fix: Property 'vendorId' does not exist on type 'OrderItem'. Use 'vendor_id' instead.
+                const itemVid = String(item.vendor_id || '');
                 return itemVid === String(currentVendor.id) || itemVid === String(currentVendor.user_id);
             });
 

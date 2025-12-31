@@ -56,8 +56,8 @@ const CheckoutPage: React.FC = () => {
         price: item.price,
         quantity: item.quantity,
         image: item.images[0],
-        vendorId: item.vendor_id,
-        vendorName: vendor?.store_name || 'VexoKart Direct',
+        vendor_id: item.vendor_id,
+        vendor_name: vendor?.store_name || 'VexoKart Direct',
         color: item.selectedColor,
         size: item.selectedSize,
       };

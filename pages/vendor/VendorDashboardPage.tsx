@@ -35,7 +35,8 @@ const VendorDashboardPage: React.FC = () => {
 
     return safeOrders.filter(order => 
         order.items && order.items.some(item => {
-            const itemVid = String(item.vendorId || (item as any).vendor_id || '');
+            // Fix: Property 'vendorId' does not exist on type 'OrderItem'. Use 'vendor_id' instead.
+            const itemVid = String(item.vendor_id || '');
             return itemVid === vid;
         })
     );
@@ -50,7 +51,8 @@ const VendorDashboardPage: React.FC = () => {
         
         const vendorItemsTotal = order.items
             .filter(item => {
-                const itemVid = String(item.vendorId || (item as any).vendor_id || '');
+                // Fix: Property 'vendorId' does not exist on type 'OrderItem'. Use 'vendor_id' instead.
+                const itemVid = String(item.vendor_id || '');
                 return itemVid === vid;
             })
             .reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);

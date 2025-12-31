@@ -115,9 +115,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     const primaryVendorId =
       orderData.items.length > 1 &&
-      new Set(orderData.items.map((i: any) => i.vendorId)).size > 1
+      new Set(orderData.items.map((i: any) => i.vendor_id)).size > 1
         ? "multiple"
-        : orderData.items[0]?.vendorId;
+        : orderData.items[0]?.vendor_id;
 
     /* ✅ FINAL PAYLOAD (COLUMN NAMES FIXED) */
     const payload = {

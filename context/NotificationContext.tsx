@@ -161,7 +161,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             items: order.items.map(item => ({
                 ...item,
                 lineTotal: item.price * item.quantity,
-                vendorName: item.vendorName || 'VexoKart Direct'
+                // Fix: Property 'vendorName' does not exist on type 'OrderItem'. Use 'vendor_name' instead.
+                vendorName: item.vendor_name || 'VexoKart Direct'
             })),
             subtotal: baseSubtotal,
             gst: gstAmount,
