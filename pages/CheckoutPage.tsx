@@ -7,10 +7,11 @@ import GlassmorphicCard from '../components/GlassmorphicCard.tsx';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon.tsx';
 import { Address, OrderItem } from '../types.ts';
 
-/**
- * PRODUCTION RAZORPAY KEY
- */
+/** 🔐 Razorpay Live Key */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
+
+/** 🇮🇳 GST CONFIG */
+const GST_RATE = 0.18; // 18%
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -21,6 +22,10 @@ const CheckoutPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+
+  /** 📌 GST CALCULATIONS */
+  const gstAmount = Number((cartTotal * GST_RATE).toFixed(2));
+  const finalPayable = Number((cartTotal + gstAmount).toFixed(2));
 
   useEffect(() => {
     if (user?.addresses?.length) {
@@ -34,8 +39,8 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (cartTotal <= 0) {
-      alert('Invalid cart total');
+    if (finalPayable <= 0) {
+      alert('Invalid order amount');
       return;
     }
 
@@ -55,38 +60,42 @@ const CheckoutPage: React.FC = () => {
     const finalizeOrder = async () => {
       await addOrder({
         items: orderItems,
-        total: cartTotal,
+        subtotal: cartTotal,
+        gst_amount: gstAmount,
+        total: finalPayable,
         shippingAddress: selectedAddress,
-        payment_method: paymentMethod === 'cod'
-          ? 'Cash on Delivery'
-          : 'Online Payment',
+        payment_method:
+          paymentMethod === 'cod'
+            ? 'Cash on Delivery'
+            : 'Online Payment',
       });
+
       clearCart();
       navigate('/order-success');
     };
 
     try {
-      // COD FLOW
+      /** 🟢 COD FLOW */
       if (paymentMethod === 'cod') {
         await finalizeOrder();
         return;
       }
 
-      // ONLINE PAYMENT FLOW
+      /** 🟢 ONLINE PAYMENT FLOW */
       if (!(window as any).Razorpay) {
         alert('Payment gateway not loaded');
         setIsProcessing(false);
         return;
       }
 
-      const razorpayAmountPaise = Math.round(cartTotal * 100);
+      const razorpayAmountPaise = Math.round(finalPayable * 100);
 
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
         amount: razorpayAmountPaise,
         currency: 'INR',
         name: 'VexoKart',
-        description: 'Secure Order Payment',
+        description: 'Order Payment (GST Included)',
         handler: async () => {
           await finalizeOrder();
         },
@@ -108,7 +117,7 @@ const CheckoutPage: React.FC = () => {
       });
       rzp.open();
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Checkout Error]', err);
       alert('Checkout failed');
       setIsProcessing(false);
@@ -117,16 +126,18 @@ const CheckoutPage: React.FC = () => {
 
   return (
     <div className="bg-surface min-h-screen">
+      {/* Header */}
       <div className="sticky top-0 z-10 p-4 bg-white flex items-center border-b">
         <button onClick={() => navigate('/cart')} className="p-2 -ml-2 mr-2">
           <ChevronLeftIcon className="h-6 w-6" />
         </button>
-        <h1 className="text-xl font-black uppercase italic tracking-tight">Checkout</h1>
+        <h1 className="text-xl font-black uppercase italic">Checkout</h1>
       </div>
 
-      <div className="p-4 pb-24 max-w-2xl mx-auto space-y-6">
+      <div className="p-4 pb-32 max-w-2xl mx-auto space-y-6">
+        {/* Address */}
         <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase tracking-widest mb-4">
+          <h2 className="text-[10px] font-black uppercase mb-4">
             Destination Identity
           </h2>
           {user?.addresses?.map(address => (
@@ -150,8 +161,9 @@ const CheckoutPage: React.FC = () => {
           ))}
         </GlassmorphicCard>
 
+        {/* Payment Method */}
         <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase tracking-widest mb-4">
+          <h2 className="text-[10px] font-black uppercase mb-4">
             Settlement Channel
           </h2>
 
@@ -164,7 +176,7 @@ const CheckoutPage: React.FC = () => {
                   : 'border-border'
               }`}
             >
-              Digital Settlement
+              Digital Payment (UPI / Cards)
             </div>
 
             <div
@@ -179,8 +191,27 @@ const CheckoutPage: React.FC = () => {
             </div>
           </div>
         </GlassmorphicCard>
+
+        {/* GST SUMMARY */}
+        <GlassmorphicCard className="p-6 bg-white">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>₹{cartTotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>GST (18%)</span>
+              <span>₹{gstAmount}</span>
+            </div>
+            <div className="flex justify-between font-black text-lg">
+              <span>Total Payable</span>
+              <span>₹{finalPayable}</span>
+            </div>
+          </div>
+        </GlassmorphicCard>
       </div>
 
+      {/* PAY BUTTON */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
         <button
           onClick={handlePlaceOrder}
@@ -190,8 +221,8 @@ const CheckoutPage: React.FC = () => {
           {isProcessing
             ? 'Processing...'
             : paymentMethod === 'cod'
-            ? 'Confirm Order (COD)'
-            : `INITIALIZE SECURE PAYMENT ₹${cartTotal}`}
+            ? `Confirm Order (₹${finalPayable})`
+            : `PAY ₹${finalPayable} (GST Included)`}
         </button>
       </div>
     </div>
