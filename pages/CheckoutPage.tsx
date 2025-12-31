@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart.ts';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -8,10 +8,9 @@ import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon.tsx';
 import { Address, OrderItem } from '../types.ts';
 
 /**
- * PRODUCTION SECURE GATEWAY CONFIGURATION
+ * PRODUCTION RAZORPAY KEY
  */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
-const FIXED_PAYMENT_AMOUNT_PAISE = 2000; // ₹20.00
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -35,6 +34,11 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (cartTotal <= 0) {
+      alert('Invalid cart total');
+      return;
+    }
+
     setIsProcessing(true);
 
     const orderItems: OrderItem[] = cartItems.map(item => ({
@@ -49,39 +53,41 @@ const CheckoutPage: React.FC = () => {
     }));
 
     const finalizeOrder = async () => {
-      const orderPayload = {
+      await addOrder({
         items: orderItems,
         total: cartTotal,
         shippingAddress: selectedAddress,
-        payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
-      };
-      await addOrder(orderPayload);
+        payment_method: paymentMethod === 'cod'
+          ? 'Cash on Delivery'
+          : 'Online Payment',
+      });
       clearCart();
-      navigate('/order-success', { state: { address: selectedAddress } });
+      navigate('/order-success');
     };
 
     try {
+      // COD FLOW
       if (paymentMethod === 'cod') {
         await finalizeOrder();
         return;
       }
 
-      // NATIVE RAZORPAY INTEGRATION (LIVE)
+      // ONLINE PAYMENT FLOW
       if (!(window as any).Razorpay) {
-        alert("Payment gateway not loaded. Please check your connection.");
+        alert('Payment gateway not loaded');
         setIsProcessing(false);
         return;
       }
 
+      const razorpayAmountPaise = Math.round(cartTotal * 100);
+
       const options = {
         key: RAZORPAY_LIVE_KEY_ID,
-        amount: FIXED_PAYMENT_AMOUNT_PAISE,
+        amount: razorpayAmountPaise,
         currency: 'INR',
-        name: 'VexoKart Premium',
-        description: 'Secure Order Settlement',
-        image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo-icon.png',
-        handler: async (response: any) => {
-          // ON SUCCESS: Proceed with local order creation
+        name: 'VexoKart',
+        description: 'Secure Order Payment',
+        handler: async () => {
           await finalizeOrder();
         },
         prefill: {
@@ -90,23 +96,21 @@ const CheckoutPage: React.FC = () => {
           contact: selectedAddress.phone,
         },
         modal: {
-          ondismiss: () => {
-            setIsProcessing(false);
-          },
+          ondismiss: () => setIsProcessing(false),
         },
         theme: { color: '#FF8A00' },
       };
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', (err: any) => {
-        alert(`Payment failed: ${err.error.description}`);
+        alert(err.error?.description || 'Payment failed');
         setIsProcessing(false);
       });
       rzp.open();
 
     } catch (err: any) {
       console.error('[Checkout Error]', err);
-      alert(err.message || 'Checkout failed');
+      alert('Checkout failed');
       setIsProcessing(false);
     }
   };
@@ -121,74 +125,73 @@ const CheckoutPage: React.FC = () => {
       </div>
 
       <div className="p-4 pb-24 max-w-2xl mx-auto space-y-6">
-        <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Destination Identity</h2>
+        <GlassmorphicCard className="p-6 bg-white">
+          <h2 className="text-[10px] font-black uppercase tracking-widest mb-4">
+            Destination Identity
+          </h2>
           {user?.addresses?.map(address => (
             <div
               key={address.id}
               onClick={() => setSelectedAddress(address)}
-              className={`p-4 rounded-2xl border-2 cursor-pointer mb-3 transition-all ${
+              className={`p-4 rounded-xl border-2 cursor-pointer mb-3 ${
                 selectedAddress?.id === address.id
                   ? 'border-accent bg-accent/5'
-                  : 'border-border bg-surface'
+                  : 'border-border'
               }`}
             >
-              <p className="font-black text-text-main text-xs uppercase italic">{address.fullName}</p>
-              <p className="text-[10px] text-text-secondary mt-1 font-medium">
+              <p className="font-black text-xs uppercase">{address.fullName}</p>
+              <p className="text-[10px] mt-1">
                 {address.street}, {address.city}, {address.state}
               </p>
-              <p className="text-[10px] font-black text-accent mt-2 uppercase">{address.phone}</p>
+              <p className="text-[10px] font-black text-accent mt-2">
+                {address.phone}
+              </p>
             </div>
           ))}
         </GlassmorphicCard>
 
-        <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Settlement Channel</h2>
-          <div className="space-y-3">
-              <div
-                onClick={() => setPaymentMethod('card')}
-                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  paymentMethod === 'card' ? 'border-accent bg-accent/5' : 'border-border bg-surface'
-                }`}
-              >
-                <div>
-                  <p className="font-bold text-text-main text-xs uppercase tracking-tight">Digital Settlement</p>
-                  <p className="text-[9px] text-text-muted font-bold uppercase mt-0.5">Secure UPI, Cards, NetBanking</p>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'card' ? 'border-accent' : 'border-border'}`}>
-                    {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
-                </div>
-              </div>
+        <GlassmorphicCard className="p-6 bg-white">
+          <h2 className="text-[10px] font-black uppercase tracking-widest mb-4">
+            Settlement Channel
+          </h2>
 
-              <div
-                onClick={() => setPaymentMethod('cod')}
-                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  paymentMethod === 'cod' ? 'border-accent bg-accent/5' : 'border-border bg-surface'
-                }`}
-              >
-                <div>
-                  <p className="font-bold text-text-main text-xs uppercase tracking-tight">Cash on Delivery</p>
-                  <p className="text-[9px] text-text-muted font-bold uppercase mt-0.5">Settle with Handover Agent</p>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-accent' : 'border-border'}`}>
-                    {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-accent"></div>}
-                </div>
-              </div>
+          <div className="space-y-3">
+            <div
+              onClick={() => setPaymentMethod('card')}
+              className={`p-4 rounded-xl border-2 cursor-pointer ${
+                paymentMethod === 'card'
+                  ? 'border-accent bg-accent/5'
+                  : 'border-border'
+              }`}
+            >
+              Digital Settlement
+            </div>
+
+            <div
+              onClick={() => setPaymentMethod('cod')}
+              className={`p-4 rounded-xl border-2 cursor-pointer ${
+                paymentMethod === 'cod'
+                  ? 'border-accent bg-accent/5'
+                  : 'border-border'
+              }`}
+            >
+              Cash on Delivery
+            </div>
           </div>
         </GlassmorphicCard>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
         <button
           onClick={handlePlaceOrder}
           disabled={isProcessing || !selectedAddress}
-          className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50"
+          className="w-full bg-accent text-white py-4 rounded-xl font-black uppercase"
         >
           {isProcessing
-            ? 'Synchronizing Secure Layers...'
+            ? 'Processing...'
             : paymentMethod === 'cod'
             ? 'Confirm Order (COD)'
-            : `INITIALIZE SECURE PAYMENT ₹20`}
+            : `INITIALIZE SECURE PAYMENT ₹${cartTotal}`}
         </button>
       </div>
     </div>
