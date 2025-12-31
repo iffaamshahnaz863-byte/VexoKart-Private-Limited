@@ -165,18 +165,22 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       const result = await res.json();
       const createdOrder = result[0];
       
-      // ✅ TRIGGER AUTOMATED INVOICE EMAIL
-      // We don't await this to prevent blocking the UI redirect to Order Success
+      // ✅ TRIGGER AUTOMATED INVOICE EMAIL IMMEDIATELY AFTER SUCCESSFUL DB WRITE
+      // We pass the full created record (including items) to the notification engine
       const orderObj: Order = {
           ...createdOrder,
           id: createdOrder.id.toString(),
+          items: createdOrder.items || [], // Crucial for PDF itemization
           total: Number(createdOrder.total_amount || createdOrder.total || 0),
           shippingAddress: createdOrder.shippingaddress || createdOrder.address,
-          created_at: createdOrder.created_at
+          created_at: createdOrder.created_at,
+          payment_mode: createdOrder.payment_mode,
+          payment_status: createdOrder.payment_status
       };
       
+      // Trigger as background task to avoid blocking the main UI redirect
       sendInvoiceEmail(orderObj, user).catch(err => {
-          console.warn("[Background Task] Automatic invoice delivery failed", err);
+          console.warn("[Background Task] Automatic invoice delivery failed silently", err);
       });
 
       await refreshOrders();
