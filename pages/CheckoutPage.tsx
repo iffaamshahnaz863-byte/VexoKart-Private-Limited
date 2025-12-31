@@ -18,7 +18,7 @@ const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const { addOrder } = useOrders();
-  const { vendors, getVendorById } = useVendors();
+  const { vendors, getVendorById, refreshVendors } = useVendors();
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
@@ -33,7 +33,11 @@ const CheckoutPage: React.FC = () => {
     if (user?.addresses?.length) {
       setSelectedAddress(user.addresses[0]);
     }
-  }, [user]);
+    // Ensure vendors are loaded for proper "Sold By" resolution
+    if (vendors.length === 0) {
+      refreshVendors();
+    }
+  }, [user, vendors.length, refreshVendors]);
 
   const handlePlaceOrder = async () => {
     if (!user || !selectedAddress) {
@@ -49,15 +53,15 @@ const CheckoutPage: React.FC = () => {
     setIsProcessing(true);
 
     const orderItems: OrderItem[] = cartItems.map(item => {
-      const vendor = getVendorById(item.vendor_id);
+      const vendor = vendors.find(v => String(v.id) === String(item.vendor_id));
       return {
         id: item.id,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
         image: item.images[0],
-        vendor_id: item.vendor_id,
-        vendor_name: vendor?.store_name || 'VexoKart Direct',
+        vendor_id: String(item.vendor_id),
+        vendor_name: vendor?.store_name || (item.vendor_id === 'vexokart_direct' ? 'VexoKart Direct' : 'Unknown Seller'),
         color: item.selectedColor,
         size: item.selectedSize,
       };
@@ -101,8 +105,8 @@ const CheckoutPage: React.FC = () => {
         amount: razorpayAmountPaise,
         currency: 'INR',
         name: 'VexoKart',
-        description: 'Secure Checkout Payment',
-        image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo.png', // Optional branding
+        description: 'Secured Checkout Payment',
+        image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo.png',
         handler: async (response: any) => {
           // Success Callback from Razorpay
           const orderIdString = await addOrder({
@@ -130,17 +134,49 @@ const CheckoutPage: React.FC = () => {
           email: user.email,
           contact: selectedAddress.phone,
         },
+        /* 🚀 CRITICAL FIX: Explicitly enable ALL payment methods */
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: false,
+        },
+        /* MODERN CONFIGURATION FOR BETTER UI VISIBILITY */
+        config: {
+          display: {
+            blocks: {
+              banks: {
+                name: 'All Secure Methods',
+                instruments: [
+                  { method: 'upi' },
+                  { method: 'card' },
+                  { method: 'netbanking' }
+                ],
+              },
+            },
+            sequence: ['block.banks'],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         modal: {
           ondismiss: () => setIsProcessing(false),
           escape: false,
           backdropclose: false
         },
+        retry: {
+          enabled: true,
+          max_count: 3
+        },
+        timeout: 300,
         theme: { color: '#FF8A00' },
       };
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', (err: any) => {
-        alert(err.error?.description || 'Payment failed. Please try again.');
+        console.error('[Razorpay Failed]', err);
+        alert(err.error?.description || 'Payment failed or declined. Please try another card or UPI.');
         setIsProcessing(false);
       });
 
@@ -219,7 +255,7 @@ const CheckoutPage: React.FC = () => {
                   : 'border-border hover:border-accent/20'
               }`}
             >
-              <span className="font-bold text-sm">Online Payment (UPI / Cards)</span>
+              <span className="font-bold text-sm">Online Payment (Cards / UPI / Netbanking)</span>
               <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
             </div>
 

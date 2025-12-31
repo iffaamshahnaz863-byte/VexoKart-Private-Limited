@@ -32,8 +32,11 @@ const AdminCategoriesPage: React.FC = () => {
                 <tr key={category.id} className="border-b border-gray-800 hover:bg-surface/50">
                   <td className="p-4">{category.id}</td>
                    <td className="p-4">
-                        {/* Fix: Property 'image' does not exist on type 'Category'. Use 'image_url' instead. */}
-                        <img src={category.image_url} alt={category.name} className="w-12 h-12 object-cover rounded-md bg-gray-700" />
+                        <img 
+                          src={category.image || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Category'} 
+                          alt={category.name} 
+                          className="w-12 h-12 object-cover rounded-md bg-gray-700" 
+                        />
                    </td>
                   <td className="p-4 text-text-main font-semibold">{category.name}</td>
                   <td className="p-4 space-x-2">

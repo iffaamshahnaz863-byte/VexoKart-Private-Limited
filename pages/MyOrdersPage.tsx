@@ -26,7 +26,7 @@ const MyOrdersPage: React.FC = () => {
 
   return (
     <div className="bg-surface min-h-screen pb-20">
-      {selectedInvoice && <InvoiceModal order={selectedInvoice} onClose={() => setSelectedInvoice(null)} />}
+      {selectedInvoice && <InvoiceModal order={selectedInvoice as any} onClose={() => setSelectedInvoice(null)} />}
 
       <div className="sticky top-0 z-20 p-4 bg-white/80 backdrop-blur-md flex items-center border-b border-border shadow-sm">
         <button onClick={() => navigate('/profile')} className="p-2 -ml-2 mr-2 bg-surface rounded-full border border-border">
@@ -70,12 +70,12 @@ const MyOrdersPage: React.FC = () => {
 
                   <Link to={`/order/${order.id}`} className="p-5 block hover:bg-surface transition-colors">
                       <div className="space-y-4">
-                          {order.items.slice(0, 1).map(item => (
+                          {order.items.slice(0, 1).map((item: any) => (
                               <div key={item.id} className="flex items-center gap-4">
                                   <img src={item.image} alt={item.name} className="w-14 h-14 rounded-xl object-cover border border-border bg-surface" />
                                   <div className="flex-grow min-w-0">
                                       <p className="text-xs font-black text-text-main truncate uppercase italic">{item.name}</p>
-                                      <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5">Sold by: {item.vendor_name || 'VexoKart Direct'}</p>
+                                      <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5">Sold by: {order.seller_name || 'Authorized Partner'}</p>
                                       <div className="flex items-center gap-2 mt-1">
                                           <p className="text-[10px] font-bold text-text-secondary uppercase">Qty: {item.quantity}</p>
                                           {order.items.length > 1 && <p className="text-[9px] text-text-muted font-black uppercase">+ {order.items.length - 1} More</p>}

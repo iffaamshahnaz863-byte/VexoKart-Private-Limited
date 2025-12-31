@@ -46,7 +46,7 @@ export interface Product {
 export interface Category {
   id: number;
   name: string;
-  image_url: string;
+  image: string;
   created_at?: string;
 }
 

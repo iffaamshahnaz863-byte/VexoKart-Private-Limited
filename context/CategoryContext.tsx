@@ -4,7 +4,7 @@ import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface CategoryContextType {
   categories: Category[];
-  addCategory: (category: { name: string; image_url: string }) => Promise<void>;
+  addCategory: (category: { name: string; image: string }) => Promise<void>;
   updateCategory: (category: Category) => Promise<void>;
   deleteCategory: (categoryId: number) => Promise<void>;
   getCategory: (id: number) => Category | undefined;
@@ -14,10 +14,10 @@ interface CategoryContextType {
 export const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
 
 const FALLBACK_CATEGORIES: Category[] = [
-  { id: 1, name: 'Electronics', image_url: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=300&q=80' },
-  { id: 2, name: 'Fashion', image_url: 'https://images.unsplash.com/photo-1445205170230-053b830c6050?auto=format&fit=crop&w=300&q=80' },
-  { id: 3, name: 'Lifestyle', image_url: 'https://images.unsplash.com/photo-1511385348-a52b4a160dc2?auto=format&fit=crop&w=300&q=80' },
-  { id: 4, name: 'Footwear', image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80' }
+  { id: 1, name: 'Electronics', image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=300&q=80' },
+  { id: 2, name: 'Fashion', image: 'https://images.unsplash.com/photo-1445205170230-053b830c6050?auto=format&fit=crop&w=300&q=80' },
+  { id: 3, name: 'Lifestyle', image: 'https://images.unsplash.com/photo-1511385348-a52b4a160dc2?auto=format&fit=crop&w=300&q=80' },
+  { id: 4, name: 'Footwear', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80' }
 ];
 
 export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -47,7 +47,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     fetchCategories();
   }, []);
 
-  const addCategory = async (cat: { name: string; image_url: string }) => {
+  const addCategory = async (cat: { name: string; image: string }) => {
     try {
         const response = await fetch(`${BASE_API_URL}/categories`, {
         method: 'POST',
@@ -58,7 +58,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
         if (!response.ok) throw new Error("DB Error");
         await fetchCategories();
     } catch (e) {
-        const newCat = { ...cat, id: Date.now() };
+        const newCat = { ...cat, id: Date.now() } as Category;
         setCategories(prev => [newCat, ...prev]);
     }
   };
@@ -68,7 +68,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
         await fetch(`${BASE_API_URL}/categories?id=eq.${cat.id}`, {
             method: 'PATCH',
             headers: API_HEADERS,
-            body: JSON.stringify({ name: cat.name, image_url: cat.image_url })
+            body: JSON.stringify({ name: cat.name, image: cat.image })
         });
     } finally {
         setCategories(prev => prev.map(c => c.id === cat.id ? cat : c));

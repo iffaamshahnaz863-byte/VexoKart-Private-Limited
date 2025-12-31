@@ -157,12 +157,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
                 phone: userData.phone
             },
             orderDate: order.created_at,
-            // Include vendorName for each item so Edge Function can group correctly
+            // Pass the item list with persisted vendor_name
             items: order.items.map(item => ({
                 ...item,
                 lineTotal: item.price * item.quantity,
-                // Fix: Property 'vendorName' does not exist on type 'OrderItem'. Use 'vendor_name' instead.
-                vendorName: item.vendor_name || 'VexoKart Direct'
+                vendor_name: item.vendor_name || 'VexoKart Direct'
             })),
             subtotal: baseSubtotal,
             gst: gstAmount,

@@ -28,21 +28,25 @@ const VendorOrdersPage: React.FC = () => {
         if (user?.id && !currentVendor) {
             fetchCurrentVendor(user.id.toString());
         }
-    }, [user, currentVendor]);
+    }, [user, currentVendor, refreshOrders, fetchCurrentVendor]);
 
     const vendorOrders = useMemo(() => {
         if (!currentVendor) return [];
 
-        return orders.map(order => {
-            const items = Array.isArray(order.items) ? order.items : [];
-            const matchedItems = items.filter(item => {
-                // Fix: Property 'vendorId' does not exist on type 'OrderItem'. Use 'vendor_id' instead.
-                const itemVid = String(item.vendor_id || '');
-                return itemVid === String(currentVendor.id) || itemVid === String(currentVendor.user_id);
-            });
+        return orders.filter(order => {
+            // Strict filtering by top-level numeric vendor_id
+            const matchesVendorId = Number(order.vendor_id) === Number(currentVendor.id);
+            
+            // Legacy/Multi-vendor fallback: check items if vendor_id column is missing or null
+            const hasVendorItems = Array.isArray(order.items) && order.items.some(item => 
+                Number(item.vendor_id) === Number(currentVendor.id)
+            );
 
-            if (matchedItems.length === 0) return null;
-
+            return matchesVendorId || hasVendorItems;
+        }).map(order => {
+            const matchedItems = order.items.filter(item => 
+                Number(item.vendor_id) === Number(currentVendor.id)
+            );
             const vendorSubtotal = matchedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
             return {
@@ -51,7 +55,6 @@ const VendorOrdersPage: React.FC = () => {
                 vendorSubtotal: vendorSubtotal
             } as VendorAugmentedOrder;
         }).filter((o): o is VendorAugmentedOrder => {
-            if (!o) return false;
             if (statusFilter === 'all') return true;
             if (statusFilter === 'pending') return ['Placed', 'Confirmed'].includes(o.status);
             return o.status === statusFilter;
@@ -153,8 +156,8 @@ const VendorOrdersPage: React.FC = () => {
                                         <p className="text-[10px] text-text-muted font-bold mt-1 uppercase">{new Date(order.created_at).toLocaleDateString()}</p>
                                     </td>
                                     <td className="p-6">
-                                        <p className="text-text-main font-bold">{order.shipping_address?.fullName || 'Customer'}</p>
-                                        <p className="text-[10px] text-text-muted mt-1 uppercase">{order.shipping_address?.city}, {order.shipping_address?.state}</p>
+                                        <p className="text-text-main font-bold">{order.shippingAddress?.fullName || 'Customer'}</p>
+                                        <p className="text-[10px] text-text-muted mt-1 uppercase">{order.shippingAddress?.city}, {order.shippingAddress?.state}</p>
                                     </td>
                                     <td className="p-6">
                                         <span className="text-accent font-black text-sm">₹{order.vendorSubtotal.toLocaleString()}</span>
@@ -176,7 +179,7 @@ const VendorOrdersPage: React.FC = () => {
                                             <button 
                                                 onClick={() => handlePackAndLabel(order.id)} 
                                                 disabled={isGeneratingLabel === order.id}
-                                                className="bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                                                className="bg-indigo-50 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                                             >
                                                 {isGeneratingLabel === order.id ? 'Generating...' : 'Pack & Label'}
                                             </button>

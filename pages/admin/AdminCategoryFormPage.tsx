@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCategories } from '../../context/CategoryContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
+import { SUPABASE_URL, SUPABASE_KEY } from '../../constants';
 
 const AdminCategoryFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -10,10 +11,11 @@ const AdminCategoryFormPage: React.FC = () => {
   
   const isEditing = id !== undefined;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
-    image_url: '',
+    image: '',
   });
 
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-gray-600 rounded-lg p-3 transition focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/50 disabled:opacity-50";
@@ -22,7 +24,7 @@ const AdminCategoryFormPage: React.FC = () => {
     if (isEditing) {
       const categoryToEdit = getCategory(parseInt(id));
       if (categoryToEdit) {
-        setFormData({ name: categoryToEdit.name, image_url: categoryToEdit.image_url || '' });
+        setFormData({ name: categoryToEdit.name, image: categoryToEdit.image || '' });
       }
     }
   }, [id, isEditing, getCategory]);
@@ -34,29 +36,87 @@ const AdminCategoryFormPage: React.FC = () => {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      
+      // For local preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, image_url: reader.result as string }));
+        setFormData(prev => ({ ...prev, image: reader.result as string }));
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
     }
+  };
+
+  /**
+   * Resilient Image Upload
+   * Attempts to upload to Supabase Storage. 
+   * If the bucket is missing or upload fails, falls back to Base64 to ensure the category can still be saved.
+   */
+  const uploadImage = async (file: File): Promise<string> => {
+    const fileName = `categories/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    // Using 'assets' as it's a more standard default bucket name than 'category-images'
+    const bucket = 'assets'; 
+    const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${bucket}/${fileName}`;
+
+    try {
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': file.type
+        },
+        body: file
+      });
+
+      if (response.ok) {
+        // Return the public URL if successful
+        return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.warn(`Storage upload to '${bucket}' failed (${response.status}: ${errorData.message || 'Unknown error'}). Falling back to Base64.`);
+      }
+    } catch (err) {
+      console.error("Network error during storage upload, falling back to Base64:", err);
+    }
+
+    // FALLBACK: Return as Base64 string if Storage is unavailable or fails
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Failed to read file for fallback."));
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.image_url) {
+    if (!formData.image && !selectedFile) {
       alert("Please upload an image for the category.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      let finalImageUrl = formData.image;
+
+      // If a new file was selected, attempt upload
+      if (selectedFile) {
+        finalImageUrl = await uploadImage(selectedFile);
+      }
+
+      const submissionData = {
+        name: formData.name,
+        image: finalImageUrl
+      };
+
       if (isEditing) {
-        await updateCategory({ ...formData, id: parseInt(id) });
+        await updateCategory({ ...submissionData, id: parseInt(id) });
         alert("Category updated successfully!");
       } else {
-        await addCategory(formData);
+        await addCategory(submissionData);
         alert("Category created successfully!");
       }
       navigate('/admin/categories');
@@ -105,14 +165,19 @@ const AdminCategoryFormPage: React.FC = () => {
                         htmlFor="imageUpload" 
                         className={`cursor-pointer bg-surface text-text-main font-bold py-3 px-6 rounded-xl border border-gray-600 hover:bg-gray-700 transition-all inline-block text-xs uppercase tracking-widest ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        {formData.image_url ? 'Change Image' : 'Select Image File'}
+                        {formData.image ? 'Change Image' : 'Select Image File'}
                     </label>
                 </div>
-                {formData.image_url && (
+                {formData.image && (
                     <div className="mt-6 flex flex-col items-center p-4 bg-background/50 border border-dashed border-gray-600 rounded-2xl">
                         <p className="text-[9px] font-black uppercase text-text-muted mb-3">Live Preview</p>
                         <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-2xl">
-                            <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover"/>
+                            <img 
+                              src={formData.image} 
+                              alt="Preview" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x400/F8F9FA/A0A0A0?text=Preview+Error')}
+                            />
                         </div>
                     </div>
                 )}
@@ -132,7 +197,7 @@ const AdminCategoryFormPage: React.FC = () => {
                     disabled={isSubmitting}
                     className="bg-accent text-white px-10 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/30 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50"
                 >
-                    {isSubmitting ? 'Saving...' : (isEditing ? 'Update Category' : 'Create Category')}
+                    {isSubmitting ? 'Processing...' : (isEditing ? 'Update Category' : 'Create Category')}
                 </button>
             </div>
         </form>

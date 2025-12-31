@@ -14,8 +14,11 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, isSelected = fals
       className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300 cursor-pointer transform hover:scale-105 ${isSelected ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-surface border-border text-text-secondary hover:border-accent/50'}`}
     >
       <div className={`w-6 h-6 rounded-full overflow-hidden border ${isSelected ? 'border-white/50' : 'border-border'}`}>
-        {/* Fix: Property 'image' does not exist on type 'Category'. Use 'image_url' instead. */}
-        <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" />
+        <img 
+          src={category.image || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Cat'} 
+          alt={category.name} 
+          className="w-full h-full object-cover" 
+        />
       </div>
       <span className="font-bold text-xs uppercase tracking-tight">{category.name}</span>
     </div>
