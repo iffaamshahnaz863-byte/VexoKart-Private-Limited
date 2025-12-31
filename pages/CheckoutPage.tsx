@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCart } from '../hooks/useCart.ts';
-import { useAuth } from '../context/AuthContext.tsx';
-import { useOrders } from '../context/OrderContext.tsx';
-import GlassmorphicCard from '../components/GlassmorphicCard.tsx';
-import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon.tsx';
-import { Address, OrderItem } from '../types.ts';
+import { useCart } from '../hooks/useCart';
+import { useAuth } from '../context/AuthContext';
+import { useOrders } from '../context/OrderContext';
+import GlassmorphicCard from '../components/GlassmorphicCard';
+import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
+import { Address, OrderItem } from '../types';
 
-/** 🔐 Razorpay Live Key */
+/* 🔐 Razorpay Live Key */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
 
-/** 🇮🇳 GST CONFIG */
-const GST_RATE = 0.18; // 18%
+/* 🇮🇳 GST */
+const GST_RATE = 0.18;
 
 const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -23,7 +23,7 @@ const CheckoutPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
-  /** 📌 GST CALCULATIONS */
+  /* ✅ GST Calculation */
   const gstAmount = Number((cartTotal * GST_RATE).toFixed(2));
   const finalPayable = Number((cartTotal + gstAmount).toFixed(2));
 
@@ -57,31 +57,26 @@ const CheckoutPage: React.FC = () => {
       size: item.selectedSize,
     }));
 
-    const finalizeOrder = async () => {
-      await addOrder({
-        items: orderItems,
-        subtotal: cartTotal,
-        gst_amount: gstAmount,
-        total: finalPayable,
-        shippingAddress: selectedAddress,
-        payment_method:
-          paymentMethod === 'cod'
-            ? 'Cash on Delivery'
-            : 'Online Payment',
-      });
-
-      clearCart();
-      navigate('/order-success');
-    };
-
     try {
-      /** 🟢 COD FLOW */
+      /* 🟢 COD FLOW */
       if (paymentMethod === 'cod') {
-        await finalizeOrder();
+        const orderId = await addOrder({
+          items: orderItems,
+          subtotal: cartTotal,
+          gst_amount: gstAmount,
+          total: finalPayable,
+          shippingAddress: selectedAddress,
+          payment_method: 'Cash on Delivery',
+        });
+
+        clearCart();
+        navigate('/order-success', {
+          state: { address: selectedAddress, orderId },
+        });
         return;
       }
 
-      /** 🟢 ONLINE PAYMENT FLOW */
+      /* 🟢 ONLINE PAYMENT FLOW */
       if (!(window as any).Razorpay) {
         alert('Payment gateway not loaded');
         setIsProcessing(false);
@@ -95,9 +90,21 @@ const CheckoutPage: React.FC = () => {
         amount: razorpayAmountPaise,
         currency: 'INR',
         name: 'VexoKart',
-        description: 'Order Payment (GST Included)',
+        description: 'Secure Payment (GST Included)',
         handler: async () => {
-          await finalizeOrder();
+          const orderId = await addOrder({
+            items: orderItems,
+            subtotal: cartTotal,
+            gst_amount: gstAmount,
+            total: finalPayable,
+            shippingAddress: selectedAddress,
+            payment_method: 'Online Payment',
+          });
+
+          clearCart();
+          navigate('/order-success', {
+            state: { address: selectedAddress, orderId },
+          });
         },
         prefill: {
           name: user.name,
@@ -115,6 +122,7 @@ const CheckoutPage: React.FC = () => {
         alert(err.error?.description || 'Payment failed');
         setIsProcessing(false);
       });
+
       rzp.open();
 
     } catch (err) {
@@ -138,7 +146,7 @@ const CheckoutPage: React.FC = () => {
         {/* Address */}
         <GlassmorphicCard className="p-6 bg-white">
           <h2 className="text-[10px] font-black uppercase mb-4">
-            Destination Identity
+            Delivery Address
           </h2>
           {user?.addresses?.map(address => (
             <div
@@ -161,10 +169,10 @@ const CheckoutPage: React.FC = () => {
           ))}
         </GlassmorphicCard>
 
-        {/* Payment Method */}
+        {/* Payment */}
         <GlassmorphicCard className="p-6 bg-white">
           <h2 className="text-[10px] font-black uppercase mb-4">
-            Settlement Channel
+            Payment Method
           </h2>
 
           <div className="space-y-3">
@@ -176,7 +184,7 @@ const CheckoutPage: React.FC = () => {
                   : 'border-border'
               }`}
             >
-              Digital Payment (UPI / Cards)
+              Online Payment (UPI / Cards)
             </div>
 
             <div
@@ -192,7 +200,7 @@ const CheckoutPage: React.FC = () => {
           </div>
         </GlassmorphicCard>
 
-        {/* GST SUMMARY */}
+        {/* Summary */}
         <GlassmorphicCard className="p-6 bg-white">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -211,7 +219,7 @@ const CheckoutPage: React.FC = () => {
         </GlassmorphicCard>
       </div>
 
-      {/* PAY BUTTON */}
+      {/* Pay Button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
         <button
           onClick={handlePlaceOrder}
@@ -221,8 +229,8 @@ const CheckoutPage: React.FC = () => {
           {isProcessing
             ? 'Processing...'
             : paymentMethod === 'cod'
-            ? `Confirm Order (₹${finalPayable})`
-            : `PAY ₹${finalPayable} (GST Included)`}
+            ? `Confirm Order ₹${finalPayable}`
+            : `Pay ₹${finalPayable} (GST Included)`}
         </button>
       </div>
     </div>
