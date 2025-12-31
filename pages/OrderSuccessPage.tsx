@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GlassmorphicCard from '../components/GlassmorphicCard';
@@ -62,14 +61,30 @@ const OrderSuccessPage: React.FC = () => {
       {/* Transaction Details */}
       <div className="w-full max-w-md space-y-4 mb-10">
         {orderId && (
-          <GlassmorphicCard className="p-5 bg-white text-center border-green-500/10">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted mb-2">
-              Transaction Reference
-            </p>
-            <p className="font-mono font-black text-xl tracking-wider text-text-main">
-              #{orderId}
-            </p>
-          </GlassmorphicCard>
+          <div className="space-y-3">
+             <GlassmorphicCard className="p-5 bg-white text-center border-green-500/10">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted mb-2">
+                Transaction Reference
+                </p>
+                <p className="font-mono font-black text-xl tracking-wider text-text-main">
+                #{orderId}
+                </p>
+            </GlassmorphicCard>
+
+            {/* ✅ INVOICE STATUS NOTIFICATION */}
+            <div className="bg-accent/5 border border-accent/10 rounded-2xl p-4 flex gap-4 items-center animate-in slide-in-from-top-4 duration-1000">
+                <div className="bg-accent rounded-xl p-2 shrink-0 shadow-lg shadow-accent/20">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                </div>
+                <div>
+                    <p className="text-[10px] font-black uppercase text-accent tracking-widest italic">Invoice Dispatched</p>
+                    <p className="text-[9px] text-text-secondary font-bold leading-tight mt-0.5">
+                      Your official tax invoice PDF has been sent to your registered email. 
+                      It will arrive shortly from <strong>BICT Computer Education</strong>.
+                    </p>
+                </div>
+            </div>
+          </div>
         )}
 
         {address && (

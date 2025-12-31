@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { NotificationLog, NotificationSettings, Order, User } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { BASE_API_URL, API_HEADERS, EDGE_FUNCTION_URL } from '../constants';
 import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
@@ -11,6 +11,7 @@ interface NotificationContextType {
   unreadCount: number;
   updateSettings: (settings: Partial<NotificationSettings>) => void;
   notifyOrderUpdate: (order: Order, user: User) => Promise<void>;
+  sendInvoiceEmail: (order: Order, user: User) => Promise<boolean>;
   markAsRead: (logId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   clearLogs: () => void;
@@ -24,7 +25,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpHost: 'api.sendgrid.com',
   smtpUser: '',
   smtpPass: '',
-  emailFrom: 'VexoKart Support <support@vexokart.com>',
+  /* ✅ FIXED VERIFIED SENDER EMAIL */
+  emailFrom: 'BICT Computer Education – VexoKart <bictcomputereducation1@gmail.com>',
   smsApiKey: 'DEMO_KEY_FSTSMS_LIVE',
   smsSenderId: 'VXKART',
   smsTemplateId: '',
@@ -132,6 +134,95 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
+  /**
+   * 📄 TRANSACTIONAL INVOICE DELIVERY
+   * Triggers the secure Edge Function to generate and email the PDF invoice.
+   * Sender: bictcomputereducation1@gmail.com
+   */
+  const sendInvoiceEmail = async (order: Order, userData: User): Promise<boolean> => {
+    try {
+        const payload = {
+            orderId: order.id,
+            user: {
+                name: userData.name,
+                email: userData.email,
+                phone: userData.phone
+            },
+            orderDate: order.created_at,
+            items: order.items,
+            subtotal: order.total_amount ? (order.total_amount / 1.18) : (order.total / 1.18),
+            gst: order.total_amount ? (order.total_amount - (order.total_amount / 1.18)) : (order.total - (order.total / 1.18)),
+            total: order.total_amount || order.total,
+            paymentMode: order.payment_mode,
+            shippingAddress: order.shippingAddress || order.shipping_address,
+            /* ✅ SELLER IDENTITY CONFIGURATION */
+            seller: {
+              name: "BICT Computer Education (VexoKart)",
+              email: "bictcomputereducation1@gmail.com",
+              footer: "This is a system generated invoice"
+            },
+            emailConfig: {
+              subject: `Your VexoKart Invoice – Order #${order.id}`,
+              fromEmail: "bictcomputereducation1@gmail.com",
+              fromName: "BICT Computer Education – VexoKart"
+            }
+        };
+
+        if (settings.testMode) {
+            console.log("[Invoice Simulation] Sending PDF invoice from bictcomputereducation1@gmail.com to", userData.email);
+            await new Promise(r => setTimeout(r, 1500));
+            await saveLogToDB({
+                userId: userData.email,
+                orderId: order.id,
+                title: `Invoice Generated: #${order.id}`,
+                message: `Your tax invoice for Order #${order.id} has been dispatched from BICT Computer Education with a PDF attachment.`,
+                channel: 'email',
+                status: 'sent',
+                response: 'Simulation: PDF Sent from bictcomputereducation1@gmail.com',
+                type: 'Invoice'
+            });
+            return true;
+        }
+
+        const response = await fetch(`${EDGE_FUNCTION_URL}/send-invoice`, {
+            method: 'POST',
+            headers: {
+                ...API_HEADERS,
+                'Authorization': `Bearer ${process.env.API_KEY || ''}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`Gateway Error: ${response.status}`);
+        
+        await saveLogToDB({
+            userId: userData.email,
+            orderId: order.id,
+            title: `Your VexoKart Invoice – Order #${order.id}`,
+            message: `Tax invoice for Order #${order.id} is attached as a PDF. Sent from bictcomputereducation1@gmail.com.`,
+            channel: 'email',
+            status: 'sent',
+            response: 'Edge Function Dispatched via BICT Sender',
+            type: 'Invoice'
+        });
+
+        return true;
+    } catch (err: any) {
+        console.error("[Invoice Failure]", err);
+        await saveLogToDB({
+            userId: userData.email,
+            orderId: order.id,
+            title: `Invoice Generation Failed: #${order.id}`,
+            message: `Could not email your invoice automatically. Please download it manually from order details.`,
+            channel: 'in-app',
+            status: 'failed',
+            response: err.message,
+            type: 'Invoice'
+        });
+        return false;
+    }
+  };
+
   const notifyOrderUpdate = async (order: Order, user: User) => {
     const smsConsent = user.sms_enabled ?? true;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -227,7 +318,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
     };
 
-    // Correctly await the delivery operations
     if (settings.emailEnabled) {
       await sendWithRetry('email', async () => {
         const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
@@ -238,7 +328,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           },
           body: JSON.stringify({
             personalizations: [{ to: [{ email: user.email }] }],
-            from: { email: 'support@vexokart.com', name: 'VexoKart' },
+            /* ✅ VERIFIED SENDER FOR ALL UPDATES */
+            from: { email: 'bictcomputereducation1@gmail.com', name: 'BICT Computer Education – VexoKart' },
             subject: aiContent.title,
             content: [{ type: 'text/html', value: aiContent.email }]
           })
@@ -271,7 +362,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   return (
     <NotificationContext.Provider value={{ 
       settings, logs, inbox, unreadCount, updateSettings, 
-      notifyOrderUpdate, markAsRead, markAllAsRead, clearLogs 
+      notifyOrderUpdate, sendInvoiceEmail, markAsRead, markAllAsRead, clearLogs 
     }}>
       {children}
     </NotificationContext.Provider>

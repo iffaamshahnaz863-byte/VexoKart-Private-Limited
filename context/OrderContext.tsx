@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { Order, OrderStatus, Address, PaymentStatus } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
+import { useNotifications } from "./NotificationContext.tsx";
 import { BASE_API_URL, API_HEADERS } from "../constants.ts";
 
 interface OrderContextType {
@@ -35,6 +36,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { user } = useAuth();
+  const { sendInvoiceEmail } = useNotifications();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -161,9 +163,24 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       if (!res.ok) throw new Error("Order creation failed");
 
       const result = await res.json();
-      await refreshOrders();
+      const createdOrder = result[0];
+      
+      // ✅ TRIGGER AUTOMATED INVOICE EMAIL
+      // We don't await this to prevent blocking the UI redirect to Order Success
+      const orderObj: Order = {
+          ...createdOrder,
+          id: createdOrder.id.toString(),
+          total: Number(createdOrder.total_amount || createdOrder.total || 0),
+          shippingAddress: createdOrder.shippingaddress || createdOrder.address,
+          created_at: createdOrder.created_at
+      };
+      
+      sendInvoiceEmail(orderObj, user).catch(err => {
+          console.warn("[Background Task] Automatic invoice delivery failed", err);
+      });
 
-      return result[0].id.toString();
+      await refreshOrders();
+      return createdOrder.id.toString();
     } catch (err) {
       console.warn("[OrderContext] Offline fallback order used");
 
