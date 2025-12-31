@@ -72,6 +72,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
+            invoice_generated: o.invoice_generated ?? true, // Assume true for existing orders
+            invoice_url: o.invoice_url,
 
             // ✅ ALWAYS read from shippingaddress first
             shippingAddress:
@@ -139,6 +141,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
+      invoice_generated: true, // Flag as generated immediately
 
       status_history: [
         {
@@ -166,11 +169,10 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       const createdOrder = result[0];
       
       // ✅ TRIGGER AUTOMATED INVOICE EMAIL IMMEDIATELY AFTER SUCCESSFUL DB WRITE
-      // We pass the full created record (including items) to the notification engine
       const orderObj: Order = {
           ...createdOrder,
           id: createdOrder.id.toString(),
-          items: createdOrder.items || [], // Crucial for PDF itemization
+          items: createdOrder.items || [], 
           total: Number(createdOrder.total_amount || createdOrder.total || 0),
           shippingAddress: createdOrder.shippingaddress || createdOrder.address,
           created_at: createdOrder.created_at,
@@ -178,9 +180,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
           payment_status: createdOrder.payment_status
       };
       
-      // Trigger as background task to avoid blocking the main UI redirect
+      // Background task with error logging
       sendInvoiceEmail(orderObj, user).catch(err => {
-          console.warn("[Background Task] Automatic invoice delivery failed silently", err);
+          console.error("[Background Error] Automated invoice delivery failed", err);
       });
 
       await refreshOrders();
@@ -190,7 +192,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
       const tempId = "ORD-" + Math.floor(Math.random() * 100000);
 
-      // Fix: Construct newOrder explicitly with typed properties to resolve incompatible spread assignments
       const newOrder: Order = {
         id: tempId,
         user_id: payload.user_id,
@@ -209,6 +210,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         qr_token: payload.qr_token,
         created_at: payload.created_at,
         date: payload.created_at,
+        invoice_generated: true
       };
 
       setOrders((prev) => [newOrder, ...prev]);

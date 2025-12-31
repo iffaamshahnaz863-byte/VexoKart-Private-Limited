@@ -141,7 +141,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
    */
   const sendInvoiceEmail = async (order: Order, userData: User): Promise<boolean> => {
     try {
-        /* ✅ ACCURATE FINANCIAL CALCULATIONS FOR INVOICE */
+        /* ✅ ACCURATE FINANCIAL CALCULATIONS FOR INVOICE BODY & ATTACHMENT */
         const baseSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const gstAmount = Number((baseSubtotal * 0.18).toFixed(2));
         const finalTotal = Number((baseSubtotal + gstAmount).toFixed(2));
@@ -183,7 +183,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         };
 
         if (settings.testMode) {
-            console.log("[Invoice Simulation] Sending PDF invoice from bictcomputereducation1@gmail.com to", userData.email);
+            console.log("[Invoice Process] Sending PDF invoice from bictcomputereducation1@gmail.com to", userData.email);
             await new Promise(r => setTimeout(r, 1500));
             await saveLogToDB({
                 userId: userData.email,

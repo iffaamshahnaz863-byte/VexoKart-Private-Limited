@@ -100,6 +100,8 @@ export interface Order {
     date?: string; // Virtual for UI
     userEmail?: string; // Virtual for UI
     paymentId?: string; // Virtual for UI
+    invoice_generated?: boolean;
+    invoice_url?: string;
 }
 
 export interface Address {
