@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import HomePage from './pages/HomePage.tsx';
@@ -130,12 +131,14 @@ const AppContent: React.FC = () => {
           {/* Logistics Route (QR Scan) */}
           <Route path="/scan/:token" element={<CourierScanPage />} />
 
+          {/* Special Post-Checkout Route - Registered Top-Level */}
+          <Route path="/order-success" element={<OrderSuccessPage />} />
+
           {/* Protected User Routes */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
           <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
-          <Route path="/order-success" element={<ProtectedRoute><OrderSuccessPage /></ProtectedRoute>} />
           <Route path="/addresses" element={<ProtectedRoute><ShippingAddressesPage /></ProtectedRoute>} />
           <Route path="/addresses/new" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
           <Route path="/addresses/edit/:id" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />

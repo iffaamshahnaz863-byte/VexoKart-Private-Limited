@@ -56,8 +56,8 @@ const OrderDetailPage: React.FC = () => {
   }
 
   /* 🔥 FINAL ADDRESS FIX 🔥 */
+  // Fix: Property 'shippingaddress' does not exist on type 'Order'. Use standardized 'shippingAddress'.
   const address =
-    order.shippingaddress ||
     order.shippingAddress ||
     order.shipping_address ||
     null;

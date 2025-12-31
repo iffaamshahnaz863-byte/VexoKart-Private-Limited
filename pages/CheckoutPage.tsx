@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
@@ -10,7 +11,7 @@ import { Address, OrderItem } from '../types';
 /* 🔐 Razorpay Live Key */
 const RAZORPAY_LIVE_KEY_ID = 'rzp_live_RxmIholkGEOYaL';
 
-/* 🇮🇳 GST */
+/* 🇮🇳 GST Rate */
 const GST_RATE = 0.18;
 
 const CheckoutPage: React.FC = () => {
@@ -23,7 +24,7 @@ const CheckoutPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
-  /* ✅ GST Calculation */
+  /* ✅ Precise Calculations */
   const gstAmount = Number((cartTotal * GST_RATE).toFixed(2));
   const finalPayable = Number((cartTotal + gstAmount).toFixed(2));
 
@@ -58,9 +59,9 @@ const CheckoutPage: React.FC = () => {
     }));
 
     try {
-      /* 🟢 COD FLOW */
+      /* 🟢 CASH ON DELIVERY FLOW */
       if (paymentMethod === 'cod') {
-        const orderId = await addOrder({
+        const orderIdString = await addOrder({
           items: orderItems,
           subtotal: cartTotal,
           gst_amount: gstAmount,
@@ -70,15 +71,20 @@ const CheckoutPage: React.FC = () => {
         });
 
         clearCart();
+        // Redirect to Order Success strictly
         navigate('/order-success', {
-          state: { address: selectedAddress, orderId },
+          state: { 
+            orderId: String(orderIdString), 
+            address: selectedAddress 
+          },
+          replace: true
         });
         return;
       }
 
       /* 🟢 ONLINE PAYMENT FLOW */
       if (!(window as any).Razorpay) {
-        alert('Payment gateway not loaded');
+        alert('Payment gateway not loaded. Please check your connection.');
         setIsProcessing(false);
         return;
       }
@@ -90,20 +96,28 @@ const CheckoutPage: React.FC = () => {
         amount: razorpayAmountPaise,
         currency: 'INR',
         name: 'VexoKart',
-        description: 'Secure Payment (GST Included)',
-        handler: async () => {
-          const orderId = await addOrder({
+        description: 'Secure Checkout Payment',
+        image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo.png', // Optional branding
+        handler: async (response: any) => {
+          // Success Callback from Razorpay
+          const orderIdString = await addOrder({
             items: orderItems,
             subtotal: cartTotal,
             gst_amount: gstAmount,
             total: finalPayable,
             shippingAddress: selectedAddress,
             payment_method: 'Online Payment',
+            payment_id: response.razorpay_payment_id
           });
 
           clearCart();
+          // Deterministic navigation to Success Page
           navigate('/order-success', {
-            state: { address: selectedAddress, orderId },
+            state: { 
+              orderId: String(orderIdString), 
+              address: selectedAddress 
+            },
+            replace: true
           });
         },
         prefill: {
@@ -113,21 +127,23 @@ const CheckoutPage: React.FC = () => {
         },
         modal: {
           ondismiss: () => setIsProcessing(false),
+          escape: false,
+          backdropclose: false
         },
         theme: { color: '#FF8A00' },
       };
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', (err: any) => {
-        alert(err.error?.description || 'Payment failed');
+        alert(err.error?.description || 'Payment failed. Please try again.');
         setIsProcessing(false);
       });
 
       rzp.open();
 
     } catch (err) {
-      console.error('[Checkout Error]', err);
-      alert('Checkout failed');
+      console.error('[Checkout Critical Error]', err);
+      alert('Order placement encountered a problem. Please contact support.');
       setIsProcessing(false);
     }
   };
@@ -145,92 +161,115 @@ const CheckoutPage: React.FC = () => {
       <div className="p-4 pb-32 max-w-2xl mx-auto space-y-6">
         {/* Address */}
         <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase mb-4">
-            Delivery Address
+          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted">
+            Delivery Destination
           </h2>
-          {user?.addresses?.map(address => (
-            <div
-              key={address.id}
-              onClick={() => setSelectedAddress(address)}
-              className={`p-4 rounded-xl border-2 cursor-pointer mb-3 ${
-                selectedAddress?.id === address.id
-                  ? 'border-accent bg-accent/5'
-                  : 'border-border'
-              }`}
-            >
-              <p className="font-black text-xs uppercase">{address.fullName}</p>
-              <p className="text-[10px] mt-1">
-                {address.street}, {address.city}, {address.state}
-              </p>
-              <p className="text-[10px] font-black text-accent mt-2">
-                {address.phone}
-              </p>
-            </div>
-          ))}
+          {user?.addresses?.length ? (
+             user.addresses.map(address => (
+                <div
+                  key={address.id}
+                  onClick={() => setSelectedAddress(address)}
+                  className={`p-4 rounded-xl border-2 cursor-pointer mb-3 transition-all ${
+                    selectedAddress?.id === address.id
+                      ? 'border-accent bg-accent/5'
+                      : 'border-border hover:border-accent/30'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-black text-xs uppercase">{address.fullName}</p>
+                        <p className="text-[10px] mt-1 text-text-secondary leading-relaxed">
+                            {address.street}<br/>
+                            {address.city}, {address.state} — {address.zip}
+                        </p>
+                      </div>
+                      {selectedAddress?.id === address.id && (
+                          <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                      )}
+                  </div>
+                  <p className="text-[10px] font-black text-accent mt-2">
+                    {address.phone}
+                  </p>
+                </div>
+              ))
+          ) : (
+            <button onClick={() => navigate('/addresses/new')} className="w-full py-4 border-2 border-dashed border-border rounded-xl text-xs font-bold text-text-muted uppercase">Add Shipping Address</button>
+          )}
         </GlassmorphicCard>
 
         {/* Payment */}
         <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase mb-4">
-            Payment Method
+          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted">
+            Select Payment Method
           </h2>
 
           <div className="space-y-3">
             <div
               onClick={() => setPaymentMethod('card')}
-              className={`p-4 rounded-xl border-2 cursor-pointer ${
+              className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
                 paymentMethod === 'card'
                   ? 'border-accent bg-accent/5'
-                  : 'border-border'
+                  : 'border-border hover:border-accent/20'
               }`}
             >
-              Online Payment (UPI / Cards)
+              <span className="font-bold text-sm">Online Payment (UPI / Cards)</span>
+              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
             </div>
 
             <div
               onClick={() => setPaymentMethod('cod')}
-              className={`p-4 rounded-xl border-2 cursor-pointer ${
+              className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
                 paymentMethod === 'cod'
                   ? 'border-accent bg-accent/5'
-                  : 'border-border'
+                  : 'border-border hover:border-accent/20'
               }`}
             >
-              Cash on Delivery
+              <span className="font-bold text-sm">Cash on Delivery</span>
+              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             </div>
           </div>
         </GlassmorphicCard>
 
         {/* Summary */}
         <GlassmorphicCard className="p-6 bg-white">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>₹{cartTotal}</span>
+          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted border-b pb-2">
+            Pricing Summary
+          </h2>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between text-text-secondary">
+              <span>Bag Subtotal</span>
+              <span className="font-bold text-text-main">₹{cartTotal.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-text-secondary">
               <span>GST (18%)</span>
-              <span>₹{gstAmount}</span>
+              <span className="font-bold text-text-main">₹{gstAmount.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between font-black text-lg">
-              <span>Total Payable</span>
-              <span>₹{finalPayable}</span>
+            <div className="flex justify-between text-text-secondary">
+              <span>Shipping Fee</span>
+              <span className="font-bold text-green-600 uppercase text-[10px]">Free</span>
+            </div>
+            <div className="pt-3 border-t border-dashed flex justify-between items-end">
+              <span className="text-text-main font-black uppercase tracking-widest text-xs">Total Payable</span>
+              <span className="text-2xl font-black text-accent italic tracking-tighter">₹{finalPayable.toLocaleString()}</span>
             </div>
           </div>
         </GlassmorphicCard>
       </div>
 
       {/* Pay Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <button
           onClick={handlePlaceOrder}
           disabled={isProcessing || !selectedAddress}
-          className="w-full bg-accent text-white py-4 rounded-xl font-black uppercase"
+          className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {isProcessing
-            ? 'Processing...'
+            ? 'Establishing Secure Session...'
             : paymentMethod === 'cod'
-            ? `Confirm Order ₹${finalPayable}`
-            : `Pay ₹${finalPayable} (GST Included)`}
+            ? `Confirm Order — ₹${finalPayable}`
+            : `Pay Secured ₹${finalPayable} (Incl. GST)`}
         </button>
       </div>
     </div>

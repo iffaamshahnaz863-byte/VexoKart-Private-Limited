@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GlassmorphicCard from '../components/GlassmorphicCard';
@@ -11,106 +12,120 @@ type OrderSuccessState = {
 const OrderSuccessPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // HashRouter state retrieval
   const state = location.state as OrderSuccessState | undefined;
-
   const address = state?.address;
   const orderId = state?.orderId;
 
   /**
-   * 🔐 SAFETY NET
-   * Agar user page refresh kare ya direct open kare
-   * to My Orders par redirect
+   * 🔐 SAFETY REDIRECT
+   * If the page is accessed without order information (e.g. direct URL entry),
+   * we redirect the user to their order history instead of the homepage.
    */
   useEffect(() => {
-    if (!address && !orderId) {
-      const t = setTimeout(() => {
+    if (!orderId) {
+      console.warn("[OrderSuccess] Missing orderId in state. Safety redirecting...");
+      const timer = setTimeout(() => {
         navigate('/orders', { replace: true });
-      }, 1500);
-      return () => clearTimeout(t);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [address, orderId, navigate]);
+  }, [orderId, navigate]);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 relative overflow-hidden animate-in fade-in duration-500">
+    <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 relative overflow-hidden animate-in fade-in duration-700">
+      
+      {/* Background Decor */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-green-500/5 to-transparent blur-3xl rounded-full"></div>
 
       {/* Success Badge */}
-      <div className="mb-8 relative">
-        <div className="absolute inset-0 bg-green-500/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
-        <div className="relative w-24 h-24 bg-green-500 rounded-full flex items-center justify-center shadow-xl shadow-green-500/30">
-          <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
+      <div className="mb-10 relative">
+        <div className="absolute inset-0 bg-green-500/20 blur-2xl rounded-full scale-150 animate-pulse"></div>
+        <div className="relative w-28 h-28 bg-green-500 rounded-full flex items-center justify-center shadow-2xl shadow-green-500/40 border-4 border-white">
+          <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
       </div>
 
-      {/* Title */}
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">
-          Order Confirmed
+      {/* Primary Message */}
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-black text-text-main italic tracking-tight uppercase leading-none">
+          Order<br/><span className="text-accent">Confirmed</span>
         </h1>
-        <p className="text-text-secondary mt-2 font-medium">
-          Thank you for shopping with VexoKart
+        <p className="text-text-secondary mt-3 font-bold uppercase tracking-widest text-[10px]">
+          Digital Manifest Generated Successfully
         </p>
       </div>
 
-      {/* Order ID */}
-      {orderId && (
-        <GlassmorphicCard className="p-4 bg-white mb-6 text-center">
-          <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">
-            Order ID
-          </p>
-          <p className="font-mono font-black text-lg tracking-wider">
-            #{orderId}
-          </p>
-        </GlassmorphicCard>
-      )}
-
-      {/* Delivery Address (Optional) */}
-      {address && (
-        <div className="w-full max-w-md space-y-4 mb-8">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted ml-1">
-            Delivery Address
-          </h2>
-
-          <GlassmorphicCard className="p-6 bg-white">
-            <p className="text-xs font-black uppercase italic">
-              {address.fullName}
+      {/* Transaction Details */}
+      <div className="w-full max-w-md space-y-4 mb-10">
+        {orderId && (
+          <GlassmorphicCard className="p-5 bg-white text-center border-green-500/10">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted mb-2">
+              Transaction Reference
             </p>
-            <p className="text-[10px] font-bold text-accent uppercase mt-1">
-              {address.phone}
+            <p className="font-mono font-black text-xl tracking-wider text-text-main">
+              #{orderId}
             </p>
-
-            <div className="border-t border-dashed border-border mt-4 pt-4">
-              <p className="text-xs text-text-secondary font-medium leading-relaxed uppercase tracking-tighter">
-                {address.street}<br />
-                {address.city}, {address.state} — {address.zip}
-              </p>
-            </div>
           </GlassmorphicCard>
-        </div>
-      )}
+        )}
 
-      {/* Actions */}
+        {address && (
+          <div className="space-y-3">
+            <h2 className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted ml-2">
+              Fulfillment Destination
+            </h2>
+
+            <GlassmorphicCard className="p-6 bg-white">
+              <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-black uppercase italic text-text-main">
+                      {address.fullName}
+                    </p>
+                    <p className="text-[10px] font-bold text-accent uppercase mt-1">
+                      {address.phone}
+                    </p>
+                  </div>
+                  <div className="bg-surface p-2 rounded-lg">
+                      <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  </div>
+              </div>
+
+              <div className="border-t border-dashed border-border mt-4 pt-4">
+                <p className="text-[11px] text-text-secondary font-bold leading-relaxed uppercase tracking-tighter">
+                  {address.street}<br />
+                  {address.city}, {address.state} — {address.zip}
+                </p>
+              </div>
+            </GlassmorphicCard>
+          </div>
+        )}
+      </div>
+
+      {/* Action Suite */}
       <div className="w-full max-w-md space-y-4">
         <button
-          onClick={() => navigate('/orders')}
-          className="w-full bg-accent text-white font-black uppercase tracking-widest text-[11px] py-4 rounded-2xl shadow-2xl shadow-accent/20 active:scale-95 transition-all"
+          onClick={() => navigate('/orders', { replace: true })}
+          className="w-full bg-text-main text-white font-black uppercase tracking-widest text-[11px] py-5 rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3"
         >
-          View My Orders
+          Track Shipment
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
         </button>
 
         <button
-          onClick={() => navigate('/')}
-          className="w-full text-text-muted font-black uppercase tracking-widest text-[9px] hover:text-text-main transition-colors"
+          onClick={() => navigate('/', { replace: true })}
+          className="w-full py-4 text-text-muted font-black uppercase tracking-widest text-[9px] hover:text-accent transition-colors border border-transparent hover:border-accent/10 rounded-2xl"
         >
-          Continue Shopping
+          Return to Marketplace
         </button>
       </div>
 
-      {/* Footer */}
-      <div className="mt-auto pt-10 pb-4 text-center">
-        <p className="text-[9px] text-text-muted font-bold uppercase tracking-[0.2em] italic">
-          VexoKart Commerce Engine v4.1
+      {/* Ecosystem Footer */}
+      <div className="mt-auto pt-12 pb-6 text-center">
+        <p className="text-[8px] text-text-muted font-black uppercase tracking-[0.4em] italic opacity-60">
+          VexoKart Logistics Protocol v5.0 • Secure Node
         </p>
       </div>
     </div>

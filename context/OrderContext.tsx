@@ -142,7 +142,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         {
           status: "Placed" as OrderStatus,
           timestamp,
-          actor: "User",
+          // Fix: Use const assertion for actor to satisfy literal union type in StatusHistory
+          actor: "User" as const,
           note: "Order placed by customer",
         },
       ],
@@ -168,14 +169,25 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
       const tempId = "ORD-" + Math.floor(Math.random() * 100000);
 
+      // Fix: Construct newOrder explicitly with typed properties to resolve incompatible spread assignments
       const newOrder: Order = {
-        ...payload,
         id: tempId,
+        user_id: payload.user_id,
+        vendor_id: payload.vendor_id,
+        items: payload.items,
         total: payload.total_amount,
-        statusHistory: payload.status_history as any,
-        qrToken: payload.qr_token,
-        date: payload.created_at,
+        total_amount: payload.total_amount,
+        payment_mode: payload.payment_mode,
+        payment_status: payload.payment_status,
         shippingAddress: payload.shippingaddress,
+        shipping_address: payload.shippingaddress,
+        status: payload.status,
+        statusHistory: payload.status_history as any,
+        status_history: payload.status_history as any,
+        qrToken: payload.qr_token,
+        qr_token: payload.qr_token,
+        created_at: payload.created_at,
+        date: payload.created_at,
       };
 
       setOrders((prev) => [newOrder, ...prev]);
