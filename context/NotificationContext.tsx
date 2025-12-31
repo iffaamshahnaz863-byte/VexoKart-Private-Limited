@@ -146,6 +146,9 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         const gstAmount = Number((baseSubtotal * 0.18).toFixed(2));
         const finalTotal = Number((baseSubtotal + gstAmount).toFixed(2));
 
+        const isCOD = order.payment_mode === 'Cash on Delivery';
+        const paymentStatusText = isCOD ? 'Payment Pending (COD)' : 'Paid';
+
         const payload = {
             orderId: order.id,
             user: {
@@ -162,10 +165,10 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             gst: gstAmount,
             total: finalTotal,
             paymentMode: order.payment_mode,
-            paymentStatus: order.payment_status === 'paid' ? 'PAID' : 'COD PENDING',
+            paymentStatus: paymentStatusText,
             shippingAddress: order.shippingAddress || order.shipping_address,
             
-            /* ✅ SELLER IDENTITY CONFIGURATION (STRICTLY AS PER TASK) */
+            /* ✅ SELLER IDENTITY CONFIGURATION */
             seller: {
               name: "BICT Computer Education (VexoKart)",
               email: "bictcomputereducation1@gmail.com",
@@ -175,7 +178,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
               subject: `Your VexoKart Invoice – Order #${order.id}`,
               fromEmail: "bictcomputereducation1@gmail.com",
               fromName: "BICT Computer Education – VexoKart",
-              message: "Order confirmed successfully. Please find your official TAX INVOICE attached as a PDF."
+              message: `Your order #${order.id} has been confirmed. Payment Method: ${order.payment_mode}. Status: ${paymentStatusText}. Please find your official TAX INVOICE attached as a PDF.`
             }
         };
 
@@ -186,7 +189,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
                 userId: userData.email,
                 orderId: order.id,
                 title: `Invoice Generated: #${order.id}`,
-                message: `Your tax invoice for Order #${order.id} has been dispatched from BICT Computer Education with a PDF attachment.`,
+                message: `Your tax invoice for Order #${order.id} has been dispatched from BICT Computer Education. Payment Method: ${order.payment_mode}.`,
                 channel: 'email',
                 status: 'sent',
                 response: 'Simulation: PDF dispatched via verified sender bictcomputereducation1@gmail.com',
@@ -210,7 +213,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             userId: userData.email,
             orderId: order.id,
             title: `Your VexoKart Invoice – Order #${order.id}`,
-            message: `Tax invoice for Order #${order.id} is attached as a PDF. Dispatched from bictcomputereducation1@gmail.com.`,
+            message: `Tax invoice for Order #${order.id} is attached as a PDF. Sent from bictcomputereducation1@gmail.com.`,
             channel: 'email',
             status: 'sent',
             response: 'Live Edge Function: Invoice dispatched via BICT sender node',
