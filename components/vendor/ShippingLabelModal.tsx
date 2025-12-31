@@ -17,7 +17,7 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({
   const [pageSize, setPageSize] = useState<'A4' | '4x6'>('A4');
   const printRef = useRef<HTMLDivElement>(null);
 
-  /* ================= ADDRESS FIX ================= */
+  /* ================= ADDRESS (FIXED) ================= */
   const rawAddress =
     (order as any).shippingaddress ||
     order.shipping_address ||
@@ -40,9 +40,14 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({
     phone: safe(rawAddress?.phone),
   };
 
-  /* ================= GST CALCULATION ================= */
+  /* ================= CORRECT SUBTOTAL (ITEMS SE) ================= */
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+
+  /* ================= GST ================= */
   const GST_RATE = 0.18; // 18%
-  const subtotal = Number(order.total || order.total_amount || 0);
   const gstAmount = +(subtotal * GST_RATE).toFixed(2);
   const totalWithGST = +(subtotal + gstAmount).toFixed(2);
 
@@ -54,8 +59,13 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({
     phone: address.phone,
   });
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrPayload)}`;
-  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(order.id)}&scale=2&includetext=true`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+    qrPayload
+  )}`;
+
+  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(
+    order.id
+  )}&scale=2&includetext=true`;
 
   const handlePrint = () => {
     if (!printRef.current) return;
@@ -131,7 +141,7 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({
               </div>
             </div>
 
-            {/* CODES */}
+            {/* QR + BARCODE */}
             <div className="flex gap-6 mb-6 items-center">
               <img src={qrUrl} className="w-32 h-32" />
               <img src={barcodeUrl} className="h-20" />
@@ -163,7 +173,9 @@ const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({
               <p className="text-3xl font-black">
                 ₹{totalWithGST.toLocaleString('en-IN')}
               </p>
-              <p className="text-xs uppercase text-gray-500">Total Payable (Incl. GST)</p>
+              <p className="text-xs uppercase text-gray-500">
+                Total Payable (Incl. GST)
+              </p>
             </div>
           </div>
         </div>
