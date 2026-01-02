@@ -27,7 +27,6 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpHost: 'api.sendgrid.com',
   smtpUser: '',
   smtpPass: '',
-  /* ✅ FIXED VERIFIED SENDER EMAIL & NAME */
   emailFrom: 'BICT Computer Education – VexoKart <bictcomputereducation1@gmail.com>',
   smsApiKey: process.env.FAST2SMS_API_KEY || 'DEMO_KEY_FSTSMS_LIVE',
   smsSenderId: 'VXKART',
@@ -39,7 +38,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [settings, setSettings] = useState<NotificationSettings>(() => {
     const local = localStorage.getItem('vexokart-notification-settings');
     const saved = local ? JSON.parse(local) : DEFAULT_SETTINGS;
-    // Always sync the latest API key from environment if available
+    // Environment variable takes priority for production keys
     return { ...saved, smsApiKey: process.env.FAST2SMS_API_KEY || saved.smsApiKey };
   });
 
@@ -121,19 +120,23 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setInbox(prev => [data[0], ...prev]);
         setLogs(prev => [data[0], ...prev].slice(0, 100));
       } else {
-        setLogs(prev => [{ ...newLog, id: 'temp-' + Date.now() } as any, ...prev].slice(0, 100));
+        const tempLog = { ...newLog, id: 'temp-' + Date.now() } as NotificationLog;
+        setLogs(prev => [tempLog, ...prev].slice(0, 100));
       }
     } catch (e) {
-      console.warn("[Notifications Log] DB sync skipped. Storing in local session.");
-      setLogs(prev => [{ ...newLog, id: 'temp-' + Date.now() } as any, ...prev].slice(0, 100));
+      const tempLog = { ...newLog, id: 'temp-' + Date.now() } as NotificationLog;
+      setLogs(prev => [tempLog, ...prev].slice(0, 100));
     }
   };
 
   const sendQuickSMS = async (number: string, message: string) => {
-    if (!settings.smsEnabled || !number) return;
+    if (!settings.smsEnabled || !number) return { success: false, message: 'SMS Disabled or Number missing' };
     
+    const apiKey = process.env.FAST2SMS_API_KEY || settings.smsApiKey;
+    if (!apiKey || apiKey.includes('DEMO_KEY')) return { success: false, message: 'Invalid API Key' };
+
     try {
-        const apiKey = process.env.FAST2SMS_API_KEY || settings.smsApiKey;
+        // Fast2SMS Quick SMS API (route = q)
         const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
           method: 'POST',
           headers: {
@@ -146,27 +149,37 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             numbers: number,
           })
         });
-        const result = await response.json();
+        
+        const result = await response.json().catch(() => ({ message: 'Invalid response format' }));
         return result;
-    } catch (err) {
-        console.error("Fast2SMS API Error:", err);
-        throw err;
+    } catch (err: any) {
+        console.warn("Fast2SMS API Execution Error:", err.message);
+        return { success: false, message: err.message };
     }
   };
 
   const notifyLogin = async (user: User) => {
-    const message = `VexoKart: Login successful for ${user.email}. If this wasn't you, secure your account immediately. - Team VexoKart`;
-    
     try {
-      if (settings.testMode) {
-        await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'sent', response: 'Sandbox Simulation Success', type: 'Login' });
-        return;
-      }
+        const message = `VexoKart: Login successful for ${user.email}. If this wasn't you, secure your account immediately. - Team VexoKart`;
+        
+        if (settings.testMode) {
+          await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'sent', response: 'Sandbox Simulation Success', type: 'Login' });
+          return;
+        }
 
-      await sendQuickSMS(user.phone, message);
-      await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'sent', response: 'Live SMS Delivered', type: 'Login' });
-    } catch (e: any) {
-      await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'failed', response: e.message, type: 'Login' });
+        const result = await sendQuickSMS(user.phone, message);
+        await saveLogToDB({ 
+            userId: user.email, 
+            orderId: 'N/A', 
+            title: 'Login Alert', 
+            message, 
+            channel: 'sms', 
+            status: result.return ? 'sent' : 'failed', 
+            response: result.message || (result.return ? 'Delivered' : 'Failed'), 
+            type: 'Login' 
+        });
+    } catch (err) {
+        console.warn("[notifyLogin] Non-blocking fail:", err);
     }
   };
 
@@ -195,7 +208,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         };
 
         if (settings.testMode) {
-            await new Promise(r => setTimeout(r, 1000));
             await saveLogToDB({ userId: userData.email, orderId: order.id, title: `Invoice Generated: #${order.id}`, message: `Simulation: PDF dispatched via bictcomputereducation1@gmail.com`, channel: 'email', status: 'sent', response: 'Simulation Success', type: 'Invoice' });
             return true;
         }
@@ -216,57 +228,93 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const notifyOrderUpdate = async (order: Order, user: User) => {
-    const smsConsent = user.sms_enabled ?? true;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    let aiContent = { email: '', sms: '', title: '' };
-    
     try {
-      const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate transactional notifications. Name: ${user.name}, ID: #${order.id}, Status: ${order.status}, Total: ₹${order.total_amount || order.total}. Output JSON with: "title", "emailBody", "smsBody" (max 140 chars, start with "VexoKart: " and end with "- Team VexoKart")`,
-        config: { responseMimeType: 'application/json' }
-      });
-      const parsed = JSON.parse(response.text || '{}');
-      aiContent.title = parsed.title || `Order Update: #${order.id}`;
-      aiContent.email = parsed.emailBody;
-      aiContent.sms = parsed.smsBody || `VexoKart: Order #${order.id} is ${order.status}. Total: ₹${order.total_amount || order.total}. - Team VexoKart`;
-    } catch (err) {
-      aiContent.title = `Order ${order.status}`;
-      aiContent.email = `Order #${order.id} is now ${order.status}.`;
-      aiContent.sms = `VexoKart: Hi ${user.name}, your order #${order.id} is ${order.status}. - Team VexoKart`;
-    }
+        const smsConsent = user.sms_enabled ?? true;
+        let aiContent = { 
+            title: `Order ${order.status}`, 
+            emailBody: `Order #${order.id} is now ${order.status}.`, 
+            smsBody: `VexoKart: Hi ${user.name}, your order #${order.id} is ${order.status}. - Team VexoKart` 
+        };
 
-    const sendWithRetry = async (channel: 'email' | 'sms', sendFn: () => Promise<any>) => {
-        try {
-          if (settings.testMode) {
-            await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.sms : aiContent.email, channel, status: 'sent', response: 'Simulation Success', type: order.status });
-            return;
-          }
-          if (channel === 'sms' && (!smsConsent || !user.phone)) return;
-          await sendFn();
-          await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.sms : aiContent.email, channel, status: 'sent', response: 'Live Accepted', type: order.status });
-        } catch (error: any) {
-            await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.sms : aiContent.email, channel, status: 'failed', response: error.message, type: order.status });
+        if (process.env.API_KEY) {
+            try {
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const response: GenerateContentResponse = await ai.models.generateContent({
+                  model: 'gemini-3-flash-preview',
+                  contents: `Generate transactional notifications. Name: ${user.name}, ID: #${order.id}, Status: ${order.status}, Total: ₹${order.total_amount || order.total}. Output JSON with: "title", "emailBody", "smsBody" (max 140 chars, start with "VexoKart: " and end with "- Team VexoKart")`,
+                  config: { responseMimeType: 'application/json' }
+                });
+                const parsed = JSON.parse(response.text || '{}');
+                if (parsed.title) aiContent.title = parsed.title;
+                if (parsed.emailBody) aiContent.emailBody = parsed.emailBody;
+                if (parsed.smsBody) aiContent.smsBody = parsed.smsBody;
+            } catch (aiErr) {
+                console.warn("[Gemini AI] Falling back to default message templates.");
+            }
         }
-    };
 
-    if (settings.emailEnabled) {
-      await sendWithRetry('email', async () => {
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${settings.smtpPass}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personalizations: [{ to: [{ email: user.email }] }], from: { email: 'bictcomputereducation1@gmail.com', name: 'VexoKart Support' }, subject: aiContent.title, content: [{ type: 'text/html', value: aiContent.email }] })
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      });
-    }
+        const sendWithRetry = async (channel: 'email' | 'sms', sendFn: () => Promise<any>) => {
+            try {
+              if (settings.testMode) {
+                await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.smsBody : aiContent.emailBody, channel, status: 'sent', response: 'Simulation Success', type: order.status });
+                return;
+              }
+              if (channel === 'sms' && (!smsConsent || !user.phone)) return;
+              
+              const result = await sendFn();
+              
+              let isSuccess = true;
+              let gatewayResponse = 'Live Accepted';
+              
+              if (channel === 'sms') {
+                  isSuccess = !!result.return;
+                  gatewayResponse = result.message || (isSuccess ? 'Delivered' : 'Failed');
+              }
 
-    if (settings.smsEnabled && user.phone) {
-      await sendWithRetry('sms', async () => sendQuickSMS(user.phone, aiContent.sms));
+              await saveLogToDB({ 
+                userId: user.email, 
+                orderId: order.id, 
+                title: aiContent.title, 
+                message: channel === 'sms' ? aiContent.smsBody : aiContent.emailBody, 
+                channel, 
+                status: isSuccess ? 'sent' : 'failed', 
+                response: gatewayResponse, 
+                type: order.status 
+              });
+            } catch (error: any) {
+                await saveLogToDB({ 
+                  userId: user.email, 
+                  orderId: order.id, 
+                  title: aiContent.title, 
+                  message: channel === 'sms' ? aiContent.smsBody : aiContent.emailBody, 
+                  channel, 
+                  status: 'failed', 
+                  response: error.message, 
+                  type: order.status 
+                });
+            }
+        };
+
+        if (settings.emailEnabled) {
+          await sendWithRetry('email', async () => {
+            const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${settings.smtpPass}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ personalizations: [{ to: [{ email: user.email }] }], from: { email: 'bictcomputereducation1@gmail.com', name: 'VexoKart Support' }, subject: aiContent.title, content: [{ type: 'text/html', value: aiContent.emailBody }] })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response;
+          });
+        }
+
+        if (settings.smsEnabled && user.phone) {
+          await sendWithRetry('sms', async () => sendQuickSMS(user.phone, aiContent.smsBody));
+        }
+    } catch (criticalErr) {
+        console.warn("[notifyOrderUpdate] Critical non-blocking fail:", criticalErr);
     }
   };
 
-  // Fix: Implement clearLogs to clear audit logs and resolve shorthand property scope error
   const clearLogs = () => {
     setLogs([]);
   };

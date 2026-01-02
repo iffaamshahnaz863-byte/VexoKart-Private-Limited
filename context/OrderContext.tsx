@@ -36,7 +36,7 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuth();
+  const { user, users } = useAuth();
   const { sendInvoiceEmail, notifyOrderUpdate } = useNotifications();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,7 +112,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       phone: orderData.shippingAddress?.phone || '',
     };
 
-    // Determine vendor_id for the order record (numeric/bigint)
     const rawVendorId = orderData.items[0]?.vendor_id;
     let numericVendorId = null;
     if (rawVendorId && !isNaN(Number(rawVendorId))) {
@@ -158,19 +157,35 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       const result = await res.json();
-      const createdOrder = result[0];
-      
-      // Background refresh and triggers
-      refreshOrders();
-      try {
-        const orderForNotify = { ...createdOrder, id: createdOrder.id.toString(), total: Number(createdOrder.total_amount), shippingAddress: createdOrder.shippingaddress };
-        sendInvoiceEmail(orderForNotify, user);
-        notifyOrderUpdate(orderForNotify, user); // Trigger SMS Alert
-      } catch (triggerErr) {
-        console.warn("Automation triggers delayed:", triggerErr);
+      if (!Array.isArray(result) || result.length === 0) {
+          throw new Error("Order creation verified but manifest receipt failed. Check My Orders.");
       }
+      
+      const createdOrder = result[0];
+      const finalOrderId = createdOrder.id.toString();
+      
+      refreshOrders();
+      
+      // Fire-and-forget notification block (Customer specific)
+      (async () => {
+          try {
+              const orderForNotify = { 
+                  ...createdOrder, 
+                  id: finalOrderId, 
+                  total: Number(createdOrder.total_amount), 
+                  shippingAddress: createdOrder.shippingaddress 
+              };
+              // The user placing the order is always the customer here
+              await Promise.allSettled([
+                  sendInvoiceEmail(orderForNotify, user),
+                  notifyOrderUpdate(orderForNotify, user)
+              ]);
+          } catch (sideEffectErr) {
+              console.warn("Notification side-effects failed silently:", sideEffectErr);
+          }
+      })();
 
-      return createdOrder.id.toString();
+      return finalOrderId;
     } catch (err: any) {
       console.error("[CRITICAL] Order Placement Failed:", err);
       throw err;
@@ -205,9 +220,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       if (!res.ok) throw new Error("Status update failed");
       await refreshOrders();
 
-      // Notify on specific changes (like cancellation)
-      if (status === 'Cancelled' && user) {
-          notifyOrderUpdate(order, user);
+      // Send automated SMS to the customer (not the current logged-in actor)
+      if ((status === 'Cancelled' || status === 'Shipped' || status === 'Delivered')) {
+          const customerAccount = users.find(u => Number(u.id) === Number(order.user_id));
+          if (customerAccount) {
+              notifyOrderUpdate(order, customerAccount);
+          }
       }
     } catch (err) { 
       console.error("Status Update Error:", err); 
