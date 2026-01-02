@@ -1,8 +1,8 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { NotificationLog, NotificationSettings, Order, User } from '../types';
 import { BASE_API_URL, API_HEADERS, EDGE_FUNCTION_URL } from '../constants';
-import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
   settings: NotificationSettings;
@@ -11,10 +11,12 @@ interface NotificationContextType {
   unreadCount: number;
   updateSettings: (settings: Partial<NotificationSettings>) => void;
   notifyOrderUpdate: (order: Order, user: User) => Promise<void>;
+  notifyLogin: (user: User) => Promise<void>;
   sendInvoiceEmail: (order: Order, user: User) => Promise<boolean>;
   markAsRead: (logId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   clearLogs: () => void;
+  fetchInbox: (email: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -27,17 +29,18 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpPass: '',
   /* ✅ FIXED VERIFIED SENDER EMAIL & NAME */
   emailFrom: 'BICT Computer Education – VexoKart <bictcomputereducation1@gmail.com>',
-  smsApiKey: 'DEMO_KEY_FSTSMS_LIVE',
+  smsApiKey: process.env.FAST2SMS_API_KEY || 'DEMO_KEY_FSTSMS_LIVE',
   smsSenderId: 'VXKART',
   smsTemplateId: '',
-  testMode: true,
+  testMode: false,
 };
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
   const [settings, setSettings] = useState<NotificationSettings>(() => {
     const local = localStorage.getItem('vexokart-notification-settings');
-    return local ? JSON.parse(local) : DEFAULT_SETTINGS;
+    const saved = local ? JSON.parse(local) : DEFAULT_SETTINGS;
+    // Always sync the latest API key from environment if available
+    return { ...saved, smsApiKey: process.env.FAST2SMS_API_KEY || saved.smsApiKey };
   });
 
   const [logs, setLogs] = useState<NotificationLog[]>([]);
@@ -48,14 +51,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   useEffect(() => {
     localStorage.setItem('vexokart-notification-settings', JSON.stringify(settings));
   }, [settings]);
-
-  useEffect(() => {
-    if (user?.email) {
-        fetchInbox(user.email);
-    } else {
-        setInbox([]);
-    }
-  }, [user?.email]);
 
   const fetchInbox = async (email: string) => {
     try {
@@ -134,14 +129,49 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
-  /**
-   * 📄 TRANSACTIONAL INVOICE DELIVERY
-   * Triggers the secure Edge Function to generate and email the PDF invoice.
-   * Fixed Verified Sender: bictcomputereducation1@gmail.com
-   */
+  const sendQuickSMS = async (number: string, message: string) => {
+    if (!settings.smsEnabled || !number) return;
+    
+    try {
+        const apiKey = process.env.FAST2SMS_API_KEY || settings.smsApiKey;
+        const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+          method: 'POST',
+          headers: {
+            'authorization': apiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            route: 'q',
+            message: message,
+            numbers: number,
+          })
+        });
+        const result = await response.json();
+        return result;
+    } catch (err) {
+        console.error("Fast2SMS API Error:", err);
+        throw err;
+    }
+  };
+
+  const notifyLogin = async (user: User) => {
+    const message = `VexoKart: Login successful for ${user.email}. If this wasn't you, secure your account immediately. - Team VexoKart`;
+    
+    try {
+      if (settings.testMode) {
+        await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'sent', response: 'Sandbox Simulation Success', type: 'Login' });
+        return;
+      }
+
+      await sendQuickSMS(user.phone, message);
+      await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'sent', response: 'Live SMS Delivered', type: 'Login' });
+    } catch (e: any) {
+      await saveLogToDB({ userId: user.email, orderId: 'N/A', title: 'Login Alert', message, channel: 'sms', status: 'failed', response: e.message, type: 'Login' });
+    }
+  };
+
   const sendInvoiceEmail = async (order: Order, userData: User): Promise<boolean> => {
     try {
-        /* ✅ ACCURATE FINANCIAL CALCULATIONS FOR INVOICE BODY & ATTACHMENT */
         const baseSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const gstAmount = Number((baseSubtotal * 0.18).toFixed(2));
         const finalTotal = Number((baseSubtotal + gstAmount).toFixed(2));
@@ -151,90 +181,36 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
         const payload = {
             orderId: order.id,
-            user: {
-                name: userData.name,
-                email: userData.email,
-                phone: userData.phone
-            },
+            user: { name: userData.name, email: userData.email, phone: userData.phone },
             orderDate: order.created_at,
-            // Pass the item list with persisted vendor_name
-            items: order.items.map(item => ({
-                ...item,
-                lineTotal: item.price * item.quantity,
-                vendor_name: item.vendor_name || 'VexoKart Direct'
-            })),
+            items: order.items.map(item => ({ ...item, lineTotal: item.price * item.quantity, vendor_name: item.vendor_name || 'VexoKart Direct' })),
             subtotal: baseSubtotal,
             gst: gstAmount,
             total: finalTotal,
             paymentMode: order.payment_mode,
             paymentStatus: paymentStatusText,
             shippingAddress: order.shippingAddress || order.shipping_address,
-            
-            /* ✅ MARKETPLACE IDENTITY */
-            seller: {
-              name: "VexoKart Authorized Marketplace",
-              email: "bictcomputereducation1@gmail.com",
-              footer: "This is a system generated invoice. Each item is billed by its respective authorized vendor."
-            },
-            emailConfig: {
-              subject: `Your VexoKart Invoice – Order #${order.id}`,
-              fromEmail: "bictcomputereducation1@gmail.com",
-              fromName: "BICT Computer Education – VexoKart",
-              message: `Your order #${order.id} from VexoKart Marketplace has been confirmed. Payment Method: ${order.payment_mode}. Please find your official TAX INVOICE attached as a PDF.`
-            }
+            seller: { name: "VexoKart Authorized Marketplace", email: "bictcomputereducation1@gmail.com", footer: "This is a system generated invoice." },
+            emailConfig: { subject: `Your VexoKart Invoice – Order #${order.id}`, fromEmail: "bictcomputereducation1@gmail.com", fromName: "BICT Computer Education – VexoKart", message: `Your order #${order.id} has been confirmed. PDF Invoice attached.` }
         };
 
         if (settings.testMode) {
-            console.log("[Invoice Process] Sending PDF invoice from bictcomputereducation1@gmail.com to", userData.email);
-            await new Promise(r => setTimeout(r, 1500));
-            await saveLogToDB({
-                userId: userData.email,
-                orderId: order.id,
-                title: `Invoice Generated: #${order.id}`,
-                message: `Your tax invoice for Order #${order.id} has been dispatched from VexoKart. It contains items from multiple authorized vendors.`,
-                channel: 'email',
-                status: 'sent',
-                response: 'Simulation: PDF dispatched via verified sender bictcomputereducation1@gmail.com',
-                type: 'Invoice'
-            });
+            await new Promise(r => setTimeout(r, 1000));
+            await saveLogToDB({ userId: userData.email, orderId: order.id, title: `Invoice Generated: #${order.id}`, message: `Simulation: PDF dispatched via bictcomputereducation1@gmail.com`, channel: 'email', status: 'sent', response: 'Simulation Success', type: 'Invoice' });
             return true;
         }
 
         const response = await fetch(`${EDGE_FUNCTION_URL}/send-invoice`, {
             method: 'POST',
-            headers: {
-                ...API_HEADERS,
-                'Authorization': `Bearer ${process.env.API_KEY || ''}`
-            },
+            headers: { ...API_HEADERS, 'Authorization': `Bearer ${process.env.API_KEY || ''}` },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) throw new Error(`Gateway Error: ${response.status}`);
-        
-        await saveLogToDB({
-            userId: userData.email,
-            orderId: order.id,
-            title: `Your VexoKart Invoice – Order #${order.id}`,
-            message: `Tax invoice for Order #${order.id} is attached as a PDF. Sent from bictcomputereducation1@gmail.com.`,
-            channel: 'email',
-            status: 'sent',
-            response: 'Live Edge Function: Invoice dispatched via multi-vendor settlement node',
-            type: 'Invoice'
-        });
-
+        await saveLogToDB({ userId: userData.email, orderId: order.id, title: `Invoice Dispatched – #${order.id}`, message: `PDF Invoice sent from bictcomputereducation1@gmail.com.`, channel: 'email', status: 'sent', response: 'Live Edge Function Success', type: 'Invoice' });
         return true;
     } catch (err: any) {
-        console.error("[Invoice Failure]", err);
-        await saveLogToDB({
-            userId: userData.email,
-            orderId: order.id,
-            title: `Invoice Notification Delayed: #${order.id}`,
-            message: `The automatic invoice email for Order #${order.id} encountered a delay. You can access it anytime in your Order History.`,
-            channel: 'in-app',
-            status: 'failed',
-            response: err.message,
-            type: 'Invoice'
-        });
+        await saveLogToDB({ userId: userData.email, orderId: order.id, title: `Invoice Failed – #${order.id}`, message: `Invoice delivery failed: ${err.message}`, channel: 'in-app', status: 'failed', response: err.message, type: 'Invoice' });
         return false;
     }
   };
@@ -247,138 +223,58 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Generate a production-ready transactional notification for VexoKart.
-        User Name: ${user.name}
-        Order ID: #${order.id}
-        Status: ${order.status}
-        Total Amount: ₹${order.total_amount || order.total}
-        
-        Output JSON with:
-        "title": (Short engaging title)
-        "emailBody": (Professional HTML)
-        "smsBody": (Strictly max 150 chars, start with "VexoKart: " and end with "- Team VexoKart")`,
+        contents: `Generate transactional notifications. Name: ${user.name}, ID: #${order.id}, Status: ${order.status}, Total: ₹${order.total_amount || order.total}. Output JSON with: "title", "emailBody", "smsBody" (max 140 chars, start with "VexoKart: " and end with "- Team VexoKart")`,
         config: { responseMimeType: 'application/json' }
       });
-      
       const parsed = JSON.parse(response.text || '{}');
       aiContent.title = parsed.title || `Order Update: #${order.id}`;
       aiContent.email = parsed.emailBody;
-      aiContent.sms = parsed.smsBody || `Hi ${user.name}, your order #${order.id} is ${order.status}! Total: ₹${order.total_amount || order.total}. - Team VexoKart`;
+      aiContent.sms = parsed.smsBody || `VexoKart: Order #${order.id} is ${order.status}. Total: ₹${order.total_amount || order.total}. - Team VexoKart`;
     } catch (err) {
-      console.warn("AI generation failed, using defaults:", err);
       aiContent.title = `Order ${order.status}`;
-      aiContent.email = `Order #${order.id} is now ${order.status}. Thank you for choosing VexoKart!`;
-      aiContent.sms = `Hi ${user.name}, your order #${order.id} is now ${order.status}. - Team VexoKart`;
+      aiContent.email = `Order #${order.id} is now ${order.status}.`;
+      aiContent.sms = `VexoKart: Hi ${user.name}, your order #${order.id} is ${order.status}. - Team VexoKart`;
     }
 
-    const sendWithRetry = async (
-        channel: 'email' | 'sms', 
-        sendFn: () => Promise<any>, 
-        maxRetries = 1
-    ) => {
-      let attempts = 0;
-      while (attempts <= maxRetries) {
+    const sendWithRetry = async (channel: 'email' | 'sms', sendFn: () => Promise<any>) => {
         try {
           if (settings.testMode) {
-            await new Promise(r => setTimeout(r, 600));
-            await saveLogToDB({ 
-              userId: user.email, 
-              orderId: order.id, 
-              title: aiContent.title,
-              message: channel === 'sms' ? aiContent.sms : aiContent.email,
-              channel, 
-              status: 'sent', 
-              response: 'Sandbox Simulation Success', 
-              type: order.status, 
-              retryCount: attempts 
-            });
+            await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.sms : aiContent.email, channel, status: 'sent', response: 'Simulation Success', type: order.status });
             return;
           }
-
-          if (channel === 'sms' && !smsConsent) return;
-
+          if (channel === 'sms' && (!smsConsent || !user.phone)) return;
           await sendFn();
-          await saveLogToDB({ 
-            userId: user.email, 
-            orderId: order.id, 
-            title: aiContent.title,
-            message: channel === 'sms' ? aiContent.sms : aiContent.email,
-            channel, 
-            status: 'sent', 
-            response: 'Live Provider Accepted', 
-            type: order.status, 
-            retryCount: attempts 
-          });
-          return;
+          await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.sms : aiContent.email, channel, status: 'sent', response: 'Live Accepted', type: order.status });
         } catch (error: any) {
-          const isNetworkError = error.message === 'Failed to fetch' || error.name === 'TypeError';
-          attempts++;
-
-          if (attempts > maxRetries || isNetworkError) {
-            await saveLogToDB({ 
-              userId: user.email, 
-              orderId: order.id, 
-              title: aiContent.title,
-              message: channel === 'sms' ? aiContent.sms : aiContent.email,
-              channel, 
-              status: isNetworkError ? 'sent' : 'failed', 
-              response: isNetworkError ? 'Browser CORS restriction simulated as sent.' : (error.message || 'Unknown Provider Error'), 
-              type: order.status, 
-              retryCount: attempts - 1 
-            });
-            break;
-          } else {
-            await new Promise(r => setTimeout(r, 1000));
-          }
+            await saveLogToDB({ userId: user.email, orderId: order.id, title: aiContent.title, message: channel === 'sms' ? aiContent.sms : aiContent.email, channel, status: 'failed', response: error.message, type: order.status });
         }
-      }
     };
 
     if (settings.emailEnabled) {
       await sendWithRetry('email', async () => {
         const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${settings.smtpPass}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email: user.email }] }],
-            /* ✅ VERIFIED SENDER FOR ALL TRANSACTIONAL UPDATES */
-            from: { email: 'bictcomputereducation1@gmail.com', name: 'BICT Computer Education – VexoKart' },
-            subject: aiContent.title,
-            content: [{ type: 'text/html', value: aiContent.email }]
-          })
+          headers: { 'Authorization': `Bearer ${settings.smtpPass}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personalizations: [{ to: [{ email: user.email }] }], from: { email: 'bictcomputereducation1@gmail.com', name: 'VexoKart Support' }, subject: aiContent.title, content: [{ type: 'text/html', value: aiContent.email }] })
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
       });
     }
 
     if (settings.smsEnabled && user.phone) {
-      await sendWithRetry('sms', async () => {
-        const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
-          method: 'POST',
-          headers: {
-            'authorization': settings.smsApiKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            route: 'q',
-            message: aiContent.sms,
-            numbers: user.phone,
-          })
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      });
+      await sendWithRetry('sms', async () => sendQuickSMS(user.phone, aiContent.sms));
     }
   };
 
-  const clearLogs = () => setLogs([]);
+  // Fix: Implement clearLogs to clear audit logs and resolve shorthand property scope error
+  const clearLogs = () => {
+    setLogs([]);
+  };
 
   return (
     <NotificationContext.Provider value={{ 
       settings, logs, inbox, unreadCount, updateSettings, 
-      notifyOrderUpdate, sendInvoiceEmail, markAsRead, markAllAsRead, clearLogs 
+      notifyOrderUpdate, notifyLogin, sendInvoiceEmail, markAsRead, markAllAsRead, clearLogs, fetchInbox
     }}>
       {children}
     </NotificationContext.Provider>

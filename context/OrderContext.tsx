@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -36,7 +37,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { user } = useAuth();
-  const { sendInvoiceEmail } = useNotifications();
+  const { sendInvoiceEmail, notifyOrderUpdate } = useNotifications();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -112,7 +113,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     // Determine vendor_id for the order record (numeric/bigint)
-    // Handle cases where vendor_id might be a string (legacy/internal)
     const rawVendorId = orderData.items[0]?.vendor_id;
     let numericVendorId = null;
     if (rawVendorId && !isNaN(Number(rawVendorId))) {
@@ -126,7 +126,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       total_amount: Number(orderData.total),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
-      payment_id: orderData.payment_id || null, // Persist transaction reference
+      payment_id: orderData.payment_id || null, 
       address: addressSnapshot,
       shippingaddress: addressSnapshot,
       status: "Placed" as OrderStatus,
@@ -152,7 +152,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       });
 
       if (!res.ok) {
-        // Extract detailed error from API response
         const errorBody = await res.json().catch(() => ({}));
         const errorMessage = errorBody.message || errorBody.details || `Server responded with ${res.status}`;
         throw new Error(`Order System Error: ${errorMessage}`);
@@ -161,12 +160,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       const result = await res.json();
       const createdOrder = result[0];
       
-      // Background refresh and email trigger
+      // Background refresh and triggers
       refreshOrders();
       try {
-        sendInvoiceEmail(createdOrder, user);
-      } catch (emailErr) {
-        console.warn("Invoice notification delayed:", emailErr);
+        const orderForNotify = { ...createdOrder, id: createdOrder.id.toString(), total: Number(createdOrder.total_amount), shippingAddress: createdOrder.shippingaddress };
+        sendInvoiceEmail(orderForNotify, user);
+        notifyOrderUpdate(orderForNotify, user); // Trigger SMS Alert
+      } catch (triggerErr) {
+        console.warn("Automation triggers delayed:", triggerErr);
       }
 
       return createdOrder.id.toString();
@@ -178,6 +179,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, details: any = {}) => {
     const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    
     const history = order?.statusHistory || [];
     const newHistory = [...history, {
         status,
@@ -201,6 +204,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       
       if (!res.ok) throw new Error("Status update failed");
       await refreshOrders();
+
+      // Notify on specific changes (like cancellation)
+      if (status === 'Cancelled' && user) {
+          notifyOrderUpdate(order, user);
+      }
     } catch (err) { 
       console.error("Status Update Error:", err); 
     }

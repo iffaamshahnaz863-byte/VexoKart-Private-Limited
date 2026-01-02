@@ -182,8 +182,8 @@ const App: React.FC = () => {
   return (
     <AdminCodeProvider>
       <VendorProvider>
-        <AuthProvider>
-          <NotificationProvider>
+        <NotificationProvider>
+          <AuthProvider>
             <ProductProvider>
               <CategoryProvider>
                 <BannerProvider>
@@ -199,8 +199,8 @@ const App: React.FC = () => {
                 </BannerProvider>
               </CategoryProvider>
             </ProductProvider>
-          </NotificationProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </NotificationProvider>
       </VendorProvider>
     </AdminCodeProvider>
   );

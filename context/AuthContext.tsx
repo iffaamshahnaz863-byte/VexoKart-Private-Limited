@@ -1,6 +1,8 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
 import { VendorContext } from './VendorContext.tsx';
+import { useNotifications } from './NotificationContext.tsx';
 import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
 interface AuthContextType {
@@ -40,6 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   
   const vendorContext = useContext(VendorContext);
+  const { notifyLogin, fetchInbox } = useNotifications();
 
   const fetchUsers = async () => {
     try {
@@ -69,7 +72,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (res.ok) {
               const userData = await res.json();
               if (Array.isArray(userData) && userData.length > 0) {
-                setUser(sanitizeUser(userData[0]));
+                const foundUser = sanitizeUser(userData[0]);
+                setUser(foundUser);
+                fetchInbox(foundUser.email);
               }
           }
         } catch (e) {
@@ -98,6 +103,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (Array.isArray(data) && data.length > 0) {
         const loggedUser = sanitizeUser(data[0]);
         updateUserSession(loggedUser);
+        
+        // Trigger Notifications
+        notifyLogin(loggedUser);
+        fetchInbox(loggedUser.email);
+        
         return;
       }
       
