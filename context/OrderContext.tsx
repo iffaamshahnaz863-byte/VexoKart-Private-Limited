@@ -74,7 +74,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
-            invoice_generated: o.invoice_generated ?? true,
             // Fallback for store_name from joined vendor object
             seller_name: o.vendor?.store_name || "VexoKart Direct",
             shippingAddress: o.shippingaddress || o.address || null,
@@ -118,6 +117,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       numericVendorId = Number(rawVendorId);
     }
 
+    // Prepare a descriptive note for history, capturing payment ID if present
+    const historyNote = orderData.payment_id 
+        ? `Order placed successfully (Ref: ${orderData.payment_id})`
+        : "Order placed successfully";
+
     const payload = {
       user_id: Number(user.id),
       vendor_id: numericVendorId,
@@ -125,17 +129,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       total_amount: Number(orderData.total),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
-      payment_id: orderData.payment_id || null, 
+      // FIXED: Removed 'payment_id' and 'invoice_generated' columns as they don't exist in the current DB schema.
       address: addressSnapshot,
       shippingaddress: addressSnapshot,
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
-      invoice_generated: true,
       status_history: [{
           status: "Placed" as OrderStatus,
           timestamp,
           actor: "User" as const,
-          note: "Order placed successfully",
+          note: historyNote,
       }],
       created_at: timestamp,
     };
@@ -175,7 +178,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                   total: Number(createdOrder.total_amount), 
                   shippingAddress: createdOrder.shippingaddress 
               };
-              // The user placing the order is always the customer here
               await Promise.allSettled([
                   sendInvoiceEmail(orderForNotify, user),
                   notifyOrderUpdate(orderForNotify, user)
@@ -220,13 +222,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       if (!res.ok) throw new Error("Status update failed");
       await refreshOrders();
 
-      // Send automated SMS to the customer (not the current logged-in actor)
-      if ((status === 'Cancelled' || status === 'Shipped' || status === 'Delivered')) {
-          const customerAccount = users.find(u => Number(u.id) === Number(order.user_id));
-          if (customerAccount) {
-              notifyOrderUpdate(order, customerAccount);
-          }
-      }
+      // Send automated notifications in the background
+      (async () => {
+        if ((status === 'Cancelled' || status === 'Shipped' || status === 'Delivered')) {
+            const customerAccount = users.find(u => Number(u.id) === Number(order.user_id));
+            if (customerAccount) {
+                await notifyOrderUpdate(order, customerAccount);
+            }
+        }
+      })();
     } catch (err) { 
       console.error("Status Update Error:", err); 
     }
