@@ -16,7 +16,14 @@ import ShippingAddressesPage from './pages/ShippingAddressesPage.tsx';
 import AddressFormPage from './pages/AddressFormPage.tsx';
 import WishlistPage from './pages/WishlistPage.tsx';
 import NotificationsPage from './pages/NotificationsPage.tsx';
+
+// New Policy Pages
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
+import AboutUsPage from './pages/AboutUsPage.tsx';
+import ContactUsPage from './pages/ContactUsPage.tsx';
+
 import BottomNav from './components/BottomNav.tsx';
+import Footer from './components/Footer.tsx';
 import SplashScreen from './components/SplashScreen.tsx';
 import { CartProvider } from './context/CartContext.tsx';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
@@ -111,14 +118,15 @@ const AppContent: React.FC = () => {
   const isLogisticsPage = location.pathname.startsWith('/scan');
   
   const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout', '/order-success'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
+  const showFooter = !isInitializing && !isAdminPage && !isVendorPage && !isLogisticsPage && !isAuthPage;
 
   if (isInitializing) {
     return <SplashScreen onFinish={() => setIsInitializing(false)} />;
   }
 
   return (
-    <div className="min-h-screen bg-background text-text-secondary font-sans animate-in fade-in duration-700">
-      <main className={showBottomNav ? "pb-20" : ""}>
+    <div className="min-h-screen bg-background text-text-secondary font-sans animate-in fade-in duration-700 flex flex-col">
+      <main className={`flex-grow ${showBottomNav ? "pb-20" : ""}`}>
         <Routes>
           {/* User Routes */}
           <Route path="/" element={<HomePage />} />
@@ -127,6 +135,11 @@ const AppContent: React.FC = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          
+          {/* Policy Routes (Public) */}
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/about-us" element={<AboutUsPage />} />
+          <Route path="/contact-us" element={<ContactUsPage />} />
           
           {/* Logistics Route (QR Scan) */}
           <Route path="/scan/:token" element={<CourierScanPage />} />
@@ -173,6 +186,7 @@ const AppContent: React.FC = () => {
 
         </Routes>
       </main>
+      {showFooter && <Footer />}
       {showBottomNav && <BottomNav />}
     </div>
   );
