@@ -58,13 +58,16 @@
           position: absolute !important;
           left: 0 !important;
           top: 0 !important;
-          width: 100% !important;
+          width: 100mm !important; /* 4 inches approx */
+          height: 150mm !important; /* 6 inches approx */
           margin: 0 !important;
           padding: 0 !important;
-          border: none !important;
+          border: 1px solid black !important;
+          background: white !important;
+          color: black !important;
         }
         @page {
-          size: A4;
+          size: 100mm 150mm; /* 4x6 Thermal Label Size */
           margin: 0;
         }
         .no-print {
