@@ -1,3 +1,4 @@
+
 export interface Review {
   id: string;
   author: string;
@@ -66,6 +67,7 @@ export interface OrderItem {
     vendor_name?: string;
     color?: string;
     size?: string;
+    sku?: string;
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -75,7 +77,7 @@ export interface StatusHistory {
     status: OrderStatus;
     timestamp: string;
     note?: string;
-    actor?: 'System' | 'User' | 'Vendor' | 'Courier' | 'Admin';
+    actor?: 'System' | 'User' | 'Vendor' | 'Courier' | 'Admin' | 'Shiprocket';
 }
 
 export interface Order {
@@ -83,26 +85,42 @@ export interface Order {
     user_id: number;
     vendor_id?: string;
     items: OrderItem[];
-    total: number; // Standardized for UI
-    total_amount?: number; // DB compatibility
+    total: number; 
+    total_amount: number; 
     payment_mode: 'Online Payment' | 'Cash on Delivery';
     payment_status: PaymentStatus;
-    shippingAddress: Address; // Standardized for UI
-    shipping_address?: Address; // DB compatibility
+    shipping_address: Address;
+    shippingAddress: Address; 
     status: OrderStatus;
-    statusHistory: StatusHistory[]; // Standardized for UI
-    status_history?: StatusHistory[]; // DB compatibility
-    label_url?: string;
-    tracking_id?: string;
-    courier_name?: string;
-    qr_token?: string;
-    qrToken?: string; // Standardized for UI
+    statusHistory: StatusHistory[];
+    status_history: StatusHistory[]; 
     created_at: string;
-    date?: string; // Virtual for UI
-    userEmail?: string; // Virtual for UI
-    paymentId?: string; // Virtual for UI
-    invoice_generated?: boolean;
+    
+    shipment_id?: string;
+    awb_code?: string;
+    tracking_id?: string; 
+    label_url?: string;
+    courier_name?: string;
+    tracking_url?: string;
+    pickup_scheduled_date?: string;
+    
+    qr_token?: string;
+    qrToken?: string; 
     invoice_url?: string;
+    invoice_generated?: boolean;
+    seller_name?: string;
+}
+
+export interface AppNotification {
+  id: number;
+  user_id?: number | string;
+  vendor_id?: number | string;
+  role: 'user' | 'vendor' | 'admin';
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 export interface Address {

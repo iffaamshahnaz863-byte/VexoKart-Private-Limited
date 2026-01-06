@@ -12,19 +12,12 @@ const OrderSuccessPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // HashRouter state retrieval
   const state = location.state as OrderSuccessState | undefined;
   const address = state?.address;
   const orderId = state?.orderId;
 
-  /**
-   * 🔐 SAFETY REDIRECT
-   * If the page is accessed without order information (e.g. direct URL entry),
-   * we redirect the user to their order history instead of the homepage.
-   */
   useEffect(() => {
     if (!orderId) {
-      console.warn("[OrderSuccess] Missing orderId in state. Safety redirecting...");
       const timer = setTimeout(() => {
         navigate('/orders', { replace: true });
       }, 2000);
@@ -35,10 +28,8 @@ const OrderSuccessPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6 relative overflow-hidden animate-in fade-in duration-700">
       
-      {/* Background Decor */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-green-500/5 to-transparent blur-3xl rounded-full"></div>
 
-      {/* Success Badge */}
       <div className="mb-10 relative">
         <div className="absolute inset-0 bg-green-500/20 blur-2xl rounded-full scale-150 animate-pulse"></div>
         <div className="relative w-28 h-28 bg-green-500 rounded-full flex items-center justify-center shadow-2xl shadow-green-500/40 border-4 border-white">
@@ -48,7 +39,6 @@ const OrderSuccessPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary Message */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-black text-text-main italic tracking-tight uppercase leading-none">
           Order<br/><span className="text-accent">Confirmed</span>
@@ -58,7 +48,6 @@ const OrderSuccessPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Transaction Details */}
       <div className="w-full max-w-md space-y-4 mb-10">
         {orderId && (
           <div className="space-y-3">
@@ -71,16 +60,14 @@ const OrderSuccessPage: React.FC = () => {
                 </p>
             </GlassmorphicCard>
 
-            {/* ✅ INVOICE STATUS NOTIFICATION (STRICT TASK COMPLIANCE) */}
             <div className="bg-accent/5 border border-accent/10 rounded-2xl p-4 flex gap-4 items-center animate-in slide-in-from-top-4 duration-1000">
                 <div className="bg-accent rounded-xl p-2 shrink-0 shadow-lg shadow-accent/20">
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 </div>
                 <div>
-                    <p className="text-[10px] font-black uppercase text-accent tracking-widest italic">Invoice has been sent to your registered email</p>
+                    <p className="text-[10px] font-black uppercase text-accent tracking-widest italic">Digital Invoice Available</p>
                     <p className="text-[9px] text-text-secondary font-bold leading-tight mt-0.5">
-                      Your official tax invoice PDF will arrive shortly from <strong>BICT Computer Education</strong>. 
-                      Please check your inbox (including promotions/spam).
+                      Your official tax invoice and shipment labels are now available for viewing and download in your <strong>Order History</strong>.
                     </p>
                 </div>
             </div>
@@ -119,11 +106,10 @@ const OrderSuccessPage: React.FC = () => {
         )}
       </div>
 
-      {/* Action Suite */}
       <div className="w-full max-w-md space-y-4">
         <button
           onClick={() => navigate('/orders', { replace: true })}
-          className="w-full bg-text-main text-white font-black uppercase tracking-widest text-[11px] py-5 rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+          className="w-full bg-text-main text-white font-black uppercase tracking-widest text-[11px] py-5 rounded-2xl shadow-xl active:scale-0.98 transition-all flex items-center justify-center gap-3"
         >
           Track Shipment
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
@@ -137,7 +123,6 @@ const OrderSuccessPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Ecosystem Footer */}
       <div className="mt-auto pt-12 pb-6 text-center">
         <p className="text-[8px] text-text-muted font-black uppercase tracking-[0.4em] italic opacity-60">
           VexoKart Logistics Protocol v5.0 • Secure Node

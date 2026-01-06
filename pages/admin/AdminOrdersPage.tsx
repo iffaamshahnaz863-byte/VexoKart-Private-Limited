@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus } from '../../types';
@@ -8,14 +9,13 @@ import OrderStatusHistoryModal from '../../components/admin/OrderStatusHistoryMo
 const ALL_STATUSES: OrderStatus[] = ['Placed', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
 const AdminOrdersPage: React.FC = () => {
-  const { orders, updateOrderStatus } = useOrders();
+  const { orders, updateOrderStatus, generateShippingLabel, isLabelGenerating } = useOrders();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isShippingModalOpen, setShippingModalOpen] = useState(false);
   const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
 
   const handleStatusChange = (order: Order, status: OrderStatus) => {
-    /* Fix: Property 'trackingId' does not exist on type 'Order'. Did you mean 'tracking_id'? */
-    if (status === 'Shipped' && !order.tracking_id) {
+    if (status === 'Shipped' && !order.awb_code && !order.tracking_id) {
       setSelectedOrder(order);
       setShippingModalOpen(true);
     } else {
@@ -25,7 +25,6 @@ const AdminOrdersPage: React.FC = () => {
 
   const handleShippingSubmit = (courierName: string, trackingId: string) => {
     if (selectedOrder) {
-      /* Fix: Use tracking_id key to satisfy updateOrderStatus requirements */
       updateOrderStatus(selectedOrder.id, 'Shipped', { courier_name: courierName, tracking_id: trackingId });
     }
     setShippingModalOpen(false);
@@ -60,8 +59,7 @@ const AdminOrdersPage: React.FC = () => {
       )}
       {isHistoryModalOpen && selectedOrder && (
         <OrderStatusHistoryModal
-          /* Fix: Property 'statusHistory' does not exist on type 'Order'. Did you mean 'status_history'? */
-          history={selectedOrder.status_history}
+          history={selectedOrder.statusHistory || selectedOrder.status_history || []}
           onClose={() => setHistoryModalOpen(false)}
         />
       )}
@@ -73,23 +71,20 @@ const AdminOrdersPage: React.FC = () => {
               <tr className="border-b border-gray-700 text-text-muted">
                 <th className="p-4 font-semibold">Order ID</th>
                 <th className="p-4 font-semibold">Date</th>
-                <th className="p-4 font-semibold">Customer ID</th>
+                <th className="p-4 font-semibold">Customer</th>
                 <th className="p-4 font-semibold">Total</th>
                 <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold">Update Status</th>
-                <th className="p-4 font-semibold">History</th>
+                <th className="p-4 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {orders.map(order => (
                 <tr key={order.id} className="border-b border-gray-800 hover:bg-surface/50">
                   <td className="p-4 text-text-main font-mono">#{order.id}</td>
-                  {/* Fix: Property 'date' does not exist on type 'Order'. Did you mean 'created_at'? */}
                   <td className="p-4">{new Date(order.created_at).toLocaleDateString()}</td>
-                  {/* Fix: Property 'userEmail' does not exist on type 'Order'. Displaying user_id instead. */}
-                  <td className="p-4">{order.user_id}</td>
-                  {/* Fix: Property 'total' does not exist on type 'Order'. Did you mean 'total_amount'? */}
-                  <td className="p-4 font-semibold">₹{order.total_amount.toFixed(2)}</td>
+                  <td className="p-4">{order.shippingAddress?.fullName || order.user_id}</td>
+                  <td className="p-4 font-semibold">₹{(order.total_amount || order.total || 0).toFixed(2)}</td>
                   <td className="p-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}>
                         {order.status}
@@ -99,17 +94,26 @@ const AdminOrdersPage: React.FC = () => {
                      <select 
                         value={order.status} 
                         onChange={(e) => handleStatusChange(order, e.target.value as OrderStatus)}
-                        className="bg-surface border border-gray-600 rounded-md p-1.5 text-text-main focus:ring-accent focus:border-accent"
+                        className="bg-surface border border-gray-600 rounded-md p-1.5 text-text-main focus:ring-accent focus:border-accent text-xs"
                      >
                         {ALL_STATUSES.map(status => (
                             <option key={status} value={status}>{status}</option>
                         ))}
                     </select>
                   </td>
-                   <td className="p-4">
+                   <td className="p-4 space-x-3 whitespace-nowrap">
                     <button onClick={() => openHistoryModal(order)} className="text-accent hover:underline text-xs font-semibold">
-                      View History
+                      History
                     </button>
+                    {['Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) && (
+                        <button 
+                            onClick={() => generateShippingLabel(order.id)}
+                            disabled={isLabelGenerating}
+                            className="text-white bg-indigo-600 px-3 py-1 rounded-md text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                        >
+                            {isLabelGenerating ? '...' : 'Label'}
+                        </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -74,7 +74,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               if (Array.isArray(userData) && userData.length > 0) {
                 const foundUser = sanitizeUser(userData[0]);
                 setUser(foundUser);
-                fetchInbox(foundUser.email);
+                // Corrected: Pass user object, not email
+                await fetchInbox(foundUser);
               }
           }
         } catch (e) {
@@ -105,8 +106,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateUserSession(loggedUser);
         
         // Trigger Notifications
-        notifyLogin(loggedUser);
-        fetchInbox(loggedUser.email);
+        await notifyLogin(loggedUser);
+        // Corrected: Pass user object, not email
+        await fetchInbox(loggedUser);
         
         return;
       }

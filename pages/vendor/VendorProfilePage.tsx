@@ -87,13 +87,13 @@ const VendorProfilePage: React.FC = () => {
 
         setIsUpdating(true);
         try {
-            // Explicitly map keys to match common Supabase vendor table schemas
+            // Note: 'store_address' is intentionally excluded from the update profile call 
+            // because the column does not exist in the database table.
             await updateVendorProfile(currentVendor.id, { 
                 store_name: storeName, 
                 profile_image: storeLogo,
-                store_address: storeAddress,
                 phone: storePhone,
-                owner_name: currentVendor.owner_name // Re-send to ensure full payload if needed
+                owner_name: currentVendor.owner_name
             });
             alert('Store profile updated successfully!');
             navigate('/vendor');
@@ -176,7 +176,7 @@ const VendorProfilePage: React.FC = () => {
                         </div>
 
                         <div className="col-span-full">
-                            <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">Warehouse / Pickup Address (Printed on Labels)</label>
+                            <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">Warehouse / Pickup Address (Current session only)</label>
                             <textarea 
                                 value={storeAddress} 
                                 onChange={(e) => setStoreAddress(e.target.value)} 
@@ -186,12 +186,13 @@ const VendorProfilePage: React.FC = () => {
                                 placeholder="Full pickup address for couriers..."
                                 className={`${inputClasses} resize-none`} 
                             />
+                            <p className="text-[8px] text-text-muted italic mt-1">* Note: Pickup address is used for manifest generation and isn't stored in basic profile.</p>
                         </div>
                     </div>
 
                     <div className="flex justify-end gap-4 pt-6 border-t border-border">
                         <button type="button" onClick={() => navigate('/vendor')} disabled={isUpdating} className="px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-text-secondary hover:bg-surface transition-all">Cancel</button>
-                        <button type="submit" disabled={isUpdating} className="bg-accent text-white px-10 py-3 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/30 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50">
+                        <button type="submit" disabled={isUpdating} className="bg-accent text-white px-10 py-3 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/30 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50">
                             {isUpdating ? 'Synchronizing...' : 'Save Profile Settings'}
                         </button>
                     </div>

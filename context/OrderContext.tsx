@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -6,21 +5,24 @@ import React, {
   ReactNode,
   useContext,
 } from "react";
-import { Order, OrderStatus, Address, PaymentStatus } from "../types.ts";
+import { Order, OrderStatus, Address, PaymentStatus, Vendor } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
 import { useNotifications } from "./NotificationContext.tsx";
 import { BASE_API_URL, API_HEADERS } from "../constants.ts";
 
 interface OrderContextType {
-  orders: any[]; // Using any temporarily for joined structure
+  orders: any[];
   isLoading: boolean;
+  activeOrderForLabel: any | null;
   addOrder: (orderData: any) => Promise<string>;
   updateOrderStatus: (
     orderId: string,
     status: OrderStatus,
     details?: any
   ) => Promise<void>;
-  generateShippingLabel: (orderId: string) => Promise<void>;
+  createShipment: (orderId: string, vendorData: any) => Promise<void>;
+  generateShippingLabel: (orderId: string) => void;
+  closeLabelPreview: () => void;
   refreshOrders: () => Promise<void>;
   getOrderById: (orderId: string) => any | undefined;
   getOrderByToken: (token: string) => any | undefined;
@@ -36,72 +38,108 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { user, users } = useAuth();
-  const { sendInvoiceEmail, notifyOrderUpdate } = useNotifications();
+  const { user } = useAuth();
+  const { fetchInbox } = useNotifications();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // IN-APP REACT COMPONENT PREVIEW STATE
+  const [activeOrderForLabel, setActiveOrderForLabel] = useState<any | null>(null);
 
-  /* =========================
-     FETCH ORDERS (WITH JOIN)
-  ========================== */
   const refreshOrders = async () => {
-    if (!user) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       setIsLoading(true);
-
-      // Join with vendors table to get store_name for invoices and orders
-      let url = `${BASE_API_URL}/orders?select=*,vendor:vendors(store_name)&order=created_at.desc`;
+      let selectString = `*,vendor:vendors!vendor_id(*)`;
+      let filter = `order=created_at.desc`;
 
       if (user.role === "user") {
-        url += `&user_id=eq.${user.id}`;
+        filter += `&user_id=eq.${user.id}`;
+      } else if (user.role === "vendor") {
+        const vRes = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${user.id}&select=id`, { headers: API_HEADERS });
+        if (!vRes.ok) throw new Error("Vendor profile unreachable");
+        const vData = await vRes.json();
+        if (Array.isArray(vData) && vData.length > 0) {
+            filter += `&vendor_id=eq.${vData[0].id}`;
+        } else {
+            setOrders([]);
+            setIsLoading(false);
+            return;
+        }
       }
 
-      const res = await fetch(url, {
+      const res = await fetch(`${BASE_API_URL}/orders?select=${selectString}&${filter}`, {
         headers: { ...API_HEADERS, "Cache-Control": "no-cache" },
       });
 
-      if (!res.ok) throw new Error("Failed to fetch orders");
+      if (!res.ok) {
+        const fallbackRes = await fetch(`${BASE_API_URL}/orders?select=*&${filter}`, {
+            headers: { ...API_HEADERS, "Cache-Control": "no-cache" },
+        });
+        if (fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            processOrders(data);
+            return;
+        }
+        throw new Error("Order fetch failed");
+      }
 
       const data = await res.json();
-
-      if (Array.isArray(data)) {
-        setOrders(
-          data.map((o: any) => ({
-            ...o,
-            id: o.id.toString(),
-            total: Number(o.total_amount || 0),
-            statusHistory: o.status_history || [],
-            qrToken: o.qr_token,
-            date: o.created_at,
-            // Fallback for store_name from joined vendor object
-            seller_name: o.vendor?.store_name || "VexoKart Direct",
-            shippingAddress: o.shippingaddress || o.address || null,
-          }))
-        );
-      }
-    } catch (e) {
-      console.error("[OrderContext] Order fetch failed", e);
+      processOrders(data);
+    } catch (e: any) {
+      console.error("[OrderContext] Fetch failed:", e.message);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const processOrders = (data: any[]) => {
+    if (Array.isArray(data)) {
+      setOrders(
+        data.map((o: any) => ({
+          ...o,
+          id: o.id.toString(),
+          total: Number(o.total_amount || o.total || 0),
+          statusHistory: o.status_history || [],
+          qrToken: o.qr_token,
+          date: o.created_at,
+          seller_name: o.vendor?.store_name || "VexoKart Direct",
+          shippingAddress: o.shipping_address || o.shippingaddress || o.address || null,
+        }))
+      );
+    }
+  };
+
   useEffect(() => {
-    if (user) refreshOrders();
-    else setOrders([]);
+    if (user) {
+        refreshOrders();
+        fetchInbox(user);
+    } else {
+        setOrders([]);
+        setIsLoading(false);
+    }
   }, [user]);
 
-  /* =========================
-     CREATE ORDER
-  ========================== */
-  const addOrder = async (orderData: any): Promise<string> => {
-    if (!user) throw new Error("Authentication required to place order.");
+  const generateShippingLabel = (orderId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      setActiveOrderForLabel(order);
+    }
+  };
 
+  const closeLabelPreview = () => {
+    setActiveOrderForLabel(null);
+  };
+
+  const addOrder = async (orderData: any): Promise<string> => {
+    if (!user) throw new Error("Authentication required.");
     const timestamp = new Date().toISOString();
     const qrToken = Math.random().toString(36).substring(2, 15);
-
-    const addressSnapshot: Address = {
+    const addressSnapshot = {
       id: orderData.shippingAddress?.id || Date.now().toString(),
       fullName: orderData.shippingAddress?.fullName || 'Customer',
       street: orderData.shippingAddress?.street || '',
@@ -110,94 +148,40 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       zip: orderData.shippingAddress?.zip || '',
       phone: orderData.shippingAddress?.phone || '',
     };
-
     const rawVendorId = orderData.items[0]?.vendor_id;
     let numericVendorId = null;
-    if (rawVendorId && !isNaN(Number(rawVendorId))) {
-      numericVendorId = Number(rawVendorId);
-    }
-
-    // Prepare a descriptive note for history, capturing payment ID if present
-    const historyNote = orderData.payment_id 
-        ? `Order placed successfully (Ref: ${orderData.payment_id})`
-        : "Order placed successfully";
+    if (rawVendorId && !isNaN(Number(rawVendorId))) numericVendorId = Number(rawVendorId);
 
     const payload = {
       user_id: Number(user.id),
       vendor_id: numericVendorId,
       items: orderData.items,
+      total: Number(orderData.total),
       total_amount: Number(orderData.total),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
-      // FIXED: Removed 'payment_id' and 'invoice_generated' columns as they don't exist in the current DB schema.
-      address: addressSnapshot,
-      shippingaddress: addressSnapshot,
+      shipping_address: addressSnapshot,
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
-      status_history: [{
-          status: "Placed" as OrderStatus,
-          timestamp,
-          actor: "User" as const,
-          note: historyNote,
-      }],
+      status_history: [{ status: "Placed", timestamp, actor: "User", note: "Order placed" }],
       created_at: timestamp,
     };
 
-    try {
-      const res = await fetch(`${BASE_API_URL}/orders`, {
-        method: "POST",
-        headers: { 
-          ...API_HEADERS, 
-          "Prefer": "return=representation" 
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorBody = await res.json().catch(() => ({}));
-        const errorMessage = errorBody.message || errorBody.details || `Server responded with ${res.status}`;
-        throw new Error(`Order System Error: ${errorMessage}`);
-      }
-
-      const result = await res.json();
-      if (!Array.isArray(result) || result.length === 0) {
-          throw new Error("Order creation verified but manifest receipt failed. Check My Orders.");
-      }
-      
-      const createdOrder = result[0];
-      const finalOrderId = createdOrder.id.toString();
-      
-      refreshOrders();
-      
-      // Fire-and-forget notification block (Customer specific)
-      (async () => {
-          try {
-              const orderForNotify = { 
-                  ...createdOrder, 
-                  id: finalOrderId, 
-                  total: Number(createdOrder.total_amount), 
-                  shippingAddress: createdOrder.shippingaddress 
-              };
-              await Promise.allSettled([
-                  sendInvoiceEmail(orderForNotify, user),
-                  notifyOrderUpdate(orderForNotify, user)
-              ]);
-          } catch (sideEffectErr) {
-              console.warn("Notification side-effects failed silently:", sideEffectErr);
-          }
-      })();
-
-      return finalOrderId;
-    } catch (err: any) {
-      console.error("[CRITICAL] Order Placement Failed:", err);
-      throw err;
-    }
+    const res = await fetch(`${BASE_API_URL}/orders`, {
+      method: "POST",
+      headers: { ...API_HEADERS, "Prefer": "return=representation" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Order placement failed");
+    const result = await res.json();
+    refreshOrders();
+    return result[0].id.toString();
   };
+
+  const createShipment = async (orderId: string, vendor: any) => {};
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, details: any = {}) => {
     const order = orders.find((o) => o.id === orderId);
-    if (!order) return;
-    
     const history = order?.statusHistory || [];
     const newHistory = [...history, {
         status,
@@ -206,39 +190,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         note: details.note || `Order status transitioned to ${status}`,
     }];
 
-    try {
-      const res = await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
-        method: "PATCH",
-        headers: { ...API_HEADERS },
-        body: JSON.stringify({ 
-          status, 
-          status_history: newHistory,
-          ...(details.courier_name && { courier_name: details.courier_name }),
-          ...(details.tracking_id && { tracking_id: details.tracking_id }),
-          ...(details.label_url && { label_url: details.label_url })
-        }),
-      });
-      
-      if (!res.ok) throw new Error("Status update failed");
-      await refreshOrders();
+    const updatePayload: any = { status, status_history: newHistory };
+    if (details.courier_name) updatePayload.courier_name = details.courier_name;
+    if (details.tracking_id) updatePayload.tracking_id = details.tracking_id;
 
-      // Send automated notifications in the background
-      (async () => {
-        if ((status === 'Cancelled' || status === 'Shipped' || status === 'Delivered')) {
-            const customerAccount = users.find(u => Number(u.id) === Number(order.user_id));
-            if (customerAccount) {
-                await notifyOrderUpdate(order, customerAccount);
-            }
-        }
-      })();
-    } catch (err) { 
-      console.error("Status Update Error:", err); 
-    }
-  };
-
-  const generateShippingLabel = async (orderId: string) => {
-    const labelUrl = `https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/labels/${orderId}.pdf`;
-    await updateOrderStatus(orderId, "Packed", { label_url: labelUrl });
+    const res = await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
+      method: "PATCH",
+      headers: { ...API_HEADERS },
+      body: JSON.stringify(updatePayload),
+    });
+    if (res.ok) await refreshOrders();
   };
 
   const getOrderById = (id: string) => orders.find((o) => o.id === id);
@@ -246,9 +207,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateOrderByToken = async (token: string, status: OrderStatus, note?: string) => {
     const order = getOrderByToken(token);
-    if (!order) return { success: false, message: "Invalid package manifest token." };
+    if (!order) return { success: false, message: "Invalid token." };
     await updateOrderStatus(order.id, status, { note });
-    return { success: true, message: `Manifest updated to ${status}` };
+    return { success: true, message: `Status updated to ${status}` };
   };
 
   return (
@@ -256,9 +217,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       value={{
         orders,
         isLoading,
+        activeOrderForLabel,
         addOrder,
         updateOrderStatus,
+        createShipment,
         generateShippingLabel,
+        closeLabelPreview,
         refreshOrders,
         getOrderById,
         getOrderByToken,
@@ -272,6 +236,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
 export const useOrders = () => {
   const context = useContext(OrderContext);
-  if (!context) throw new Error("OrderContext provider missing.");
+  if (!context) throw new Error("OrderContext missing.");
   return context;
 };

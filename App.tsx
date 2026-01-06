@@ -16,15 +16,13 @@ import ShippingAddressesPage from './pages/ShippingAddressesPage.tsx';
 import AddressFormPage from './pages/AddressFormPage.tsx';
 import WishlistPage from './pages/WishlistPage.tsx';
 import NotificationsPage from './pages/NotificationsPage.tsx';
-
-// New Policy Pages
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
 import AboutUsPage from './pages/AboutUsPage.tsx';
 import ContactUsPage from './pages/ContactUsPage.tsx';
-
 import BottomNav from './components/BottomNav.tsx';
 import Footer from './components/Footer.tsx';
 import SplashScreen from './components/SplashScreen.tsx';
+import ShippingLabelPreviewModal from './components/ShippingLabelPreviewModal.tsx';
 import { CartProvider } from './context/CartContext.tsx';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { OrderProvider } from './context/OrderContext.tsx';
@@ -35,11 +33,7 @@ import { VendorProvider } from './context/VendorContext.tsx';
 import { AdminCodeProvider } from './context/AdminCodeContext.tsx';
 import { BannerProvider } from './context/BannerContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
-
-// Auth Pages
 import VendorSignupPage from './pages/VendorSignupPage.tsx';
-
-// Admin Imports
 import AdminLayout from './pages/admin/AdminLayout.tsx';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage.tsx';
 import AdminProductsPage from './pages/admin/AdminProductsPage.tsx';
@@ -52,16 +46,12 @@ import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
 import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
 import AdminBannersPage from './pages/admin/AdminBannersPage.tsx';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
-
-// Vendor Imports
 import VendorLayout from './pages/vendor/VendorLayout.tsx';
 import VendorDashboardPage from './pages/vendor/VendorDashboardPage.tsx';
 import VendorProductsPage from './pages/vendor/VendorProductsPage.tsx';
 import VendorProductFormPage from './pages/vendor/VendorProductFormPage.tsx';
 import VendorOrdersPage from './pages/vendor/VendorOrdersPage.tsx';
 import VendorProfilePage from './pages/vendor/VendorProfilePage.tsx';
-
-// Logistics/Courier Imports
 import CourierScanPage from './pages/CourierScanPage.tsx';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -128,26 +118,17 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-background text-text-secondary font-sans animate-in fade-in duration-700 flex flex-col">
       <main className={`flex-grow ${showBottomNav ? "pb-20" : ""}`}>
         <Routes>
-          {/* User Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          
-          {/* Policy Routes (Public) */}
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/contact-us" element={<ContactUsPage />} />
-          
-          {/* Logistics Route (QR Scan) */}
           <Route path="/scan/:token" element={<CourierScanPage />} />
-
-          {/* Special Post-Checkout Route - Registered Top-Level */}
           <Route path="/order-success" element={<OrderSuccessPage />} />
-
-          {/* Protected User Routes */}
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
@@ -157,8 +138,6 @@ const AppContent: React.FC = () => {
           <Route path="/addresses/edit/:id" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
-          
-          {/* Admin Routes */}
           <Route path="/admin" element={<AdminRoute />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="products" element={<AdminProductsPage />} />
@@ -173,8 +152,6 @@ const AppContent: React.FC = () => {
             <Route path="codes" element={<AdminCodesPage />} />
             <Route path="notifications" element={<AdminNotificationsPage />} />
           </Route>
-
-          {/* Vendor Routes */}
            <Route path="/vendor" element={<VendorRoute />}>
             <Route index element={<VendorDashboardPage />} />
             <Route path="products" element={<VendorProductsPage />} />
@@ -183,9 +160,9 @@ const AppContent: React.FC = () => {
             <Route path="orders" element={<VendorOrdersPage />} />
             <Route path="profile" element={<VendorProfilePage />} />
           </Route>
-
         </Routes>
       </main>
+      <ShippingLabelPreviewModal />
       {showFooter && <Footer />}
       {showBottomNav && <BottomNav />}
     </div>

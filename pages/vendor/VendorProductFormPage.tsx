@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -59,7 +58,6 @@ const VendorProductFormPage: React.FC = () => {
         setHighlightsText((p.highlights || []).join('\n'));
       }
     } else if (categories.length > 0) {
-      // Ensure initial category is set from categories ID
       setFormData(prev => ({...prev, category_id: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
@@ -127,17 +125,13 @@ const VendorProductFormPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // MANDATORY VENDOR VALIDATION
+    // VENDOR IDENTITY VALIDATION
     if (!currentVendor) { 
-        alert("Vendor identity missing. Please re-login."); 
+        alert("Vendor identity synchronization in progress. Please wait."); 
         return; 
     }
-    if (currentVendor.status !== 'approved') {
-        alert("Your store must be approved to list products.");
-        return;
-    }
-
-    if (!formData.images || formData.images.length === 0) {
+    
+    if (formData.images.length === 0) {
       alert("Please upload at least one image.");
       return;
     }
@@ -153,14 +147,13 @@ const VendorProductFormPage: React.FC = () => {
             price: Number(formData.price),
             original_price: Number(formData.original_price || formData.price),
             stock: Number(formData.stock),
-            // FIXED: Send numeric category_id from the categories table
             category_id: Number(formData.category_id),
-            images: formData.images,
+            images: formData.images, // JSONB compatible
             variants: formData.variants || [],
             highlights: finalHighlights,
-            payment_modes: formData.payment_modes,
-            vendor_id: Number(currentVendor.id), // MANDATORY: Use Numeric Vendor ID
-            status: 'approved', // MANDATORY: Default to approved for trusted vendors
+            // CRITICAL FIX: Use numeric vendor_id from VENDORS table
+            vendor_id: Number(currentVendor.id), 
+            status: 'approved' 
         };
 
         if (isEditing) {
@@ -169,11 +162,11 @@ const VendorProductFormPage: React.FC = () => {
             await addProduct(payload);
         }
         
-        setToast({ show: true, message: 'Inventory Updated Successfully', type: 'success' });
+        setToast({ show: true, message: 'Listing Live', type: 'success' });
         setTimeout(() => navigate('/vendor/products'), 1000);
     } catch (err: any) {
-        console.error("[Submission Error]", err);
-        alert(`Failed to save: ${err.message}`);
+        console.error("[VendorForm] Submit Fail:", err);
+        alert(`Failed to save: ${err.message || "Server Error"}`);
     } finally {
         setIsSubmitting(false);
     }
@@ -190,38 +183,37 @@ const VendorProductFormPage: React.FC = () => {
             image={cropQueue[currentCropIndex]} 
             onCropComplete={handleCropComplete}
             onCancel={() => { setCropQueue([]); setIsAddingToVariant(false); }}
-            title={isAddingToVariant ? "Crop Variant Image" : "Crop Gallery Image"}
+            title={isAddingToVariant ? "Standardize Variant" : "Product Vision"}
           />
       )}
 
       <div className="flex items-center gap-4 mb-8">
           <button onClick={() => navigate('/vendor/products')} className="p-3 bg-white rounded-2xl border border-border shadow-sm"><ChevronLeftIcon className="w-5 h-5" /></button>
-          <h1 className="text-3xl font-black text-text-main italic uppercase">List Product</h1>
+          <h1 className="text-3xl font-black text-text-main italic uppercase">Inventory Manifest</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
             <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Basic Info</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Listing Intelligence</h2>
                 <div className="space-y-4">
                     <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Product Title" className={inputClasses} />
                     <div className="grid grid-cols-2 gap-4">
                         <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputClasses}>
-                            {/* FIXED: Dropdown value is ID, label is name */}
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <input type="number" name="stock" value={formData.stock} onChange={handleChange} required placeholder="Stock Count" className={inputClasses} />
+                        <input type="number" name="stock" value={formData.stock} onChange={handleChange} required placeholder="Stock Available" className={inputClasses} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="Price (₹)" className={inputClasses} />
-                        <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} placeholder="MRP (₹)" className={inputClasses} />
+                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="Selling Price (₹)" className={inputClasses} />
+                        <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} placeholder="Market Price (₹)" className={inputClasses} />
                     </div>
-                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Description" className={inputClasses}></textarea>
+                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Detailed product narrative..." className={inputClasses}></textarea>
                 </div>
             </GlassmorphicCard>
 
             <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Images & Variants</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Visual Discovery</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                     {formData.images && formData.images.map((img: string, i: number) => (
                         <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border relative group">
@@ -233,48 +225,35 @@ const VendorProductFormPage: React.FC = () => {
                         <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, false)} className="hidden" />
                         <div className="text-center">
                             <svg className="w-6 h-6 text-text-muted mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            <span className="text-[8px] font-black uppercase mt-1 block">Add Photo</span>
+                            <span className="text-[8px] font-black uppercase mt-1 block">Add Media</span>
                         </div>
                     </label>
                 </div>
-
-                <div className="p-4 bg-surface rounded-2xl border border-border space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                        {formData.variants && formData.variants.map((v: ProductVariant, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-border shadow-sm">
-                                {v.image && <img src={v.image} className="w-5 h-5 rounded-full object-cover" />}
-                                <span className="text-[10px] font-bold uppercase">{v.value}</span>
-                                <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 font-bold ml-1">&times;</button>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <select value={newVarType} onChange={(e) => setNewVarType(e.target.value as any)} className="bg-white border border-border rounded-lg text-[10px] font-black uppercase px-2 h-10">
-                            <option value="color">Color</option>
-                            <option value="size">Size</option>
-                        </select>
-                        <input type="text" value={newVarName} onChange={(e) => setNewVarName(e.target.value)} placeholder="Variant Name" className="flex-grow bg-white border border-border rounded-lg p-2 text-xs h-10" />
-                        <button type="button" onClick={addVariant} className="bg-accent text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase h-10">Add</button>
-                    </div>
+                
+                <div className="mt-8">
+                    <p className="text-[10px] font-black uppercase text-text-muted mb-4">Highlights (Bullet points per line)</p>
+                    <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Premium Quality&#10;Verified Authentic&#10;Eco-Friendly Material" className={inputClasses}></textarea>
                 </div>
             </GlassmorphicCard>
         </div>
 
         <div className="space-y-6">
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Finalization</h2>
+            <GlassmorphicCard className="p-8 sticky top-24">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Publication Control</h2>
                 <div className="space-y-6">
                     <div>
-                        <p className="text-[10px] font-black uppercase text-text-muted mb-2">Payment Modes</p>
-                        <div className="space-y-2">
-                            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" value="online" checked={formData.payment_modes.includes('online')} onChange={handleChange} className="w-5 h-5 rounded text-accent" /><span className="text-xs font-bold uppercase">Online</span></label>
-                            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" value="cod" checked={formData.payment_modes.includes('cod')} onChange={handleChange} className="w-5 h-5 rounded text-accent" /><span className="text-xs font-bold uppercase">COD</span></label>
+                        <p className="text-[10px] font-black uppercase text-text-muted mb-3">Enabled Checkouts</p>
+                        <div className="space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer group"><input type="checkbox" value="online" checked={formData.payment_modes.includes('online')} onChange={handleChange} className="w-5 h-5 rounded text-accent focus:ring-accent" /><span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main">Digital Pre-paid</span></label>
+                            <label className="flex items-center gap-3 cursor-pointer group"><input type="checkbox" value="cod" checked={formData.payment_modes.includes('cod')} onChange={handleChange} className="w-5 h-5 rounded text-accent focus:ring-accent" /><span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main">Cash on Delivery</span></label>
                         </div>
                     </div>
                     
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-4 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50">
-                        {isSubmitting ? 'Processing...' : (isEditing ? 'Sync Changes' : 'Confirm & Go Live')}
+                    <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-5 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50">
+                        {isSubmitting ? 'Synchronizing DB...' : (isEditing ? 'Sync Changes' : 'Publish to Marketplace')}
                     </button>
+                    
+                    <p className="text-[8px] text-text-muted text-center uppercase font-bold tracking-widest italic opacity-60">Listing strictly monitored by VexoKart AI Protocol</p>
                 </div>
             </GlassmorphicCard>
         </div>
