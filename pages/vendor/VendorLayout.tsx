@@ -1,8 +1,8 @@
 import React, { ReactNode, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useVendors } from '../../context/VendorContext';
-import VendorStatusPage from './VendorStatusPage';
+import { useAuth } from '../../context/AuthContext.tsx';
+import { useVendors } from '../../context/VendorContext.tsx';
+import VendorStatusPage from './VendorStatusPage.tsx';
 
 interface VendorLayoutProps {
   children: ReactNode;

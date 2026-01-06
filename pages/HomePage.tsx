@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Header from '../components/Header';
-import CategoryChip from '../components/CategoryChip';
-import ProductCard from '../components/ProductCard';
-import BannerCarousel from '../components/BannerCarousel';
-import { useProducts } from '../hooks/useProducts';
-import { useCategories } from '../hooks/useCategories';
-import { useBanners } from '../context/BannerContext';
-import { ProductCardSkeleton } from '../components/Skeleton';
+import Header from '../components/Header.tsx';
+import CategoryChip from '../components/CategoryChip.tsx';
+import ProductCard from '../components/ProductCard.tsx';
+import BannerCarousel from '../components/BannerCarousel.tsx';
+import { useProducts } from '../hooks/useProducts.ts';
+import { useCategories } from '../hooks/useCategories.ts';
+import { useBanners } from '../context/BannerContext.tsx';
+import { ProductCardSkeleton } from '../components/Skeleton.tsx';
 
 const HomePage: React.FC = () => {
   const { products } = useProducts();

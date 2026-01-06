@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
-import { SearchIcon } from './icons/SearchIcon';
+import { SearchIcon } from './icons/SearchIcon.tsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useNotifications } from '../context/NotificationContext';
-import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext.tsx';
+import { useAuth } from '../context/AuthContext.tsx';
 
 interface HeaderProps {
   title: string;

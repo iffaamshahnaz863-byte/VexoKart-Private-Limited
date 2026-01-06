@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Product } from '../types';
-import { useAuth } from '../context/AuthContext';
-import { HeartIcon } from './icons/HeartIcon';
-import { useCart } from '../hooks/useCart';
-import Toast from './Toast';
+import { Product } from '../types.ts';
+import { useAuth } from '../context/AuthContext.tsx';
+import { HeartIcon } from './icons/HeartIcon.tsx';
+import { useCart } from '../hooks/useCart.ts';
+import Toast from './Toast.tsx';
 
 interface ProductCardProps {
   product: Product;

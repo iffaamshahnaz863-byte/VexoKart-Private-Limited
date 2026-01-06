@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types.ts';
+import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
 interface NotificationContextType {
   settings: NotificationSettings;
@@ -19,6 +19,17 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+const getEnvKey = (key: string) => {
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      return (process.env as any)[key];
+    }
+  } catch (e) {
+    // ReferenceError or other issues safely ignored
+  }
+  return undefined;
+};
+
 const DEFAULT_SETTINGS: NotificationSettings = {
   emailEnabled: true,
   smsEnabled: true,
@@ -26,7 +37,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpUser: '',
   smtpPass: '',
   emailFrom: 'BICT Computer Education – VexoKart <bictcomputereducation1@gmail.com>',
-  smsApiKey: process.env.FAST2SMS_API_KEY || 'DEMO_KEY_FSTSMS_LIVE',
+  smsApiKey: getEnvKey('FAST2SMS_API_KEY') || 'DEMO_KEY_FSTSMS_LIVE',
   smsSenderId: 'VXKART',
   smsTemplateId: '',
   testMode: false,
@@ -36,7 +47,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [settings, setSettings] = useState<NotificationSettings>(() => {
     const local = localStorage.getItem('vexokart-notification-settings');
     const saved = local ? JSON.parse(local) : DEFAULT_SETTINGS;
-    return { ...saved, smsApiKey: process.env.FAST2SMS_API_KEY || saved.smsApiKey };
+    return { ...saved, smsApiKey: getEnvKey('FAST2SMS_API_KEY') || saved.smsApiKey };
   });
 
   const [logs, setLogs] = useState<NotificationLog[]>([]);
@@ -132,7 +143,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const sendQuickSMS = async (number: string, message: string) => {
     if (!settings.smsEnabled || !number) return { success: false, message: 'SMS Disabled or Number missing' };
-    const apiKey = process.env.FAST2SMS_API_KEY || settings.smsApiKey;
+    const apiKey = getEnvKey('FAST2SMS_API_KEY') || settings.smsApiKey;
     if (!apiKey || apiKey.includes('DEMO_KEY')) return { success: false, message: 'Invalid API Key' };
 
     try {

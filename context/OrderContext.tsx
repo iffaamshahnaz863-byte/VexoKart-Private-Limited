@@ -13,6 +13,7 @@ import { BASE_API_URL, API_HEADERS } from "../constants.ts";
 interface OrderContextType {
   orders: any[];
   isLoading: boolean;
+  isLabelGenerating: boolean;
   activeOrderForLabel: any | null;
   addOrder: (orderData: any) => Promise<string>;
   updateOrderStatus: (
@@ -42,6 +43,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   const { fetchInbox } = useNotifications();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLabelGenerating, setIsLabelGenerating] = useState(false);
   
   // IN-APP REACT COMPONENT PREVIEW STATE
   const [activeOrderForLabel, setActiveOrderForLabel] = useState<any | null>(null);
@@ -217,6 +219,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       value={{
         orders,
         isLoading,
+        isLabelGenerating,
         activeOrderForLabel,
         addOrder,
         updateOrderStatus,
