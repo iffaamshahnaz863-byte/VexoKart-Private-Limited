@@ -59,6 +59,7 @@ const VendorProductFormPage: React.FC = () => {
         setHighlightsText((p.highlights || []).join('\n'));
       }
     } else if (categories.length > 0) {
+      // Ensure initial category is set from categories ID
       setFormData(prev => ({...prev, category_id: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
@@ -152,6 +153,7 @@ const VendorProductFormPage: React.FC = () => {
             price: Number(formData.price),
             original_price: Number(formData.original_price || formData.price),
             stock: Number(formData.stock),
+            // FIXED: Send numeric category_id from the categories table
             category_id: Number(formData.category_id),
             images: formData.images,
             variants: formData.variants || [],
@@ -205,6 +207,7 @@ const VendorProductFormPage: React.FC = () => {
                     <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Product Title" className={inputClasses} />
                     <div className="grid grid-cols-2 gap-4">
                         <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputClasses}>
+                            {/* FIXED: Dropdown value is ID, label is name */}
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                         <input type="number" name="stock" value={formData.stock} onChange={handleChange} required placeholder="Stock Count" className={inputClasses} />

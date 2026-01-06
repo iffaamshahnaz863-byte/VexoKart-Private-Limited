@@ -17,10 +17,10 @@ interface ProductContextType {
 export const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 /**
- * CRITICAL FIX: Removed 'variants' and 'highlights' from the SELECT string 
- * because they do not exist as columns in the current database schema.
+ * FIXED: Join categories table to get the name for display purposes only.
+ * Source of truth for products is always the numeric category_id.
  */
-const PRODUCT_COLUMNS = 'id,name,description,price,original_price,images,category_id,vendor_id,status,stock,created_at';
+const PRODUCT_COLUMNS = '*,category_data:categories(name)';
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -30,16 +30,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       setIsLoading(true);
       
-      // 1. Fetch Categories first
-      const catRes = await fetch(`${BASE_API_URL}/categories?select=*`, { headers: API_HEADERS });
-      let cats: any[] = [];
-      if (catRes.ok) {
-        cats = await catRes.json();
-      } else {
-        console.warn("[ProductContext] Categories fetch failed, using empty list mapping.");
-      }
-      
-      // 2. Build Product Query
+      // Build Product Query with join
       let url = `${BASE_API_URL}/products?select=${PRODUCT_COLUMNS}&order=created_at.desc`;
       if (vendorId && !isNaN(Number(vendorId))) {
           url += `&vendor_id=eq.${vendorId}`;
@@ -51,7 +42,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));
-        // FIX: Use JSON.stringify to avoid [object Object] in logs
         console.error("[Supabase Sync Error]", JSON.stringify({
             status: response.status,
             message: errBody.message || response.statusText,
@@ -64,8 +54,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          const cat = Array.isArray(cats) ? cats.find(c => Number(c.id) === Number(item.category_id)) : null;
-          
           // Resilient price mapping
           const price = Number(item.price || 0);
           const originalPrice = Number(item.original_price || item.mrp || price);
@@ -75,12 +63,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             id: Number(item.id),
             price: price,
             original_price: originalPrice,
-            category: cat?.name || 'General',
+            // MAPPING: Use joined name for UI, fallback to 'General'
+            category: item.category_data?.name || 'General',
+            category_id: Number(item.category_id),
             vendor_id: String(item.vendor_id),
             // Standardize status for UI
             status: ['approved', 'live', 'active', 'published'].includes(item.status) ? 'approved' : item.status || 'pending',
+            // FALLBACK: payment_modes is not in DB, providing UI default
             payment_modes: item.payment_modes || ['online', 'cod'],
-            // FALLBACK: These are kept for UI compatibility even if the DB doesn't store them yet
             variants: item.variants || [],
             highlights: item.highlights || []
           };
@@ -101,19 +91,27 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // Sanitize payload: If variants/highlights aren't in DB, omit them from insertion to avoid 400 error
-    const { variants, highlights, ...dbPayload } = productData;
+    /**
+     * FIXED: Explicitly sanitize payload.
+     * MUST store only columns present in DB.
+     * Stripped 'payment_modes' as it causes PGRST204 column not found error.
+     */
+    const { category, category_data, variants, highlights, payment_modes, ...dbPayload } = productData;
     
+    // Ensure category_id is an integer
+    const finalPayload = {
+      ...dbPayload,
+      category_id: Number(dbPayload.category_id),
+      created_at: new Date().toISOString()
+    };
+
     const res = await fetch(`${BASE_API_URL}/products`, {
       method: 'POST',
       headers: { 
         ...API_HEADERS, 
         'Prefer': 'return=representation' 
       },
-      body: JSON.stringify({
-        ...dbPayload,
-        created_at: new Date().toISOString()
-      })
+      body: JSON.stringify(finalPayload)
     });
 
     if (!res.ok) {
@@ -126,13 +124,21 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    // Sanitize payload for update
-    const { variants, highlights, category, ...dbPayload } = product as any;
+    /**
+     * FIXED: Sanitize payload for update.
+     * Stripped 'payment_modes' as it causes PGRST204 column not found error.
+     */
+    const { category, category_data, variants, highlights, payment_modes, ...dbPayload } = product as any;
+
+    const finalPayload = {
+      ...dbPayload,
+      category_id: Number(dbPayload.category_id)
+    };
 
     const res = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
       method: 'PATCH',
       headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-      body: JSON.stringify(dbPayload)
+      body: JSON.stringify(finalPayload)
     });
     
     if (!res.ok) {

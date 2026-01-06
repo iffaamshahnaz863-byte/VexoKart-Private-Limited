@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -64,6 +65,7 @@ const AdminProductFormPage: React.FC = () => {
         setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
       }
     } else if (categories.length > 0 && !formData.category_id) {
+        // Ensure initial category is set from categories ID
         setFormData((prev: any) => ({...prev, category_id: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
@@ -149,6 +151,7 @@ const AdminProductFormPage: React.FC = () => {
       if (formData.allow_online) payment_modes.push('online');
       if (formData.allow_cod) payment_modes.push('cod');
 
+      // FIXED: Send numeric category_id, no category name
       const finalData = { 
         ...formData, 
         highlights: finalHighlights, 
@@ -188,7 +191,13 @@ const AdminProductFormPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div><label className="block text-[10px] font-black uppercase text-text-muted">Product Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} required disabled={isSubmitting} className={inputClasses} /></div>
-                <div><label className="block text-[10px] font-black uppercase text-text-muted">Category</label><select name="category_id" value={formData.category_id} onChange={handleChange} disabled={isSubmitting} className={inputClasses}>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-text-muted">Category</label>
+                  <select name="category_id" value={formData.category_id} onChange={handleChange} disabled={isSubmitting} className={inputClasses}>
+                    {/* FIXED: Dropdown value is ID, label is name */}
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -238,7 +247,7 @@ const AdminProductFormPage: React.FC = () => {
 
             <div className="flex justify-end gap-4 pt-4">
                 <button type="button" onClick={() => navigate('/admin/products')} disabled={isSubmitting} className="px-6 py-2 rounded-xl text-[10px] font-black uppercase text-text-secondary hover:bg-surface">Cancel</button>
-                <button type="submit" disabled={isSubmitting} className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/20 hover:-translate-y-1 transition-all disabled:opacity-50">
+                <button type="submit" disabled={isSubmitting} className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-accent/20 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50">
                     {isSubmitting ? 'Synchronizing...' : (isEditing ? 'Sync Changes' : 'Go Live')}
                 </button>
             </div>
