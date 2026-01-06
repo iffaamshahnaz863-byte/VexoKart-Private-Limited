@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Product, Review, Category } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -10,130 +11,84 @@ interface ProductContextType {
   updateProduct: (productData: Product) => Promise<void>;
   deleteProduct: (productId: number) => Promise<void>;
   toggleProductStatus: (productId: number) => Promise<void>;
-  refreshProducts: () => Promise<void>;
+  refreshProducts: (vendorId?: number) => Promise<void>;
 }
 
 export const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
+/**
+ * CRITICAL FIX: Removed 'variants' and 'highlights' from the SELECT string 
+ * because they do not exist as columns in the current database schema.
+ */
 const PRODUCT_COLUMNS = 'id,name,description,price,original_price,images,category_id,vendor_id,status,stock,created_at';
-
-const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: 201,
-    name: "Acoustic Noise-Canceling Headset",
-    description: "Premium sound quality with advanced active noise cancellation.",
-    price: 12999,
-    original_price: 18999,
-    discount_percent: 32,
-    images: ["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=500&q=80"],
-    category_id: 1,
-    category: "Electronics",
-    vendor_id: "vexokart_direct",
-    status: "live",
-    stock: 25,
-    rating: 4.8,
-    review_count: 856,
-    reviews: [],
-    created_at: new Date().toISOString(),
-    payment_modes: ["online", "cod"],
-    variants: [{ type: 'color', name: 'Black', value: 'Midnight' }]
-  },
-  {
-    id: 202,
-    name: "Classic Chronograph Watch",
-    description: "Elegant stainless steel design for the modern professional.",
-    price: 4500,
-    original_price: 9000,
-    discount_percent: 50,
-    images: ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=500&q=80"],
-    category_id: 3,
-    category: "Lifestyle",
-    vendor_id: "vexokart_direct",
-    status: "live",
-    stock: 12,
-    rating: 4.5,
-    review_count: 312,
-    reviews: [],
-    created_at: new Date().toISOString(),
-    payment_modes: ["online", "cod"],
-    variants: []
-  },
-  {
-    id: 203,
-    name: "Performance Mesh Runners",
-    description: "Breathable fabric with reactive cushioning for long-distance runs.",
-    price: 3200,
-    original_price: 4999,
-    discount_percent: 36,
-    images: ["https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80"],
-    category_id: 4,
-    category: "Footwear",
-    vendor_id: "vendor_77",
-    status: "live",
-    stock: 50,
-    rating: 4.2,
-    review_count: 1450,
-    reviews: [],
-    created_at: new Date().toISOString(),
-    payment_modes: ["online", "cod"],
-    variants: [{ type: 'size', name: 'UK 9', value: '9' }]
-  }
-];
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCategories = async (): Promise<Category[]> => {
-    try {
-      const res = await fetch(`${BASE_API_URL}/categories?select=*`, { headers: API_HEADERS });
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
-    } catch (e) { return []; }
-  };
-
-  const refreshProducts = async () => {
+  const refreshProducts = async (vendorId?: number) => {
     try {
       setIsLoading(true);
-      const cats = await fetchCategories();
-      const response = await fetch(`${BASE_API_URL}/products?select=${PRODUCT_COLUMNS}&order=created_at.desc`, { 
+      
+      // 1. Fetch Categories first
+      const catRes = await fetch(`${BASE_API_URL}/categories?select=*`, { headers: API_HEADERS });
+      let cats: any[] = [];
+      if (catRes.ok) {
+        cats = await catRes.json();
+      } else {
+        console.warn("[ProductContext] Categories fetch failed, using empty list mapping.");
+      }
+      
+      // 2. Build Product Query
+      let url = `${BASE_API_URL}/products?select=${PRODUCT_COLUMNS}&order=created_at.desc`;
+      if (vendorId && !isNaN(Number(vendorId))) {
+          url += `&vendor_id=eq.${vendorId}`;
+      }
+
+      const response = await fetch(url, { 
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
       });
       
-      if (!response.ok) throw new Error("API Error");
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        // FIX: Use JSON.stringify to avoid [object Object] in logs
+        console.error("[Supabase Sync Error]", JSON.stringify({
+            status: response.status,
+            message: errBody.message || response.statusText,
+            details: errBody.details || "No details provided"
+        }, null, 2));
+        throw new Error(`Database sync failed: ${errBody.message || response.statusText}`);
+      }
 
       const data = await response.json();
       
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          const cat = cats.find(c => Number(c.id) === Number(item.category_id));
-          const price = Number(item.price);
-          const originalPrice = Number(item.original_price || item.price);
+          const cat = Array.isArray(cats) ? cats.find(c => Number(c.id) === Number(item.category_id)) : null;
           
+          // Resilient price mapping
+          const price = Number(item.price || 0);
+          const originalPrice = Number(item.original_price || item.mrp || price);
+
           return {
             ...item,
             id: Number(item.id),
             price: price,
             original_price: originalPrice,
-            discount_percent: originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0,
-            images: Array.isArray(item.images) ? item.images : [],
             category: cat?.name || 'General',
-            vendor_id: String(item.vendor_id || ''),
-            status: item.status || 'approved',
-            variants: Array.isArray(item.variants) ? item.variants : [],
-            payment_modes: ['online', 'cod'],
-            rating: 4.2,
-            review_count: 100,
-            reviews: []
+            vendor_id: String(item.vendor_id),
+            // Standardize status for UI
+            status: ['approved', 'live', 'active', 'published'].includes(item.status) ? 'approved' : item.status || 'pending',
+            payment_modes: item.payment_modes || ['online', 'cod'],
+            // FALLBACK: These are kept for UI compatibility even if the DB doesn't store them yet
+            variants: item.variants || [],
+            highlights: item.highlights || []
           };
         });
         setProducts(mappedProducts);
-      } else {
-        setProducts(FALLBACK_PRODUCTS);
       }
-    } catch (error) {
-      console.warn("[ProductContext] API unreachable. Loading fallback catalog.");
-      setProducts(FALLBACK_PRODUCTS);
+    } catch (error: any) {
+      console.error("[ProductContext] Fatal Sync Error:", error.message);
     } finally {
       setIsLoading(false);
     }
@@ -146,51 +101,67 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    try {
-        const res = await fetch(`${BASE_API_URL}/products`, {
-        method: 'POST',
-        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ ...productData, created_at: new Date().toISOString() })
-        });
-        if (!res.ok) throw new Error("DB error");
-        await refreshProducts();
-    } catch (e) {
-        const newP = { ...productData, id: Date.now() };
-        setProducts(prev => [newP, ...prev]);
+    // Sanitize payload: If variants/highlights aren't in DB, omit them from insertion to avoid 400 error
+    const { variants, highlights, ...dbPayload } = productData;
+    
+    const res = await fetch(`${BASE_API_URL}/products`, {
+      method: 'POST',
+      headers: { 
+        ...API_HEADERS, 
+        'Prefer': 'return=representation' 
+      },
+      body: JSON.stringify({
+        ...dbPayload,
+        created_at: new Date().toISOString()
+      })
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error("[Supabase Write Error]", JSON.stringify(errorData, null, 2));
+      throw new Error(errorData.message || `Save failed: ${res.statusText}`);
     }
+
+    await refreshProducts(productData.vendor_id);
   };
 
   const updateProduct = async (product: Product) => {
-    try {
-        await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
-            method: 'PATCH',
-            headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-            body: JSON.stringify(product)
-        });
-    } finally {
-        setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+    // Sanitize payload for update
+    const { variants, highlights, category, ...dbPayload } = product as any;
+
+    const res = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
+      method: 'PATCH',
+      headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(dbPayload)
+    });
+    
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("[Supabase Update Error]", JSON.stringify(errorData, null, 2));
+        throw new Error("Update failed");
     }
+    await refreshProducts();
   };
 
   const toggleProductStatus = async (id: number) => {
     const product = getProduct(id);
     if (!product) return;
     const newStatus = product.status === 'approved' ? 'disabled' : 'approved';
-    try {
-        await fetch(`${BASE_API_URL}/products?id=eq.${id}`, {
-            method: 'PATCH',
-            headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-            body: JSON.stringify({ status: newStatus })
-        });
-    } finally {
-        setProducts(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
-    }
+    
+    await fetch(`${BASE_API_URL}/products?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { ...API_HEADERS },
+      body: JSON.stringify({ status: newStatus })
+    });
+    await refreshProducts();
   };
 
   const deleteProduct = async (id: number) => {
-    try {
-        await fetch(`${BASE_API_URL}/products?id=eq.${id}`, { method: 'DELETE', headers: API_HEADERS });
-    } finally {
+    const res = await fetch(`${BASE_API_URL}/products?id=eq.${id}`, { 
+      method: 'DELETE', 
+      headers: API_HEADERS 
+    });
+    if (res.ok) {
         setProducts(prev => prev.filter(p => p.id !== id));
     }
   };

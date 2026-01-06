@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -124,30 +125,53 @@ const VendorProductFormPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentVendor) { alert("Merchant profile not found. Please refresh."); return; }
-    if (!formData.images || formData.images.length === 0) { alert("Please add at least one product image."); return; }
-    if (!formData.payment_modes || formData.payment_modes.length === 0) { alert("Select at least one payment mode."); return; }
+    
+    // MANDATORY VENDOR VALIDATION
+    if (!currentVendor) { 
+        alert("Vendor identity missing. Please re-login."); 
+        return; 
+    }
+    if (currentVendor.status !== 'approved') {
+        alert("Your store must be approved to list products.");
+        return;
+    }
+
+    if (!formData.images || formData.images.length === 0) {
+      alert("Please upload at least one image.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
         
-        // CRITICAL FIX: Assign vendor_id from currentVendor.id strictly
-        const finalData = { 
-            ...formData, 
-            vendor_id: String(currentVendor.id), 
-            status: 'approved', // Auto-approve for verified vendors
+        // CONSTRUCT SECURE PAYLOAD
+        const payload = { 
+            name: formData.name,
+            description: formData.description,
+            price: Number(formData.price),
+            original_price: Number(formData.original_price || formData.price),
+            stock: Number(formData.stock),
+            category_id: Number(formData.category_id),
+            images: formData.images,
+            variants: formData.variants || [],
             highlights: finalHighlights,
-            category_id: Number(formData.category_id)
+            payment_modes: formData.payment_modes,
+            vendor_id: Number(currentVendor.id), // MANDATORY: Use Numeric Vendor ID
+            status: 'approved', // MANDATORY: Default to approved for trusted vendors
         };
 
-        if (isEditing) await updateProduct(finalData);
-        else await addProduct(finalData);
+        if (isEditing) {
+            await updateProduct({ ...payload, id: parseInt(id) } as any);
+        } else {
+            await addProduct(payload);
+        }
         
-        setToast({ show: true, message: 'Inventory Updated!', type: 'success' });
+        setToast({ show: true, message: 'Inventory Updated Successfully', type: 'success' });
         setTimeout(() => navigate('/vendor/products'), 1000);
     } catch (err: any) {
-        alert(err.message || "Failed to save product.");
+        console.error("[Submission Error]", err);
+        alert(`Failed to save: ${err.message}`);
     } finally {
         setIsSubmitting(false);
     }
@@ -170,13 +194,13 @@ const VendorProductFormPage: React.FC = () => {
 
       <div className="flex items-center gap-4 mb-8">
           <button onClick={() => navigate('/vendor/products')} className="p-3 bg-white rounded-2xl border border-border shadow-sm"><ChevronLeftIcon className="w-5 h-5" /></button>
-          <h1 className="text-3xl font-black text-text-main italic uppercase">Store Listing</h1>
+          <h1 className="text-3xl font-black text-text-main italic uppercase">List Product</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
             <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Core Product Details</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Basic Info</h2>
                 <div className="space-y-4">
                     <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Product Title" className={inputClasses} />
                     <div className="grid grid-cols-2 gap-4">
@@ -186,15 +210,15 @@ const VendorProductFormPage: React.FC = () => {
                         <input type="number" name="stock" value={formData.stock} onChange={handleChange} required placeholder="Stock Count" className={inputClasses} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="Selling Price (₹)" className={inputClasses} />
+                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="Price (₹)" className={inputClasses} />
                         <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} placeholder="MRP (₹)" className={inputClasses} />
                     </div>
-                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Full Product Description" className={inputClasses}></textarea>
+                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Description" className={inputClasses}></textarea>
                 </div>
             </GlassmorphicCard>
 
             <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Product Gallery</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Images & Variants</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                     {formData.images && formData.images.map((img: string, i: number) => (
                         <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border relative group">
@@ -211,7 +235,6 @@ const VendorProductFormPage: React.FC = () => {
                     </label>
                 </div>
 
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4 border-b border-border pb-2">Managed Variants</h2>
                 <div className="p-4 bg-surface rounded-2xl border border-border space-y-4">
                     <div className="flex flex-wrap gap-2">
                         {formData.variants && formData.variants.map((v: ProductVariant, idx: number) => (
@@ -227,20 +250,8 @@ const VendorProductFormPage: React.FC = () => {
                             <option value="color">Color</option>
                             <option value="size">Size</option>
                         </select>
-                        <input type="text" value={newVarName} onChange={(e) => setNewVarName(e.target.value)} placeholder={newVarType === 'color' ? 'Color (e.g. Midnight Black)' : 'Size (e.g. XL)'} className="flex-grow bg-white border border-border rounded-lg p-2 text-xs h-10" />
-                        
-                        {newVarType === 'color' && (
-                            <label className="flex items-center justify-center bg-white border border-border rounded-lg px-3 cursor-pointer hover:bg-surface h-10">
-                                <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, true)} className="hidden" />
-                                {newVarImage ? (
-                                    <img src={newVarImage} className="w-6 h-6 rounded-full object-cover" />
-                                ) : (
-                                    <svg className="w-5 h-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
-                                )}
-                            </label>
-                        )}
-
-                        <button type="button" onClick={addVariant} className="bg-accent text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase h-10">Add Variant</button>
+                        <input type="text" value={newVarName} onChange={(e) => setNewVarName(e.target.value)} placeholder="Variant Name" className="flex-grow bg-white border border-border rounded-lg p-2 text-xs h-10" />
+                        <button type="button" onClick={addVariant} className="bg-accent text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase h-10">Add</button>
                     </div>
                 </div>
             </GlassmorphicCard>
@@ -248,23 +259,18 @@ const VendorProductFormPage: React.FC = () => {
 
         <div className="space-y-6">
             <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Logistics & Strategy</h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Finalization</h2>
                 <div className="space-y-6">
                     <div>
-                        <p className="text-[10px] font-black uppercase text-text-muted mb-2">Accepted Payments</p>
+                        <p className="text-[10px] font-black uppercase text-text-muted mb-2">Payment Modes</p>
                         <div className="space-y-2">
-                            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" value="online" checked={formData.payment_modes.includes('online')} onChange={handleChange} className="w-5 h-5 rounded text-accent" /><span className="text-xs font-bold uppercase">Online Payment</span></label>
-                            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" value="cod" checked={formData.payment_modes.includes('cod')} onChange={handleChange} className="w-5 h-5 rounded text-accent" /><span className="text-xs font-bold uppercase">Cash on Delivery</span></label>
+                            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" value="online" checked={formData.payment_modes.includes('online')} onChange={handleChange} className="w-5 h-5 rounded text-accent" /><span className="text-xs font-bold uppercase">Online</span></label>
+                            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" value="cod" checked={formData.payment_modes.includes('cod')} onChange={handleChange} className="w-5 h-5 rounded text-accent" /><span className="text-xs font-bold uppercase">COD</span></label>
                         </div>
                     </div>
                     
-                    <div>
-                        <label className="text-[10px] font-black uppercase text-text-muted mb-2 block">Highlights (one per line)</label>
-                        <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Premium Quality&#10;Verified Dealer" className={inputClasses}></textarea>
-                    </div>
-
                     <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-4 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50">
-                        {isSubmitting ? 'Syncing...' : (isEditing ? 'Sync Changes' : 'Go Live')}
+                        {isSubmitting ? 'Processing...' : (isEditing ? 'Sync Changes' : 'Confirm & Go Live')}
                     </button>
                 </div>
             </GlassmorphicCard>
