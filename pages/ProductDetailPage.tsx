@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useProducts } from '../hooks/useProducts';
 import { useCart } from '../hooks/useCart';
@@ -28,14 +28,19 @@ const ProductDetailPage: React.FC = () => {
   const [isWishlistAnimating, setIsWishlistAnimating] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
+  // Swipe logic states
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
+  const [touchEnd, setTouchEnd] = useState({ x: 0, y: 0 });
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
+
   const productId = parseInt(id || '');
   const product = getProduct(productId);
   const vendor = product ? getVendorById(product.vendor_id) : null;
 
-  // Real user address logic
   const defaultAddress = user?.addresses?.[0];
 
-  // Extract variants set by vendor
   const availableSizes = useMemo(() => 
     product?.variants?.filter(v => v.type === 'size').map(v => v.value) || [], 
     [product]
@@ -73,6 +78,46 @@ const ProductDetailPage: React.FC = () => {
   const sellingPrice = Number(product.price);
   const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
   const upiPrice = Math.floor(sellingPrice * 0.98);
+
+  // Swipe Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
+    setTouchEnd({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const currentX = e.targetTouches[0].clientX;
+    const currentY = e.targetTouches[0].clientY;
+    
+    const diffX = touchStart.x - currentX;
+    const diffY = touchStart.y - currentY;
+
+    // Horizontal swipe priority: If user is swiping horizontally, lock vertical scroll
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      if (e.cancelable) e.preventDefault();
+      setSwipeOffset(diffX);
+    }
+    
+    setTouchEnd({ x: currentX, y: currentY });
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    const minSwipeDistance = 50;
+    const diffX = touchStart.x - touchEnd.x;
+    const diffY = touchStart.y - touchEnd.y;
+
+    // Only process if it was primarily a horizontal swipe
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX > minSwipeDistance && currentImageIndex < displayImages.length - 1) {
+        setCurrentImageIndex(prev => prev + 1);
+      } else if (diffX < -minSwipeDistance && currentImageIndex > 0) {
+        setCurrentImageIndex(prev => prev - 1);
+      }
+    }
+    setSwipeOffset(0);
+  };
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -118,7 +163,7 @@ const ProductDetailPage: React.FC = () => {
     <div className="min-h-screen bg-[#F9F9F9] pb-32 font-sans select-none overflow-x-hidden touch-pan-y">
       <Toast message="Added to Cart" isVisible={showAddedToast} onClose={() => setShowAddedToast(false)} />
       
-      {/* MEESHO STYLE HEADER */}
+      {/* HEADER */}
       <div className="sticky top-0 z-[100] bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-1 active:scale-90 transition-transform">
@@ -143,35 +188,61 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* IMAGE GALLERY - FIXED RATIO PREVENTS JUMP */}
-      <div className="relative w-full bg-white aspect-[4/5] overflow-hidden">
+      {/* MOBILE-FIRST IMAGE SLIDER */}
+      <div 
+        className="relative w-full bg-white aspect-[4/5] overflow-hidden touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div 
-          className="flex h-full transition-transform duration-500 ease-out" 
-          style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+          ref={sliderRef}
+          className={`flex h-full will-change-transform ${!isSwiping ? 'transition-transform duration-300 ease-out' : ''}`}
+          style={{ 
+            transform: `translateX(calc(-${currentImageIndex * 100}% - ${swipeOffset}px))`,
+          }}
         >
           {displayImages.map((img, idx) => (
-            <div key={idx} className="w-full h-full flex-shrink-0">
+            <div key={idx} className="w-full h-full flex-shrink-0 flex items-center justify-center">
               <img 
                 src={img} 
-                className="w-full h-full object-contain" 
-                alt={`${product.name}`} 
+                className="w-full h-full object-contain pointer-events-none" 
+                alt={`${product.name} view ${idx + 1}`} 
                 onError={handleImageError}
+                loading={idx === 0 ? "eager" : "lazy"}
               />
             </div>
           ))}
         </div>
         
-        <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">
+        {/* SLIDE INDICATORS */}
+        <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[10px] font-black px-3 py-1 rounded-full backdrop-blur-sm tracking-widest">
           {currentImageIndex + 1}/{displayImages.length}
         </div>
 
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
           {displayImages.map((_, i) => (
             <div 
               key={i} 
-              className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === i ? 'w-4 bg-[#F43397]' : 'w-1.5 bg-gray-300'}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === i ? 'w-5 bg-[#F43397]' : 'w-1.5 bg-gray-300/80'}`}
             />
           ))}
+        </div>
+
+        {/* DESKTOP CONTROLS */}
+        <div className="hidden md:flex absolute inset-y-0 left-0 right-0 items-center justify-between px-4 pointer-events-none">
+           <button 
+             onClick={() => currentImageIndex > 0 && setCurrentImageIndex(prev => prev - 1)}
+             className={`p-2 rounded-full bg-white/80 shadow-md pointer-events-auto transition-opacity ${currentImageIndex === 0 ? 'opacity-0' : 'opacity-100'}`}
+           >
+             <ChevronLeftIcon className="w-6 h-6" />
+           </button>
+           <button 
+             onClick={() => currentImageIndex < displayImages.length - 1 && setCurrentImageIndex(prev => prev + 1)}
+             className={`p-2 rounded-full bg-white/80 shadow-md pointer-events-auto transition-opacity ${currentImageIndex === displayImages.length - 1 ? 'opacity-0' : 'opacity-100'}`}
+           >
+             <ChevronLeftIcon className="w-6 h-6 rotate-180" />
+           </button>
         </div>
       </div>
 
@@ -202,7 +273,6 @@ const ProductDetailPage: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium">{product.review_count || '25'} Reviews</span>
         </div>
 
-        {/* DELIVERY LOCATION SECTION (DYNAMIC) */}
         <div className="pt-3 mt-1 border-t border-gray-100">
            <div className="flex items-center gap-2 cursor-pointer active:opacity-60" onClick={() => navigate('/addresses')}>
               <svg className="w-4 h-4 text-[#F43397]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -356,7 +426,7 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* STICKY MEESHO BOTTOM BAR */}
+      {/* STICKY BOTTOM BAR */}
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-white flex items-center gap-3 z-[110] shadow-[0_-10px_30px_rgba(0,0,0,0.08)] border-t border-gray-100">
         <button 
           onClick={() => handleAction('cart')}
@@ -374,7 +444,7 @@ const ProductDetailPage: React.FC = () => {
             : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
           }`}
         >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
           Buy Now
         </button>
       </div>
