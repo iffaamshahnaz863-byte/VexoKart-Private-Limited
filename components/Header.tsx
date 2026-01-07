@@ -3,75 +3,83 @@ import { SearchIcon } from './icons/SearchIcon.tsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
+import { HeartIcon } from './icons/HeartIcon.tsx';
+import { CartIcon } from './icons/CartIcon.tsx';
+import { useCart } from '../hooks/useCart.ts';
 
-interface HeaderProps {
-  title: string;
-  showSearch?: boolean;
-}
-
-const Header: React.FC<HeaderProps> = ({ title, showSearch = false }) => {
+const Header: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { unreadCount, fetchInbox } = useNotifications();
-  const { isAuthenticated, user } = useAuth();
+  const { unreadCount } = useNotifications();
+  const { isAuthenticated, user, isInWishlist } = useAuth();
+  const { cartCount } = useCart();
   const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
-        fetchInbox(user);
-    }
-  }, [isAuthenticated, user]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchValue.trim()) {
       navigate(`/products?q=${encodeURIComponent(searchValue.trim())}`);
-    } else {
-      navigate('/products');
     }
   };
 
   return (
-    <header className="sticky top-0 z-40 p-4 bg-white/90 backdrop-blur-md border-b border-border shadow-sm">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20">
-             <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.707 15.293C4.077 15.923 4.523 17 5.414 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 17C7.89543 17 7 17.8954 7 19C7 20.1046 7.89543 21 9 21C10.1046 21 11 20.1046 11 19C11 17.8954 10.1046 17 9 17Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-             </svg>
-          </div>
-          <h1 className="text-xl font-bold text-text-main tracking-tight">
-            Vexo<span className="text-accent">Kart</span>
-          </h1>
-        </Link>
+    <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm transition-all duration-300">
+      {/* Top Row: User, Search, Wishlist, Cart */}
+      <div className="px-3 pt-3 pb-1 flex items-center gap-3">
+        <div 
+          onClick={() => navigate('/profile')}
+          className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0"
+        >
+          {isAuthenticated ? (
+            <img src={`https://ui-avatars.com/api/?name=${user?.name}&background=FF8A00&color=fff`} className="w-full h-full object-cover" alt="User" />
+          ) : (
+            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          )}
+        </div>
 
-        {isAuthenticated && (
-          <Link to="/notifications" className="relative p-2 text-text-main hover:bg-surface rounded-full transition-colors">
-             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-             </svg>
-             {unreadCount > 0 && (
-               <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-white animate-bounce">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-               </span>
-             )}
-          </Link>
-        )}
-      </div>
-      {showSearch && (
-         <form onSubmit={handleSearch} className="mt-3 relative group">
+        <form onSubmit={handleSearch} className="flex-grow relative group">
           <input
             type="text"
-            placeholder="Search products, brands and more"
+            placeholder="Search by keyword or ID"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="w-full bg-surface text-text-main placeholder-text-muted border border-border focus:border-accent focus:bg-white focus:ring-4 focus:ring-accent/5 rounded-2xl py-2.5 pl-11 pr-4 transition-all"
+            className="w-full bg-[#F8F9FA] text-sm text-text-main placeholder-gray-400 border border-transparent focus:border-accent/30 focus:bg-white rounded-lg py-2 pl-9 pr-14 transition-all"
           />
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <SearchIcon className="h-5 w-5 text-accent" />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <SearchIcon className="h-4 w-4 text-gray-400" />
+          </div>
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-400 hover:text-accent cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            <svg className="w-4 h-4 text-gray-400 hover:text-accent cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           </div>
         </form>
-      )}
+
+        <div className="flex items-center gap-3 shrink-0">
+          <Link to="/wishlist" className="relative p-1">
+             <HeartIcon className="w-6 h-6 text-gray-700" />
+          </Link>
+          <Link to="/cart" className="relative p-1">
+            <CartIcon className="w-6 h-6 text-gray-700" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border border-white">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+        </div>
+      </div>
+
+      {/* Bottom Row: Location Selector */}
+      <div className="px-3 pb-2 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 cursor-pointer">
+          <svg className="w-3.5 h-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <span className="text-[11px] font-bold text-gray-600 truncate max-w-[180px]">Delivering to Mumbai - 400001</span>
+          <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </div>
+        <div className="bg-orange-50 px-2 py-0.5 rounded border border-orange-100 flex items-center gap-1">
+          <span className="text-[9px] font-black text-accent uppercase italic">Refer & Earn</span>
+        </div>
+      </div>
     </header>
   );
 };

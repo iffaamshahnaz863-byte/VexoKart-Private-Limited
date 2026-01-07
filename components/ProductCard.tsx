@@ -25,16 +25,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     isWishlisted ? removeFromWishlist(product.id) : addToWishlist(product.id);
   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    addToCart(product);
-    setShowAddedToast(true);
-  };
-
   const sellingPrice = Number(product.price);
   const mrp = Number(product.original_price || sellingPrice);
-  const discount = product.discount_percent || (mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0);
+  const discount = Math.round(((mrp - sellingPrice) / mrp) * 100);
+  
+  // Meesho Style: COD is usually available for most, UPI is 2-3% cheaper
+  const upiPrice = Math.floor(sellingPrice * 0.98);
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/F8F9FA/A0A0A0?text=VexoKart';
@@ -42,57 +38,65 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   return (
     <>
-      <Toast message="Added to Bag" isVisible={showAddedToast} onClose={() => setShowAddedToast(false)} />
-      <div className="bg-white rounded-2xl overflow-hidden border border-border group transition-all hover:shadow-premium relative h-full flex flex-col">
-          <button 
-              onClick={handleToggleWishlist}
-              className={`absolute top-2 right-2 z-10 p-2 bg-white/90 backdrop-blur-md rounded-full border border-border transition-all duration-300 ${isWishlisted ? 'text-red-500 shadow-sm' : 'text-text-muted hover:text-red-500 shadow-sm'}`}
-          >
-              <HeartIcon className="w-4 h-4" fill={isWishlisted ? 'currentColor' : 'none'}/>
-          </button>
-
+      <Toast message="Added to Cart" isVisible={showAddedToast} onClose={() => setShowAddedToast(false)} />
+      <div className="bg-white overflow-hidden border border-gray-100 group relative flex flex-col h-full active:scale-[0.98] transition-all">
         <Link to={`/product/${product.id}`} className="flex-grow flex flex-col">
-          <div className="relative w-full aspect-square max-h-[160px] bg-surface flex items-center justify-center overflow-hidden">
-              <img
-                src={product.images[0] || 'https://placehold.co/400x400/F8F9FA/A0A0A0?text=VexoKart'}
-                alt={product.name}
-                loading="lazy"
-                onError={handleImageError}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              {discount > 0 && (
-                <div className="absolute bottom-2 left-2 bg-accent text-white text-[9px] font-black px-2 py-1 rounded-md shadow-lg">
-                  {discount}% OFF
+          {/* Image Section */}
+          <div className="relative w-full aspect-[4/5] bg-[#F8F9FA] overflow-hidden">
+            <img
+              src={product.images[0] || 'https://placehold.co/400x400/F8F9FA/A0A0A0?text=VexoKart'}
+              alt={product.name}
+              loading="lazy"
+              onError={handleImageError}
+              className="w-full h-full object-cover"
+            />
+            <button 
+                onClick={handleToggleWishlist}
+                className={`absolute top-2 right-2 z-10 p-1.5 bg-white/90 backdrop-blur-md rounded-full shadow-sm transition-all ${isWishlisted ? 'text-[#F43397]' : 'text-gray-400'}`}
+            >
+                <HeartIcon className="w-4 h-4" fill={isWishlisted ? 'currentColor' : 'none'}/>
+            </button>
+            {product.status === 'live' && (
+                <div className="absolute bottom-0 left-0 bg-black/60 text-white text-[8px] font-bold px-2 py-0.5 rounded-tr-md backdrop-blur-sm">
+                  Verified Partner
                 </div>
-              )}
+            )}
           </div>
           
-          <div className="p-3 flex flex-col flex-grow">
-            <h3 className="text-[11px] font-bold text-text-main line-clamp-2 uppercase tracking-tight leading-tight min-h-[2.4em]">
+          <div className="p-2.5 flex flex-col flex-grow">
+            <h3 className="text-[11px] font-medium text-gray-500 line-clamp-1 truncate">
                 {product.name}
             </h3>
             
-            <div className="flex items-center gap-1.5 mt-1.5">
-                <div className="flex items-center gap-0.5 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
-                    <span className="text-[9px] font-black text-green-700">{product.rating || '4.2'}</span>
-                    <svg className="w-2.5 h-2.5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                </div>
-                <span className="text-[9px] text-text-muted font-bold">| {product.review_count || '120'}</span>
-            </div>
-
-            <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-sm font-black text-text-main tracking-tight">₹{sellingPrice.toLocaleString('en-IN')}</span>
+            <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-sm font-bold text-gray-900 tracking-tight">₹{sellingPrice}</span>
                 {discount > 0 && (
-                  <span className="text-[10px] text-text-muted line-through">₹{mrp.toLocaleString('en-IN')}</span>
+                  <span className="text-[10px] text-gray-400 line-through">₹{mrp}</span>
+                )}
+                {discount > 0 && (
+                  <span className="text-[10px] font-bold text-[#34BE82]">{discount}% off</span>
                 )}
             </div>
-            
-            <button 
-                onClick={handleAddToCart}
-                className="mt-3 w-full border border-border group-hover:border-accent group-hover:bg-accent group-hover:text-white py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
-            >
-                Add to Bag
-            </button>
+
+            {/* UPI Badge */}
+            <div className="mt-1 flex items-center gap-1">
+               <div className="bg-[#E7F7F0] text-[#34BE82] text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                 <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>
+                 ₹{upiPrice} with UPI
+               </div>
+            </div>
+
+            <div className="mt-1.5 flex items-center gap-1.5">
+               <span className="text-[10px] font-bold text-gray-500">Free Delivery</span>
+            </div>
+
+            <div className="mt-2 flex items-center gap-1.5">
+                <div className="flex items-center gap-0.5 bg-[#34BE82] px-1.5 py-0.5 rounded text-white">
+                    <span className="text-[10px] font-bold">{product.rating || '4.0'}</span>
+                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                </div>
+                <span className="text-[10px] text-gray-400 font-medium">{product.review_count || '1k'} Reviews</span>
+            </div>
           </div>
         </Link>
       </div>
