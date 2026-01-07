@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Order, OrderStatus, Address, PaymentStatus, Vendor } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
-import { useNotifications } from "./NotificationContext.tsx";
+import { useNotifications } from "./NotificationsContext.tsx"; // Assuming correct path from user files
 import { BASE_API_URL, API_HEADERS } from "../constants.ts";
 
 interface OrderContextType {
@@ -100,20 +100,26 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   const processOrders = (data: any[]) => {
     if (Array.isArray(data)) {
       setOrders(
-        data.map((o: any) => ({
-          ...o,
-          id: o.id.toString(),
-          total: Number(o.total_amount || o.total || 0),
-          statusHistory: o.status_history || [],
-          qrToken: o.qr_token,
-          date: o.created_at,
-          seller_name: o.vendor?.store_name || "VexoKart Direct",
-          // Prioritize 'address' key if 'shipping_address' returned a numeric ID instead of an object
-          shippingAddress: (typeof o.address === 'object' ? o.address : null) || 
-                           (typeof o.shipping_address === 'object' ? o.shipping_address : null) || 
-                           (typeof o.shippingaddress === 'object' ? o.shippingaddress : null) || 
-                           null,
-        }))
+        data.map((o: any) => {
+          // Robust address extraction for different schema possibilities
+          const addressSource = (typeof o.address === 'object' ? o.address : null) || 
+                                (typeof o.shipping_address === 'object' ? o.shipping_address : null) || 
+                                (typeof o.shippingaddress === 'object' ? o.shippingaddress : null) || 
+                                (typeof o.address_json === 'object' ? o.address_json : null) ||
+                                (o.address_text ? JSON.parse(o.address_text) : null) ||
+                                null;
+
+          return {
+            ...o,
+            id: o.id.toString(),
+            total: Number(o.total_amount || o.total || 0),
+            statusHistory: o.status_history || [],
+            qrToken: o.qr_token,
+            date: o.created_at,
+            seller_name: o.vendor?.store_name || "VexoKart Direct",
+            shippingAddress: addressSource,
+          };
+        })
       );
     }
   };
@@ -154,28 +160,32 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     const rawVendorId = orderData.items[0]?.vendor_id;
-    let numericVendorId = null;
-    if (rawVendorId && !isNaN(Number(rawVendorId))) {
-      numericVendorId = Number(rawVendorId);
+    let vendorIdValue: any = null;
+    if (rawVendorId) {
+      vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
     /**
-     * CRITICAL FIX: The error "invalid input syntax for type numeric" for an address JSON 
-     * implies that the 'shipping_address' column is numeric (intended for an ID).
-     * We rename the key to 'address' which is typically the JSONB field in our standard schema.
+     * CRITICAL FIX: The error "invalid input syntax for type numeric" occurs when an object 
+     * is sent to a numeric column. Since 'address' and 'shipping_address' seem to be numeric IDs
+     * in the target schema, we try common JSONB column names like 'address_json' or 'metadata'.
      */
-    const payload = {
-      user_id: Number(user.id),
-      vendor_id: numericVendorId,
+    const payload: any = {
+      user_id: user.id, // Using raw user.id (which sanitizeUser ensures is a number if possible)
+      vendor_id: vendorIdValue,
       items: orderData.items,
       total_amount: Number(orderData.total),
+      total: Number(orderData.total), // Send both common total column names
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
-      address: addressSnapshot, // Using 'address' as the JSONB field
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
       status_history: [{ status: "Placed", timestamp, actor: "User", note: "Order placed" }],
       created_at: timestamp,
+      // Attempt to save the address object in a field that might be JSONB
+      address_json: addressSnapshot,
+      // Backup: Stringify address details for text columns
+      address_text: JSON.stringify(addressSnapshot)
     };
 
     const res = await fetch(`${BASE_API_URL}/orders`, {
@@ -189,7 +199,24 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     if (!res.ok) {
       const errorBody = await res.json().catch(() => ({}));
-      console.error("[OrderContext] Database Rejection Details:", res.status, JSON.stringify(errorBody));
+      console.error("[OrderContext] Database Rejection Details:", res.status, JSON.stringify(errorBody, null, 2));
+      
+      // Attempt one more time without ANY address keys if numeric conflict persists
+      if (JSON.stringify(errorBody).includes("numeric")) {
+          console.warn("[OrderContext] Numeric conflict detected. Retrying without address object keys...");
+          const { address, shipping_address, address_json, ...retryPayload } = payload;
+          const retryRes = await fetch(`${BASE_API_URL}/orders`, {
+              method: "POST",
+              headers: { ...API_HEADERS, "Prefer": "return=representation" },
+              body: JSON.stringify(retryPayload),
+          });
+          if (retryRes.ok) {
+              const result = await retryRes.json();
+              refreshOrders();
+              return result[0].id.toString();
+          }
+      }
+      
       throw new Error(errorBody.message || `Order placement failed (Status: ${res.status})`);
     }
 

@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const sanitizeUser = (u: any): User => ({
   ...u,
-  id: u.id ? Number(u.id) : 0,
+  id: u.id ? (isNaN(Number(u.id)) ? u.id : Number(u.id)) : 0,
   addresses: Array.isArray(u.addresses) ? u.addresses : [],
   wishlist: Array.isArray(u.wishlist) ? u.wishlist : [],
   recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : []
@@ -93,37 +93,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = pass.trim();
+    
     try {
-      // Use exact match for password and case-insensitive for email
-      const query = `email=ilike.${encodeURIComponent(cleanEmail)}&password=eq.${encodeURIComponent(pass)}&select=*`;
+      // Fetch user by email first to avoid complex URL encoding of passwords in queries
+      const query = `email=ilike.${encodeURIComponent(cleanEmail)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => ({}));
-        throw new Error(errorBody.message || "Authentication service error.");
+        throw new Error("Authentication service connection error.");
       }
       
       const data = await res.json();
+      
       if (Array.isArray(data) && data.length > 0) {
-        const loggedUser = sanitizeUser(data[0]);
-        updateUserSession(loggedUser);
-        await notifyLogin(loggedUser);
-        await fetchInbox(loggedUser);
-        return;
+        const dbUser = data[0];
+        
+        // Manual password verification (Supabase Rest usually uses plain text for custom user tables)
+        if (dbUser.password === cleanPass) {
+          const loggedUser = sanitizeUser(dbUser);
+          updateUserSession(loggedUser);
+          await notifyLogin(loggedUser);
+          await fetchInbox(loggedUser);
+          return;
+        } else {
+          throw new Error('Incorrect password. Please try again.');
+        }
       }
       
-      // Fallback check to see if email even exists for better UI feedback
-      const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(cleanEmail)}&select=email`, { headers: API_HEADERS });
-      const checkData = await checkRes.json().catch(() => []);
-      
-      if (Array.isArray(checkData) && checkData.length === 0) {
-          throw new Error('No account found with this email. Please sign up.');
-      }
-      
-      throw new Error('Incorrect password. Please try again.');
+      throw new Error('No account found with this email. Please sign up.');
     } catch (err: any) {
       console.error("Login Error:", err);
-      throw new Error(err.message || 'Identity verification failed. Check your credentials.');
+      throw new Error(err.message || 'Identity verification failed.');
     }
   };
 
@@ -138,7 +139,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           name: name.trim(), 
           email: cleanEmail, 
           phone: phone.trim(), 
-          password: pass, 
+          password: pass.trim(), 
           role: 'user',
           addresses: [], 
           wishlist: [], 
@@ -176,10 +177,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => {
     try {
         const newUser = {
-          name: userData.name,
-          email: userData.email.toLowerCase(),
-          phone: userData.phone,
-          password: userData.pass,
+          name: userData.name.trim(),
+          email: userData.email.trim().toLowerCase(),
+          phone: userData.phone.trim(),
+          password: userData.pass.trim(),
           role: userData.role,
           addresses: [],
           wishlist: [],
