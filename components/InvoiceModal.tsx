@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Order } from '../types';
 
 interface InvoiceModalProps {
@@ -14,56 +14,87 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
   const isCOD = order.payment_mode === 'Cash on Delivery';
   const paymentStatusText = isCOD ? 'Payment Pending (COD)' : 'Paid';
 
-  // Use joined seller_name from Order record or fallback to item metadata
   const primarySeller = order.seller_name || order.items[0]?.vendor_name || 'VexoKart Authorized Vendor';
 
-  const handlePrint = () => {
+  // Lock body scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  };
+
+  const handlePrint = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Selective print is usually fine, but avoid window.open
     window.print();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 print:p-0 print:bg-white" onClick={onClose}>
+    <div 
+        className="fixed inset-0 bg-black/95 backdrop-blur-md flex flex-col z-[300] animate-in fade-in duration-200"
+        onClick={handleCloseClick}
+    >
       <div 
-        className="bg-white text-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto print:max-h-none print:shadow-none print:w-full print:rounded-none"
+        className="bg-white w-full h-full md:max-w-3xl md:h-[90vh] md:m-auto flex flex-col md:rounded-3xl overflow-hidden shadow-2xl relative"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-10" id="invoice-content">
-            <div className="flex justify-between items-start mb-8">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-white sticky top-0 z-[310] shrink-0">
+            <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <h2 className="text-base font-black uppercase tracking-tight italic">Digital Tax Invoice</h2>
+            </div>
+            <button 
+                onClick={handleCloseClick}
+                className="p-2.5 bg-gray-100 rounded-full text-gray-800 active:scale-90 transition-transform"
+            >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-grow overflow-y-auto p-6 md:p-10 bg-white" id="invoice-render-layer">
+            <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-6">
                 <div>
                     <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">TAX INVOICE</h1>
-                    <div className="mt-6 border-l-4 border-accent pl-4">
+                    <div className="mt-4 border-l-4 border-accent pl-4">
                         <p className="text-[10px] font-black uppercase text-gray-400">Sold By</p>
                         <p className="font-bold text-gray-900 leading-tight">{primarySeller}</p>
-                        <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">Verified Marketplace Partner</p>
+                        <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-0.5">Authorized Marketplace Node</p>
                     </div>
                 </div>
-                <div className="text-right">
-                    <div className="w-16 h-16 bg-gray-900 rounded-xl flex items-center justify-center ml-auto mb-4 print:hidden">
-                         <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none"><path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.707 15.293C4.077 15.923 4.523 17 5.414 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 17C7.89543 17 7 17.8954 7 19C7 20.1046 7.89543 21 9 21C10.1046 21 11 20.1046 11 19C11 17.8954 10.1046 17 9 17Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                    <p className="text-[10px] font-black uppercase text-gray-400">Order ID</p>
+                <div className="md:text-right">
+                    <p className="text-[10px] font-black uppercase text-gray-400">Reference ID</p>
                     <p className="font-mono font-bold text-gray-900">#{order.id}</p>
-                    <p className="text-[10px] font-black uppercase text-gray-400 mt-2">Date</p>
+                    <p className="text-[10px] font-black uppercase text-gray-400 mt-2">Date of Issue</p>
                     <p className="text-sm font-bold text-gray-900">{new Date(order.created_at).toLocaleDateString()}</p>
                 </div>
             </div>
 
             <div className="border-t border-gray-100 my-8"></div>
 
-            <div className="grid grid-cols-2 gap-12 text-sm mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm mb-10">
                 <div>
                     <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Billed To</p>
                     <p className="font-black text-gray-900 uppercase italic tracking-tight">{order.shippingAddress?.fullName || 'Valued Customer'}</p>
-                    <p className="text-gray-600 mt-1 leading-relaxed">
+                    <p className="text-gray-600 mt-1 leading-relaxed text-xs">
                         {order.shippingAddress?.street}<br/>
                         {order.shippingAddress?.city}, {order.shippingAddress?.state} — {order.shippingAddress?.zip}
                     </p>
-                    <p className="font-bold text-accent mt-1">{order.shippingAddress?.phone}</p>
+                    <p className="font-bold text-accent mt-1 text-xs">{order.shippingAddress?.phone}</p>
                 </div>
-                <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Payment Details</p>
+                <div className="md:text-right">
+                    <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Settlement</p>
                     <div className="space-y-1">
-                        <p className="text-gray-900 font-bold">Method: {order.payment_mode}</p>
+                        <p className="text-gray-900 font-bold text-xs">Method: {order.payment_mode}</p>
                         <p className={`font-black uppercase text-[10px] tracking-widest ${isCOD ? 'text-orange-500' : 'text-green-600'}`}>
                             Status: {paymentStatusText}
                         </p>
@@ -71,26 +102,24 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
                 </div>
             </div>
 
-            <div className="mb-10">
+            <div className="mb-10 overflow-hidden">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="border-b-2 border-gray-900 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            <th className="py-4 pr-4">Description</th>
-                            <th className="py-4 px-4 text-center">Qty</th>
-                            <th className="py-4 px-4 text-right">Price</th>
-                            <th className="py-4 pl-4 text-right">Total</th>
+                        <tr className="border-b-2 border-gray-900 text-[9px] font-black uppercase tracking-widest text-gray-400">
+                            <th className="py-4 pr-2">Items</th>
+                            <th className="py-4 px-2 text-center">Qty</th>
+                            <th className="py-4 px-2 text-right">Price</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {order.items.map((item, idx) => (
-                            <tr key={idx} className="text-sm">
-                                <td className="py-4 pr-4">
-                                    <p className="font-bold text-gray-900">{item.name}</p>
-                                    <p className="text-[9px] font-black uppercase text-accent mt-0.5 tracking-tighter">Verified Item</p>
+                            <tr key={idx} className="text-xs">
+                                <td className="py-4 pr-2">
+                                    <p className="font-bold text-gray-900 uppercase tracking-tighter">{item.name}</p>
+                                    <p className="text-[9px] font-black uppercase text-accent mt-0.5">Verified Stock</p>
                                 </td>
-                                <td className="py-4 px-4 text-center font-bold text-gray-600">{item.quantity}</td>
-                                <td className="py-4 px-4 text-right font-medium">₹{item.price.toLocaleString()}</td>
-                                <td className="py-4 pl-4 text-right font-bold text-gray-900">₹{(item.price * item.quantity).toLocaleString()}</td>
+                                <td className="py-4 px-2 text-center font-bold text-gray-600">{item.quantity}</td>
+                                <td className="py-4 px-2 text-right font-black text-gray-900">₹{(item.price * item.quantity).toLocaleString()}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -99,43 +128,40 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
 
             <div className="flex justify-end pt-6 border-t border-gray-100">
                 <div className="w-full max-w-xs space-y-3">
-                     <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Subtotal</span>
+                     <div className="flex justify-between text-xs">
+                        <span className="text-gray-400 font-black uppercase">Subtotal</span>
                         <span className="font-bold">₹{subtotal.toLocaleString()}</span>
                      </div>
-                     <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">GST (18%)</span>
+                     <div className="flex justify-between text-xs">
+                        <span className="text-gray-400 font-black uppercase">GST (18%)</span>
                         <span className="font-bold">₹{gstAmount.toLocaleString()}</span>
                      </div>
-                     <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Shipping</span>
-                        <span className="font-bold text-green-600">FREE</span>
-                     </div>
                      <div className="pt-3 border-t-2 border-gray-900 flex justify-between items-end">
-                        <span className="text-[10px] font-black uppercase text-gray-900">Total Payable</span>
-                        <span className="text-2xl font-black text-gray-900 italic">₹{finalTotal.toLocaleString()}</span>
+                        <span className="text-[10px] font-black uppercase text-gray-900 italic">Settlement Total</span>
+                        <span className="text-2xl font-black text-gray-900 italic tracking-tighter">₹{finalTotal.toLocaleString()}</span>
                      </div>
                 </div>
             </div>
             
-            <div className="mt-16 text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Generated by VexoKart Platform Service</p>
+            <div className="mt-16 text-center pb-10">
+                <p className="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300">Generated by VexoKart Fulfillment Protocol</p>
             </div>
         </div>
 
-        <div className="p-6 bg-gray-50 flex gap-4 justify-end print:hidden">
+        {/* Modal Footer Controls */}
+        <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-4 shrink-0 no-print">
             <button 
-                onClick={onClose}
-                className="px-6 py-3 rounded-xl text-xs font-black uppercase text-gray-500 hover:bg-gray-100 transition-all"
+                onClick={handleCloseClick}
+                className="flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 active:scale-95 transition-all"
             >
-                Close
+                Return to View
             </button>
             <button 
                 onClick={handlePrint}
-                className="bg-gray-900 text-white px-8 py-3 rounded-xl text-xs font-black uppercase shadow-xl hover:bg-black transition-all flex items-center gap-2"
+                className="flex-[1.5] bg-black text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/20 active:scale-95 transition-all flex items-center justify-center gap-3"
             >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                Download PDF
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                Print Manifest
             </button>
         </div>
       </div>
