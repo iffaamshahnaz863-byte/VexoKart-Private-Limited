@@ -87,7 +87,7 @@ const CheckoutPage: React.FC = () => {
     });
 
     try {
-      /* 🟢 CASH ON DELIVERY FLOW */
+      /* 🟢 CASH ON DELIVERY FLOW - CRITICAL: Skip Razorpay */
       if (paymentMethod === 'cod') {
         const orderIdString = await addOrder({
           items: orderItems,
@@ -210,21 +210,21 @@ const CheckoutPage: React.FC = () => {
         <button onClick={() => navigate('/cart')} className="p-2 -ml-2 mr-2">
           <ChevronLeftIcon className="h-6 w-6" />
         </button>
-        <h1 className="text-xl font-black uppercase italic">Checkout</h1>
+        <h1 className="text-xl font-black uppercase italic tracking-tighter">Checkout Hub</h1>
       </div>
 
       <div className="p-4 pb-32 max-w-2xl mx-auto space-y-6">
-        {/* Address */}
-        <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted">
-            Delivery Destination
+        {/* Address Selector */}
+        <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
+          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted tracking-[0.2em] italic">
+            Fulfillment Destination
           </h2>
           {user?.addresses?.length ? (
              user.addresses.map(address => (
                 <div
                   key={address.id}
                   onClick={() => setSelectedAddress(address)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer mb-3 transition-all ${
+                  className={`p-4 rounded-2xl border-2 cursor-pointer mb-3 transition-all ${
                     selectedAddress?.id === address.id
                       ? 'border-accent bg-accent/5'
                       : 'border-border hover:border-accent/30'
@@ -232,115 +232,125 @@ const CheckoutPage: React.FC = () => {
                 >
                   <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-black text-xs uppercase">{address.fullName}</p>
+                        <p className="font-black text-xs uppercase italic">{address.fullName}</p>
                         <p className="text-[10px] mt-1 text-text-secondary leading-relaxed uppercase tracking-tighter">
                             {address.street}<br/>
                             {address.city}, {address.state} — {address.zip}
                         </p>
                       </div>
                       {selectedAddress?.id === address.id && (
-                          <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center">
+                          <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center shadow-lg shadow-accent/20">
                               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
                           </div>
                       )}
                   </div>
                   <p className="text-[10px] font-black text-accent mt-2">
-                    {address.phone}
+                    PH: {address.phone}
                   </p>
                 </div>
               ))
           ) : (
-            <button onClick={() => navigate('/addresses/new')} className="w-full py-4 border-2 border-dashed border-border rounded-xl text-xs font-bold text-text-muted uppercase">Add Shipping Address</button>
+            <button onClick={() => navigate('/addresses/new')} className="w-full py-5 border-2 border-dashed border-border rounded-2xl text-[10px] font-black text-text-muted uppercase tracking-widest hover:border-accent/50 transition-all">Add Shipping Manifest</button>
           )}
         </GlassmorphicCard>
 
-        {/* Payment */}
-        <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted">
-            Select Payment Method
+        {/* Payment Logic */}
+        <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
+          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted tracking-[0.2em] italic">
+            Settlement Method
           </h2>
 
           <div className="space-y-3">
             {allowOnlineForCart ? (
                 <div
                     onClick={() => setPaymentMethod('card')}
-                    className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
+                    className={`p-5 rounded-2xl border-2 cursor-pointer flex items-center justify-between transition-all ${
                         paymentMethod === 'card'
-                        ? 'border-accent bg-accent/5'
+                        ? 'border-accent bg-accent/5 shadow-sm'
                         : 'border-border hover:border-accent/20'
                     }`}
                 >
-                    <span className="font-bold text-sm">Online Payment (UPI / Cards)</span>
-                    <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                        </div>
+                        <span className="font-black text-xs uppercase italic">Digital Pay (UPI/Cards)</span>
+                    </div>
+                    {paymentMethod === 'card' && <div className="w-4 h-4 bg-accent rounded-full border-2 border-white shadow-sm"></div>}
                 </div>
             ) : (
-                <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-between opacity-60">
-                    <span className="font-bold text-sm text-gray-400 italic">Online Payment Unavailable for this Selection</span>
+                <div className="p-5 rounded-2xl border border-gray-100 bg-gray-50 flex items-center justify-between opacity-60">
+                    <span className="font-bold text-[10px] text-gray-400 uppercase italic">Digital Payment Restricted</span>
                 </div>
             )}
 
             {allowCodForCart ? (
                 <div
                     onClick={() => setPaymentMethod('cod')}
-                    className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
+                    className={`p-5 rounded-2xl border-2 cursor-pointer flex items-center justify-between transition-all ${
                         paymentMethod === 'cod'
-                        ? 'border-accent bg-accent/5'
+                        ? 'border-accent bg-accent/5 shadow-sm'
                         : 'border-border hover:border-accent/20'
                     }`}
                 >
-                    <span className="font-bold text-sm">Cash on Delivery</span>
-                    <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-50 text-green-600 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                        <span className="font-black text-xs uppercase italic">Cash on Delivery</span>
+                    </div>
+                    {paymentMethod === 'cod' && <div className="w-4 h-4 bg-accent rounded-full border-2 border-white shadow-sm"></div>}
                 </div>
             ) : (
-                <div className="p-4 rounded-xl border border-red-50 bg-red-50/30 flex flex-col gap-1">
+                <div className="p-5 rounded-2xl border border-red-50 bg-red-50/30 flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                         <span className="font-bold text-sm text-red-400">COD Restricted for some items</span>
+                         <span className="font-black text-[10px] text-red-500 uppercase italic">COD Restricted for items</span>
                          <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     </div>
-                    <p className="text-[9px] text-red-400 font-bold uppercase tracking-widest italic">Please pay online to complete this order.</p>
+                    <p className="text-[8px] text-red-400 font-bold uppercase tracking-widest italic leading-tight">Vendor has disabled COD for this product manifest.</p>
                 </div>
             )}
           </div>
         </GlassmorphicCard>
 
-        {/* Summary */}
-        <GlassmorphicCard className="p-6 bg-white">
-          <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted border-b pb-2">
-            Pricing Summary
+        {/* Financial Summary */}
+        <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
+          <h2 className="text-[10px] font-black uppercase mb-6 text-text-muted tracking-[0.2em] italic border-b border-gray-50 pb-2">
+            Pricing Intelligence
           </h2>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between text-text-secondary">
+          <div className="space-y-4 text-xs">
+            <div className="flex justify-between font-bold text-gray-500 uppercase">
               <span>Bag Subtotal</span>
-              <span className="font-bold text-text-main">₹{cartTotal.toLocaleString()}</span>
+              <span className="text-gray-900">₹{cartTotal.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-text-secondary">
-              <span>GST (18%)</span>
-              <span className="font-bold text-text-main">₹{gstAmount.toLocaleString()}</span>
+            <div className="flex justify-between font-bold text-gray-500 uppercase">
+              <span>Tax (GST 18%)</span>
+              <span className="text-gray-900">₹{gstAmount.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-text-secondary">
+            <div className="flex justify-between font-bold text-green-600 uppercase">
               <span>Shipping Fee</span>
-              <span className="font-bold text-green-600 uppercase text-[10px]">Free</span>
+              <span className="font-black tracking-widest italic">FREE</span>
             </div>
-            <div className="pt-3 border-t border-dashed flex justify-between items-end">
-              <span className="text-text-main font-black uppercase tracking-widest text-xs">Total Payable</span>
-              <span className="text-2xl font-black text-accent italic tracking-tighter">₹{finalPayable.toLocaleString()}</span>
+            <div className="pt-4 border-t border-dashed border-gray-100 flex justify-between items-end">
+              <span className="text-gray-900 font-black uppercase tracking-widest text-[10px] italic">Total Settlement</span>
+              <span className="text-3xl font-black text-accent italic tracking-tighter leading-none">₹{finalPayable.toLocaleString()}</span>
             </div>
           </div>
         </GlassmorphicCard>
       </div>
 
-      {/* Pay Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      {/* Primary Action Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-50 shadow-[0_-4px_30px_rgba(0,0,0,0.08)]">
         <button
           onClick={handlePlaceOrder}
           disabled={isProcessing || !selectedAddress || (!allowCodForCart && !allowOnlineForCart)}
-          className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50"
+          className="w-full bg-accent text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {isProcessing
-            ? 'Establishing Secure Session...'
+            ? 'Initializing Secure Session...'
             : paymentMethod === 'cod'
             ? `Confirm Order — ₹${finalPayable}`
-            : `Pay Secured ₹${finalPayable} (Incl. GST)`}
+            : `Secure Pay ₹${finalPayable}`}
         </button>
       </div>
     </div>

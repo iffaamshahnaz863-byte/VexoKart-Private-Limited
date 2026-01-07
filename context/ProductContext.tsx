@@ -43,7 +43,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          // Persistence strategy: map DB payment_modes (array) to UI booleans
+          // Sync payment booleans from database array (Fallback to all enabled if column missing)
           const modes = Array.isArray(item.payment_modes) ? item.payment_modes : ['cod', 'online'];
           return {
             ...item,
@@ -55,7 +55,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
             product_type: item.product_type || 'simple',
-            // Load strictly from database state
+            // Explicit boolean mapping from DB state
             is_cod_enabled: modes.includes('cod'),
             is_online_enabled: modes.includes('online'),
             variants: item.variants || [],
@@ -79,21 +79,20 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // UI state to DB state mapping
-    const paymentModes = [];
-    if (productData.is_cod_enabled) paymentModes.push('cod');
-    if (productData.is_online_enabled) paymentModes.push('online');
-
+    /**
+     * CRITICAL FIX: Destructure and EXCLUDE virtual/missing columns
+     * to prevent "Could not find column... in schema cache" errors.
+     */
     const { 
       id, 
       category, 
       category_data, 
       variants, 
       cash_on_delivery, 
-      payment_modes, 
       product_type,
-      is_cod_enabled,
-      is_online_enabled,
+      is_cod_enabled, 
+      is_online_enabled, 
+      payment_modes, // EXCLUDE from DB write
       specifications,
       ...dbPayload 
     } = productData;
@@ -104,9 +103,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       category_id: Number(dbPayload.category_id),
       images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
       created_at: new Date().toISOString(),
-      status: dbPayload.status || 'approved',
-      product_type: product_type || 'simple',
-      payment_modes: paymentModes // STRICT PERSISTENCE
+      status: dbPayload.status || 'approved'
+      // payment_modes is omitted because it's missing in DB schema
     };
 
     try {
@@ -129,21 +127,19 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    // UI state to DB state mapping
-    const paymentModes = [];
-    if (product.is_cod_enabled) paymentModes.push('cod');
-    if (product.is_online_enabled) paymentModes.push('online');
-
+    /**
+     * CRITICAL FIX: Sanitize outgoing PATCH payload to remove columns not in DB
+     */
     const { 
       id, 
       category, 
       category_data, 
       variants, 
       cash_on_delivery, 
-      payment_modes, 
       product_type,
-      is_cod_enabled,
-      is_online_enabled,
+      is_cod_enabled, 
+      is_online_enabled, 
+      payment_modes, // EXCLUDE from DB write
       specifications,
       ...dbPayload 
     } = product as any;
@@ -151,9 +147,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(dbPayload.vendor_id),
-      category_id: Number(dbPayload.category_id),
-      product_type: product_type || 'simple',
-      payment_modes: paymentModes // STRICT PERSISTENCE
+      category_id: Number(dbPayload.category_id)
+      // payment_modes is omitted because it's missing in DB schema
     };
 
     try {

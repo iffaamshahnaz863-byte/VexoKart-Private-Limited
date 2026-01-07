@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import HomePage from './pages/HomePage.tsx';
@@ -46,6 +45,9 @@ import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
 import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
 import AdminBannersPage from './pages/admin/AdminBannersPage.tsx';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
+import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage.tsx';
+import AdminPayoutsPage from './pages/admin/AdminPayoutsPage.tsx';
+import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage.tsx';
 import VendorLayout from './pages/vendor/VendorLayout.tsx';
 import VendorDashboardPage from './pages/vendor/VendorDashboardPage.tsx';
 import VendorProductsPage from './pages/vendor/VendorProductsPage.tsx';
@@ -142,10 +144,14 @@ const AppContent: React.FC = () => {
           <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute />}>
             <Route index element={<AdminDashboardPage />} />
+            <Route path="analytics" element={<AdminAnalyticsPage />} />
             <Route path="products" element={<AdminProductsPage />} />
             <Route path="products/edit/:id" element={<AdminProductFormPage />} />
             <Route path="banners" element={<AdminBannersPage />} />
+            <Route path="marketing" element={<AdminBannersPage />} />
             <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="payouts" element={<AdminPayoutsPage />} />
+            <Route path="audit" element={<AdminAuditLogsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="categories" element={<AdminCategoriesPage />} />
             <Route path="categories/new" element={<AdminCategoryFormPage />} />

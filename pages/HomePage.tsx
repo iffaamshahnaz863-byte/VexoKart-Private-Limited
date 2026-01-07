@@ -2,13 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header.tsx';
 import ProductCard from '../components/ProductCard.tsx';
+import BannerCarousel from '../components/BannerCarousel.tsx';
 import { useProducts } from '../hooks/useProducts.ts';
 import { useCategories } from '../hooks/useCategories.ts';
+import { useBanners } from '../context/BannerContext.tsx';
+import { useAuth } from '../context/AuthContext.tsx';
 import { ProductCardSkeleton } from '../components/Skeleton.tsx';
 
 const HomePage: React.FC = () => {
   const { products } = useProducts();
   const { categories } = useCategories();
+  const { banners } = useBanners();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -27,6 +32,12 @@ const HomePage: React.FC = () => {
     return isLive && matchesCategory;
   });
 
+  const activeBanners = banners.filter(b => b.status).map(b => b.image_url);
+
+  const recentlyViewedProducts = user?.recentlyViewed 
+    ? products.filter(p => user.recentlyViewed.includes(p.id)) 
+    : [];
+
   const handleCategoryClick = (categoryName: string) => {
     if (selectedCatName === categoryName) {
         navigate('/');
@@ -36,11 +47,22 @@ const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#F8F9FA] min-h-screen pb-20">
+    <div className="bg-[#F8F9FA] min-h-screen pb-20 font-sans selection:bg-accent/30 overflow-x-hidden">
       <Header />
       
-      {/* 2. CATEGORY SCROLL (Circular icons) */}
-      <section className="bg-white py-3 overflow-hidden">
+      {/* 1. MAIN BANNERS (Dynamic from DB) */}
+      <section className="p-3 bg-white">
+        {activeBanners.length > 0 ? (
+           <BannerCarousel banners={activeBanners} />
+        ) : (
+           <div className="w-full h-40 bg-gray-50 rounded-2xl animate-pulse border border-gray-100 flex items-center justify-center">
+             <span className="text-[10px] font-black uppercase text-gray-300 tracking-widest italic">Synchronizing Global Promos...</span>
+           </div>
+        )}
+      </section>
+
+      {/* 2. CATEGORY SCROLL */}
+      <section className="bg-white pb-4 overflow-hidden border-b border-gray-100">
         <div 
           ref={scrollRef}
           className="flex space-x-6 overflow-x-auto px-4 no-scrollbar scroll-smooth"
@@ -70,25 +92,42 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. FILTER BAR (Sticky placeholder) */}
-      <div className="sticky top-[108px] z-30 bg-white border-y border-gray-100 px-4 py-2.5 flex items-center gap-4 overflow-x-auto no-scrollbar">
-        <button className="flex items-center gap-1 bg-[#F8F9FA] px-3 py-1 rounded-full border border-gray-100">
-           <span className="text-[11px] font-bold text-gray-700">Sort</span>
-           <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
-        </button>
-        <button className="flex items-center gap-1 bg-[#F8F9FA] px-3 py-1 rounded-full border border-gray-100">
-           <span className="text-[11px] font-bold text-gray-700">Category</span>
-           <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-        </button>
-        <button className="flex items-center gap-1 bg-[#F8F9FA] px-3 py-1 rounded-full border border-gray-100">
-           <span className="text-[11px] font-bold text-gray-700">Filters</span>
-           <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-        </button>
-      </div>
+      {/* 3. RECENTLY VIEWED (Personalization) */}
+      {recentlyViewedProducts.length > 0 && selectedCatName === 'All' && (
+        <section className="mt-4 px-4">
+            <h3 className="text-xs font-black text-gray-900 uppercase italic tracking-widest mb-3 flex items-center gap-2">
+               <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
+               Pick up where you left off
+            </h3>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                {recentlyViewedProducts.map(p => (
+                    <div 
+                        key={p.id} 
+                        onClick={() => navigate(`/product/${p.id}`)}
+                        className="w-28 flex-shrink-0 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm active:scale-95 transition-transform"
+                    >
+                        <div className="aspect-square bg-gray-50">
+                            <img src={p.images[0]} className="w-full h-full object-contain" alt="" />
+                        </div>
+                        <div className="p-2">
+                            <p className="text-[10px] font-black text-gray-900 truncate">₹{p.price}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+      )}
 
-      {/* 4. PRODUCT FEED (2-Column Grid) */}
-      <section className="p-2 pt-4">
-        <div className="grid grid-cols-2 gap-2 animate-in fade-in duration-500">
+      {/* 4. PRODUCT FEED */}
+      <section className="p-2 pt-6">
+        <div className="flex items-center justify-between px-2 mb-4">
+            <h2 className="text-sm font-black text-gray-900 uppercase italic tracking-tighter">
+                {selectedCatName === 'All' ? 'Products For You' : `${selectedCatName} Collection`}
+            </h2>
+            <div className="bg-green-100 text-green-700 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter border border-green-200">Free Delivery</div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {isLoading ? (
               <>
                   {[...Array(6)].map((_, i) => <ProductCardSkeleton key={i} />)}
@@ -98,9 +137,10 @@ const HomePage: React.FC = () => {
               <ProductCard key={product.id} product={product} />
             ))
           ) : (
-             <div className="col-span-full py-32 text-center bg-white rounded-xl border border-dashed border-gray-200 m-2">
+             <div className="col-span-full py-32 text-center bg-white rounded-3xl border border-dashed border-gray-200 m-2">
                <svg className="w-12 h-12 text-gray-200 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
                <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No matches in this collection</p>
+               <button onClick={() => navigate('/')} className="mt-4 text-accent font-black uppercase text-[10px] underline underline-offset-4">Reset Discovery</button>
              </div>
           )}
         </div>
@@ -108,9 +148,9 @@ const HomePage: React.FC = () => {
 
       {/* Infinite Scroll Indicator */}
       {!isLoading && liveProducts.length > 0 && (
-          <div className="py-10 flex flex-col items-center">
+          <div className="py-12 flex flex-col items-center">
               <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-[9px] font-black uppercase text-gray-400 mt-2 tracking-widest italic">Personalizing your feed...</span>
+              <span className="text-[9px] font-black uppercase text-gray-400 mt-2 tracking-widest italic">Curating your style...</span>
           </div>
       )}
     </div>
