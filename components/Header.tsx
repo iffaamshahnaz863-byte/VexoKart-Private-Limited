@@ -11,7 +11,7 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { unreadCount } = useNotifications();
-  const { isAuthenticated, user, isInWishlist } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { cartCount } = useCart();
   const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
 
@@ -22,13 +22,16 @@ const Header: React.FC = () => {
     }
   };
 
+  // Real user address from context
+  const defaultAddress = user?.addresses?.[0];
+
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm transition-all duration-300">
       {/* Top Row: User, Search, Wishlist, Cart */}
       <div className="px-3 pt-3 pb-1 flex items-center gap-3">
         <div 
           onClick={() => navigate('/profile')}
-          className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0"
+          className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer active:scale-95 transition-transform"
         >
           {isAuthenticated ? (
             <img src={`https://ui-avatars.com/api/?name=${user?.name}&background=FF8A00&color=fff`} className="w-full h-full object-cover" alt="User" />
@@ -55,10 +58,10 @@ const Header: React.FC = () => {
         </form>
 
         <div className="flex items-center gap-3 shrink-0">
-          <Link to="/wishlist" className="relative p-1">
+          <Link to="/wishlist" className="relative p-1 active:scale-90 transition-transform">
              <HeartIcon className="w-6 h-6 text-gray-700" />
           </Link>
-          <Link to="/cart" className="relative p-1">
+          <Link to="/cart" className="relative p-1 active:scale-90 transition-transform">
             <CartIcon className="w-6 h-6 text-gray-700" />
             {cartCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border border-white">
@@ -69,14 +72,24 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Row: Location Selector */}
+      {/* Bottom Row: Location Selector (DYNAMIC) */}
       <div className="px-3 pb-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 cursor-pointer">
+        <div 
+           onClick={() => navigate('/addresses')}
+           className="flex items-center gap-1.5 cursor-pointer active:opacity-70 transition-opacity"
+        >
           <svg className="w-3.5 h-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          <span className="text-[11px] font-bold text-gray-600 truncate max-w-[180px]">Delivering to Mumbai - 400001</span>
+          <span className="text-[11px] font-bold text-gray-600 truncate max-w-[200px]">
+            {defaultAddress 
+              ? `Delivering to ${defaultAddress.city} - ${defaultAddress.zip}` 
+              : 'Add delivery address'}
+          </span>
           <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </div>
-        <div className="bg-orange-50 px-2 py-0.5 rounded border border-orange-100 flex items-center gap-1">
+        <div 
+          onClick={() => navigate('/refer')}
+          className="bg-orange-50 px-2 py-0.5 rounded border border-orange-100 flex items-center gap-1 cursor-pointer active:scale-95 transition-transform"
+        >
           <span className="text-[9px] font-black text-accent uppercase italic">Refer & Earn</span>
         </div>
       </div>

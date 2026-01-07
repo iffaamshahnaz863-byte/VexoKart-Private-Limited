@@ -16,7 +16,7 @@ const ProductDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { getProduct } = useProducts();
   const { addToCart, cartCount } = useCart();
-  const { isAuthenticated, addToWishlist, removeFromWishlist, isInWishlist } = useAuth();
+  const { isAuthenticated, user, addToWishlist, removeFromWishlist, isInWishlist } = useAuth();
   const { addRecentlyViewed } = useRecentlyViewed();
   const { getVendorById } = useVendors();
   
@@ -31,6 +31,9 @@ const ProductDetailPage: React.FC = () => {
   const productId = parseInt(id || '');
   const product = getProduct(productId);
   const vendor = product ? getVendorById(product.vendor_id) : null;
+
+  // Real user address logic
+  const defaultAddress = user?.addresses?.[0];
 
   // Extract variants set by vendor
   const availableSizes = useMemo(() => 
@@ -47,11 +50,10 @@ const ProductDetailPage: React.FC = () => {
   const needsColor = availableColors.length > 0;
 
   useEffect(() => {
-    if (product) {
-      if (isAuthenticated) addRecentlyViewed(product.id);
-      window.scrollTo(0, 0);
+    if (product && isAuthenticated) {
+      addRecentlyViewed(product.id);
     }
-  }, [productId, product, isAuthenticated, addRecentlyViewed]);
+  }, [product?.id, isAuthenticated]);
 
   const displayImages = useMemo(() => {
     if (!product) return ['https://placehold.co/600x600/F8F9FA/A0A0A0?text=VexoKart'];
@@ -72,7 +74,8 @@ const ProductDetailPage: React.FC = () => {
   const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
   const upiPrice = Math.floor(sellingPrice * 0.98);
 
-  const handleToggleWishlist = () => {
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (!isAuthenticated) return navigate('/login');
     setIsWishlistAnimating(true);
     isWishlisted ? removeFromWishlist(product.id) : addToWishlist(product.id);
@@ -112,27 +115,27 @@ const ProductDetailPage: React.FC = () => {
   const isBuyDisabled = (needsSize && !selectedSize) || (needsColor && !selectedColor);
 
   return (
-    <div className="min-h-screen bg-[#F9F9F9] pb-32 font-sans select-none">
+    <div className="min-h-screen bg-[#F9F9F9] pb-32 font-sans select-none overflow-x-hidden touch-pan-y">
       <Toast message="Added to Cart" isVisible={showAddedToast} onClose={() => setShowAddedToast(false)} />
       
       {/* MEESHO STYLE HEADER */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-[100] bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-1">
+          <button onClick={() => navigate(-1)} className="p-1 active:scale-90 transition-transform">
             <ChevronLeftIcon className="w-6 h-6 text-gray-800" />
           </button>
         </div>
         <div className="flex items-center gap-5">
           <SearchIcon className="w-6 h-6 text-gray-700" onClick={() => navigate('/products')} />
-          <div className="relative" onClick={handleToggleWishlist}>
+          <div className="relative cursor-pointer" onClick={handleToggleWishlist}>
             <HeartIcon 
-              className={`w-6 h-6 transition-all ${isWishlisted ? 'text-[#F43397] fill-[#F43397]' : 'text-gray-700'} ${isWishlistAnimating ? 'scale-125' : ''}`} 
+              className={`w-6 h-6 transition-all duration-300 ${isWishlisted ? 'text-[#F43397] fill-[#F43397]' : 'text-gray-700'} ${isWishlistAnimating ? 'scale-125' : ''}`} 
             />
           </div>
-          <Link to="/cart" className="relative">
+          <Link to="/cart" className="relative p-1">
             <CartIcon className="w-6 h-6 text-gray-700" />
             {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#F43397] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+              <span className="absolute -top-1 -right-1 bg-[#F43397] text-white text-[9px] font-bold px-1.5 rounded-full border border-white">
                 {cartCount}
               </span>
             )}
@@ -140,10 +143,10 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* IMAGE GALLERY */}
+      {/* IMAGE GALLERY - FIXED RATIO PREVENTS JUMP */}
       <div className="relative w-full bg-white aspect-[4/5] overflow-hidden">
         <div 
-          className="flex transition-transform duration-500 h-full" 
+          className="flex h-full transition-transform duration-500 ease-out" 
           style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
         >
           {displayImages.map((img, idx) => (
@@ -166,7 +169,7 @@ const ProductDetailPage: React.FC = () => {
           {displayImages.map((_, i) => (
             <div 
               key={i} 
-              className={`h-1.5 rounded-full transition-all ${currentImageIndex === i ? 'w-4 bg-[#F43397]' : 'w-1.5 bg-gray-300'}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === i ? 'w-4 bg-[#F43397]' : 'w-1.5 bg-gray-300'}`}
             />
           ))}
         </div>
@@ -178,7 +181,7 @@ const ProductDetailPage: React.FC = () => {
           <h1 className="text-base font-medium text-gray-600 leading-snug line-clamp-2">
             {product.name}
           </h1>
-          <button onClick={() => navigator.share?.({ title: product.name, url: window.location.href })} className="p-2 bg-gray-50 rounded-full">
+          <button onClick={() => navigator.share?.({ title: product.name, url: window.location.href })} className="p-2 bg-gray-50 rounded-full active:bg-gray-100">
              <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
           </button>
         </div>
@@ -199,19 +202,32 @@ const ProductDetailPage: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium">{product.review_count || '25'} Reviews</span>
         </div>
 
-        <div className="pt-2 border-t border-gray-50">
+        {/* DELIVERY LOCATION SECTION (DYNAMIC) */}
+        <div className="pt-3 mt-1 border-t border-gray-100">
+           <div className="flex items-center gap-2 cursor-pointer active:opacity-60" onClick={() => navigate('/addresses')}>
+              <svg className="w-4 h-4 text-[#F43397]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <p className="text-[11px] font-bold text-gray-700">
+                {defaultAddress 
+                   ? `Delivering to ${defaultAddress.city} - ${defaultAddress.zip}` 
+                   : 'Add delivery address'}
+              </p>
+              <svg className="w-3 h-3 text-gray-400 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+           </div>
+        </div>
+
+        <div className="pt-2">
           <div className="bg-[#F3FFF9] border border-[#D1F7E6] p-3 rounded-lg flex items-center justify-between">
              <div className="flex items-center gap-2">
                 <div className="bg-[#34BE82] p-1 rounded-full"><svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></div>
                 <p className="text-[11px] font-bold text-gray-700">₹{upiPrice} with UPI offer</p>
              </div>
-             <p className="text-[10px] font-bold text-[#34BE82]">Applied for you</p>
+             <p className="text-[10px] font-bold text-[#34BE82]">Applied</p>
           </div>
           <p className="text-[10px] text-gray-400 mt-2 font-medium">Free Delivery • 7-day Easy Returns</p>
         </div>
       </div>
 
-      {/* COLOR SELECTION SECTION (Vendor Defined) */}
+      {/* COLOR SELECTION SECTION */}
       {needsColor && (
         <div id="color-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
           <h3 className="text-sm font-bold text-gray-800">Select Color</h3>
@@ -220,7 +236,7 @@ const ProductDetailPage: React.FC = () => {
               <button
                 key={i}
                 onClick={() => setSelectedColor(color.value)}
-                className={`flex flex-col items-center gap-1 p-1 rounded-xl border-2 transition-all ${
+                className={`flex flex-col items-center gap-1 p-1 rounded-xl border-2 transition-all duration-200 ${
                   selectedColor === color.value ? 'border-[#F43397] bg-[#FFF0F7]' : 'border-transparent'
                 }`}
               >
@@ -231,25 +247,25 @@ const ProductDetailPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {needsColor && !selectedColor && (
+          {!selectedColor && (
             <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a color to continue</p>
           )}
         </div>
       )}
 
-      {/* SIZE SELECTION SECTION (Vendor Defined) */}
+      {/* SIZE SELECTION SECTION */}
       {needsSize && (
         <div id="size-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-gray-800">Select Size</h3>
-            <button className="text-[#F43397] text-xs font-bold">Size Chart</button>
+            <button className="text-[#F43397] text-xs font-bold active:opacity-60">Size Chart</button>
           </div>
           <div className="flex flex-wrap gap-3">
             {availableSizes.map((size) => (
               <button
                 key={size}
                 onClick={() => setSelectedSize(size)}
-                className={`min-w-[56px] py-2 px-3 rounded-full text-sm font-bold border transition-all ${
+                className={`min-w-[56px] py-2 px-3 rounded-full text-sm font-bold border transition-all duration-200 ${
                   selectedSize === size
                     ? 'border-[#F43397] bg-[#FFF0F7] text-[#F43397]'
                     : 'border-gray-200 text-gray-600 hover:border-gray-400'
@@ -259,7 +275,7 @@ const ProductDetailPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {needsSize && !selectedSize && (
+          {!selectedSize && (
               <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a size to continue</p>
           )}
         </div>
@@ -271,17 +287,17 @@ const ProductDetailPage: React.FC = () => {
         <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
           <button 
             onClick={() => setQuantity(q => Math.max(1, q - 1))}
-            className="px-4 py-2 bg-gray-50 text-gray-600 font-bold hover:bg-gray-100"
+            className="px-4 py-2 bg-gray-50 text-gray-600 font-bold active:bg-gray-200"
           >-</button>
           <span className="px-4 py-2 text-sm font-bold text-gray-800 min-w-[40px] text-center">{quantity}</span>
           <button 
             onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}
-            className="px-4 py-2 bg-gray-50 text-gray-600 font-bold hover:bg-gray-100"
+            className="px-4 py-2 bg-gray-50 text-gray-600 font-bold active:bg-gray-200"
           >+</button>
         </div>
       </div>
 
-      {/* PRODUCT HIGHLIGHTS & DESCRIPTION (Accordion Style) */}
+      {/* PRODUCT DETAILS (ACCORDION) */}
       <div className="mt-2 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-bold text-gray-800 mb-4">Product Details</h3>
         <div className="space-y-3">
@@ -299,10 +315,9 @@ const ProductDetailPage: React.FC = () => {
           )}
         </div>
         
-        {/* Description with "Read More" logic */}
         <div className="mt-4 relative">
           <div 
-            className={`text-xs text-gray-500 leading-relaxed whitespace-pre-line overflow-hidden transition-all duration-500 ease-in-out ${
+            className={`text-xs text-gray-500 leading-relaxed whitespace-pre-line overflow-hidden transition-all duration-500 ease-in-out will-change-[max-height] ${
               isDescriptionExpanded ? 'max-h-[2000px]' : 'max-h-[4.8rem]'
             }`}
           >
@@ -311,7 +326,7 @@ const ProductDetailPage: React.FC = () => {
           {product.description && product.description.length > 120 && (
             <button 
               onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-              className="text-[#F43397] text-xs font-bold mt-2 hover:opacity-80 transition-opacity"
+              className="text-[#F43397] text-xs font-bold mt-2 hover:opacity-80 transition-opacity p-1 -ml-1 active:scale-95"
             >
               {isDescriptionExpanded ? 'Read Less ▲' : 'See More ▼'}
             </button>
@@ -323,7 +338,7 @@ const ProductDetailPage: React.FC = () => {
       <div className="mt-2 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-bold text-gray-800">Shop Information</h3>
-          <button className="text-[#F43397] text-xs font-bold">View Shop</button>
+          <button className="text-[#F43397] text-xs font-bold active:opacity-60">View Shop</button>
         </div>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-[#F43397] rounded-full flex items-center justify-center text-white font-black text-xl italic shadow-inner">
@@ -341,26 +356,8 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SAFETY SIGNALS */}
-      <div className="mt-4 px-4">
-        <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white p-3 rounded-lg flex items-center gap-3 shadow-sm">
-                <div className="bg-blue-50 p-2 rounded-full text-blue-500">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                </div>
-                <p className="text-[10px] font-bold text-gray-600 uppercase leading-tight">100% Genuine Products</p>
-            </div>
-            <div className="bg-white p-3 rounded-lg flex items-center gap-3 shadow-sm">
-                <div className="bg-green-50 p-2 rounded-full text-green-500">
-                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                </div>
-                <p className="text-[10px] font-bold text-gray-600 uppercase leading-tight">Secure Payments</p>
-            </div>
-        </div>
-      </div>
-
       {/* STICKY MEESHO BOTTOM BAR */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white flex items-center gap-3 z-[60] shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white flex items-center gap-3 z-[110] shadow-[0_-10px_30px_rgba(0,0,0,0.08)] border-t border-gray-100">
         <button 
           onClick={() => handleAction('cart')}
           className="flex-1 border-2 border-gray-900 bg-white text-gray-900 font-bold uppercase tracking-tight text-sm py-3.5 rounded-lg active:scale-95 transition-all flex items-center justify-center gap-2"
