@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVendors } from '../../context/VendorContext';
@@ -18,25 +17,24 @@ const VendorWalletPage: React.FC = () => {
     const vendorOrders = useMemo(() => {
         return orders.filter(order => 
             order.items && order.items.some((item: any) => String(item.vendor_id) === vid)
-        );
+        ).map(order => {
+            const matchedItems = order.items.filter((item: any) => 
+                String(item.vendor_id) === vid
+            );
+            const vendorSubtotal = matchedItems.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+            return { ...order, vendorItems: matchedItems, vendorSubtotal };
+        });
     }, [vid, orders]);
 
     const stats = useMemo(() => {
         const delivered = vendorOrders.filter(o => o.status === 'Delivered');
         const inTransit = vendorOrders.filter(o => ['Confirmed', 'Packed', 'Shipped', 'Out for Delivery'].includes(o.status));
         
-        const settled = delivered.reduce((sum, o) => {
-             const items = o.items.filter((item: any) => String(item.vendor_id) === vid);
-             return sum + items.reduce((iSum: number, i: any) => iSum + (i.price * i.quantity), 0);
-        }, 0);
-
-        const pending = inTransit.reduce((sum, o) => {
-            const items = o.items.filter((item: any) => String(item.vendor_id) === vid);
-            return sum + items.reduce((iSum: number, i: any) => iSum + (i.price * i.quantity), 0);
-        }, 0);
+        const settled = delivered.reduce((sum, o) => sum + (o.vendorSubtotal || 0), 0);
+        const pending = inTransit.reduce((sum, o) => sum + (o.vendorSubtotal || 0), 0);
 
         return { settled, pending };
-    }, [vendorOrders, vid]);
+    }, [vendorOrders]);
 
     return (
         <div className="min-h-screen bg-[#F8F9FA] pb-24 animate-in fade-in duration-300">
@@ -54,7 +52,7 @@ const VendorWalletPage: React.FC = () => {
                         <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                     </div>
                     <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] mb-2">Withdrawable Capital</p>
-                    <h2 className="text-5xl font-black italic tracking-tighter mb-8 leading-none">₹{stats.settled.toLocaleString()}</h2>
+                    <h2 className="text-5xl font-black italic tracking-tighter mb-8 leading-none">₹{(stats.settled || 0).toLocaleString()}</h2>
                     
                     <div className="flex gap-4">
                          <button 
@@ -70,11 +68,11 @@ const VendorWalletPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
                         <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Pending Clearance</p>
-                        <p className="text-xl font-black text-orange-500 italic tracking-tighter">₹{stats.pending.toLocaleString()}</p>
+                        <p className="text-xl font-black text-orange-500 italic tracking-tighter">₹{(stats.pending || 0).toLocaleString()}</p>
                     </div>
                     <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
                         <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest mb-1">Total Earned</p>
-                        <p className="text-xl font-black text-green-500 italic tracking-tighter">₹{(stats.settled + stats.pending).toLocaleString()}</p>
+                        <p className="text-xl font-black text-green-500 italic tracking-tighter">₹{(stats.settled + stats.pending || 0).toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -104,11 +102,11 @@ const VendorWalletPage: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-gray-900 uppercase italic">Order #{o.id.slice(-6)}</p>
-                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">{new Date(o.created_at).toLocaleDateString()}</p>
+                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">{o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A'}</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-black text-gray-900 italic">₹{o.vendorSubtotal.toLocaleString()}</p>
+                                        <p className="text-sm font-black text-gray-900 italic">₹{(o.vendorSubtotal || 0).toLocaleString()}</p>
                                         <p className={`text-[8px] font-black uppercase ${o.status === 'Delivered' ? 'text-green-500' : 'text-orange-500'}`}>
                                             {o.status === 'Delivered' ? 'Settled' : 'Pending'}
                                         </p>

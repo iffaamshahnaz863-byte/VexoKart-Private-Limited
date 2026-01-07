@@ -1,4 +1,3 @@
-
 import React, { useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
@@ -36,13 +35,13 @@ const VendorDashboardPage: React.FC = () => {
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    const todayOrders = vendorOrders.filter(o => o.created_at.startsWith(today));
+    const todayOrders = vendorOrders.filter(o => o.created_at?.startsWith(today));
     const pending = vendorOrders.filter(o => ['Placed', 'Confirmed', 'Packed'].includes(o.status));
     const delivered = vendorOrders.filter(o => o.status === 'Delivered');
     const cancelled = vendorOrders.filter(o => o.status === 'Cancelled');
     
-    const todayRev = todayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalRev = vendorOrders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + (o.total || 0), 0);
+    const todayRev = todayOrders.reduce((sum, o) => sum + (Number(o.total || 0)), 0);
+    const totalRev = vendorOrders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + (Number(o.total || 0)), 0);
 
     return {
       todayCount: todayOrders.length,
@@ -122,14 +121,14 @@ const VendorDashboardPage: React.FC = () => {
         />
         <StatCard 
           label="Today Sales" 
-          value={`₹${stats.todayRev.toLocaleString()}`} 
+          value={`₹${(stats.todayRev || 0).toLocaleString()}`} 
           colorClass="text-[#F43397]" 
           onClick={() => navigate('/vendor/wallet')}
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
         />
         <StatCard 
           label="Wallet Bal" 
-          value={`₹${stats.balance.toLocaleString()}`} 
+          value={`₹${(stats.balance || 0).toLocaleString()}`} 
           colorClass="text-purple-600" 
           onClick={() => navigate('/vendor/wallet')}
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}

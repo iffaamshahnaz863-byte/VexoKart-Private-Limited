@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../context/OrderContext';
@@ -19,10 +18,10 @@ const VendorOrderDetailPage: React.FC = () => {
     const vid = currentVendor ? String(currentVendor.id) : '';
 
     const vendorItems = useMemo(() => {
-        return order?.items.filter((item: any) => String(item.vendor_id) === vid) || [];
+        return order?.items?.filter((item: any) => String(item.vendor_id) === vid) || [];
     }, [order, vid]);
 
-    const vendorSubtotal = vendorItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const vendorSubtotal = vendorItems.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
 
     const handleAction = async (newStatus: OrderStatus, note: string) => {
         if (!order || isProcessing) return;
@@ -51,7 +50,7 @@ const VendorOrderDetailPage: React.FC = () => {
                 <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex justify-between items-end">
                     <div>
                         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Consignment ID</p>
-                        <h2 className="text-xl font-black font-mono text-gray-900">#{order.id.slice(0, 10)}...</h2>
+                        <h2 className="text-xl font-black font-mono text-gray-900">#{order.id?.slice(0, 10)}...</h2>
                     </div>
                     <div className="text-right">
                         <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border ${
@@ -99,7 +98,7 @@ const VendorOrderDetailPage: React.FC = () => {
                                     </div>
                                     <div className="flex justify-between items-end mt-1">
                                         <p className="text-[10px] font-black text-gray-400 uppercase">QTY: {item.quantity}</p>
-                                        <p className="text-xs font-black text-gray-900 italic">₹{item.price.toLocaleString()}</p>
+                                        <p className="text-xs font-black text-gray-900 italic">₹{(item.price || 0).toLocaleString()}</p>
                                     </div>
                                 </div>
                             </div>
@@ -116,7 +115,7 @@ const VendorOrderDetailPage: React.FC = () => {
                     <div className="space-y-2">
                         <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                             <span className="text-gray-400">Merchant Share</span>
-                            <span>₹{vendorSubtotal.toLocaleString()}</span>
+                            <span>₹{(vendorSubtotal || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                             <span className="text-gray-400">Logistics Fee</span>
@@ -125,7 +124,7 @@ const VendorOrderDetailPage: React.FC = () => {
                         <div className="pt-4 border-t border-white/10 flex justify-between items-end">
                             <div className="flex flex-col">
                                 <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Credited on Delivery</span>
-                                <span className="text-2xl font-black italic tracking-tighter">₹{vendorSubtotal.toLocaleString()}</span>
+                                <span className="text-2xl font-black italic tracking-tighter">₹{(vendorSubtotal || 0).toLocaleString()}</span>
                             </div>
                             <span className="text-[9px] font-black uppercase bg-white/10 px-2 py-1 rounded-lg italic">{order.payment_mode}</span>
                         </div>
