@@ -102,7 +102,9 @@ const CheckoutPage: React.FC = () => {
         navigate('/order-success', {
           state: { 
             orderId: String(orderIdString), 
-            address: selectedAddress 
+            address: selectedAddress,
+            paymentMethod: 'Cash on Delivery',
+            totalAmount: finalPayable
           },
           replace: true
         });
@@ -140,7 +142,9 @@ const CheckoutPage: React.FC = () => {
           navigate('/order-success', {
             state: { 
               orderId: String(orderIdString), 
-              address: selectedAddress 
+              address: selectedAddress,
+              paymentMethod: 'Online Payment',
+              totalAmount: finalPayable
             },
             replace: true
           });

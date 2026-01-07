@@ -142,6 +142,25 @@
         0% { transform: scale(0.98); opacity: 0; }
         100% { transform: scale(1); opacity: 1; }
       }
+
+      /* SUCCESS TICK ANIMATIONS */
+      @keyframes meesho-pop {
+        0% { transform: scale(0.5); opacity: 0; }
+        70% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .animate-meesho-pop {
+        animation: meesho-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+      @keyframes tick-draw {
+        0% { stroke-dashoffset: 40; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .animate-tick-draw {
+        stroke-dasharray: 40;
+        stroke-dashoffset: 40;
+        animation: tick-draw 0.4s 0.3s ease-out forwards;
+      }
     </style>
   <script type="importmap">
 {

@@ -43,9 +43,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   const { fetchInbox } = useNotifications();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLabelGenerating, setIsLabelGenerating] = useState(false);
   
-  // IN-APP REACT COMPONENT PREVIEW STATE
   const [activeOrderForLabel, setActiveOrderForLabel] = useState<any | null>(null);
 
   const refreshOrders = async () => {
@@ -110,7 +108,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
           qrToken: o.qr_token,
           date: o.created_at,
           seller_name: o.vendor?.store_name || "VexoKart Direct",
-          shippingAddress: o.shipping_address || o.shippingaddress || o.address || null,
+          // Prioritize 'address' key if 'shipping_address' returned a numeric ID instead of an object
+          shippingAddress: (typeof o.address === 'object' ? o.address : null) || 
+                           (typeof o.shipping_address === 'object' ? o.shipping_address : null) || 
+                           (typeof o.shippingaddress === 'object' ? o.shippingaddress : null) || 
+                           null,
         }))
       );
     }
@@ -141,8 +143,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     if (!user) throw new Error("Authentication required.");
     const timestamp = new Date().toISOString();
     const qrToken = Math.random().toString(36).substring(2, 15);
+    
     const addressSnapshot = {
-      id: orderData.shippingAddress?.id || Date.now().toString(),
       fullName: orderData.shippingAddress?.fullName || 'Customer',
       street: orderData.shippingAddress?.street || '',
       city: orderData.shippingAddress?.city || '',
@@ -150,19 +152,26 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       zip: orderData.shippingAddress?.zip || '',
       phone: orderData.shippingAddress?.phone || '',
     };
+
     const rawVendorId = orderData.items[0]?.vendor_id;
     let numericVendorId = null;
-    if (rawVendorId && !isNaN(Number(rawVendorId))) numericVendorId = Number(rawVendorId);
+    if (rawVendorId && !isNaN(Number(rawVendorId))) {
+      numericVendorId = Number(rawVendorId);
+    }
 
+    /**
+     * CRITICAL FIX: The error "invalid input syntax for type numeric" for an address JSON 
+     * implies that the 'shipping_address' column is numeric (intended for an ID).
+     * We rename the key to 'address' which is typically the JSONB field in our standard schema.
+     */
     const payload = {
       user_id: Number(user.id),
       vendor_id: numericVendorId,
       items: orderData.items,
-      total: Number(orderData.total),
       total_amount: Number(orderData.total),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
-      shipping_address: addressSnapshot,
+      address: addressSnapshot, // Using 'address' as the JSONB field
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
       status_history: [{ status: "Placed", timestamp, actor: "User", note: "Order placed" }],
@@ -171,10 +180,19 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     const res = await fetch(`${BASE_API_URL}/orders`, {
       method: "POST",
-      headers: { ...API_HEADERS, "Prefer": "return=representation" },
+      headers: { 
+        ...API_HEADERS, 
+        "Prefer": "return=representation" 
+      },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Order placement failed");
+
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}));
+      console.error("[OrderContext] Database Rejection Details:", res.status, JSON.stringify(errorBody));
+      throw new Error(errorBody.message || `Order placement failed (Status: ${res.status})`);
+    }
+
     const result = await res.json();
     refreshOrders();
     return result[0].id.toString();
@@ -219,7 +237,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       value={{
         orders,
         isLoading,
-        isLabelGenerating,
+        isLabelGenerating: false,
         activeOrderForLabel,
         addOrder,
         updateOrderStatus,

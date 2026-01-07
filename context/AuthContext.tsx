@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
 import { VendorContext } from './VendorContext.tsx';
@@ -74,7 +73,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               if (Array.isArray(userData) && userData.length > 0) {
                 const foundUser = sanitizeUser(userData[0]);
                 setUser(foundUser);
-                // Corrected: Pass user object, not email
                 await fetchInbox(foundUser);
               }
           }
@@ -94,49 +92,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const login = async (email: string, pass: string) => {
+    const cleanEmail = email.trim().toLowerCase();
     try {
-      const query = `email=ilike.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=*`;
+      // Use exact match for password and case-insensitive for email
+      const query = `email=ilike.${encodeURIComponent(cleanEmail)}&password=eq.${encodeURIComponent(pass)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       
-      if (!res.ok) throw new Error("Auth service currently unavailable.");
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => ({}));
+        throw new Error(errorBody.message || "Authentication service error.");
+      }
       
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const loggedUser = sanitizeUser(data[0]);
         updateUserSession(loggedUser);
-        
-        // Trigger Notifications
         await notifyLogin(loggedUser);
-        // Corrected: Pass user object, not email
         await fetchInbox(loggedUser);
-        
         return;
       }
       
-      const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+      // Fallback check to see if email even exists for better UI feedback
+      const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(cleanEmail)}&select=email`, { headers: API_HEADERS });
       const checkData = await checkRes.json().catch(() => []);
       
       if (Array.isArray(checkData) && checkData.length === 0) {
-          throw new Error('User not found. Please register first.');
+          throw new Error('No account found with this email. Please sign up.');
       }
       
-      throw new Error('Invalid credentials.');
+      throw new Error('Incorrect password. Please try again.');
     } catch (err: any) {
       console.error("Login Error:", err);
-      throw new Error(err.message || 'Network error. Please check your internet.');
+      throw new Error(err.message || 'Identity verification failed. Check your credentials.');
     }
   };
 
   const signup = async (name: string, email: string, phone: string, pass: string) => {
+    const cleanEmail = email.trim().toLowerCase();
     try {
-        const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(email)}&select=email`, { headers: API_HEADERS });
+        const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(cleanEmail)}&select=email`, { headers: API_HEADERS });
         const existing = await checkRes.json().catch(() => []);
-        if (Array.isArray(existing) && existing.length > 0) throw new Error('Email already registered');
+        if (Array.isArray(existing) && existing.length > 0) throw new Error('This email is already registered.');
 
         const newUser = {
-          name, 
-          email: email.toLowerCase(), 
-          phone, 
+          name: name.trim(), 
+          email: cleanEmail, 
+          phone: phone.trim(), 
           password: pass, 
           role: 'user',
           addresses: [], 
@@ -151,12 +152,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           body: JSON.stringify(newUser)
         });
         
-        if (!res.ok) throw new Error('Account creation rejected. Try again later.');
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.message || 'Account creation rejected by server.');
+        }
         
         await fetchUsers();
     } catch (err: any) {
         console.error("Signup Error:", err);
-        throw new Error(err.message || "Connection failed.");
+        throw new Error(err.message || "Connection failed during registration.");
     }
   };
 
