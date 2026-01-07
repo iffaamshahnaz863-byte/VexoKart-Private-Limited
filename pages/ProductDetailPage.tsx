@@ -11,8 +11,6 @@ import { SearchIcon } from '../components/icons/SearchIcon';
 import { CartIcon } from '../components/icons/CartIcon';
 import Toast from '../components/Toast';
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -24,13 +22,29 @@ const ProductDetailPage: React.FC = () => {
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [isWishlistAnimating, setIsWishlistAnimating] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const productId = parseInt(id || '');
   const product = getProduct(productId);
   const vendor = product ? getVendorById(product.vendor_id) : null;
+
+  // Extract variants set by vendor
+  const availableSizes = useMemo(() => 
+    product?.variants?.filter(v => v.type === 'size').map(v => v.value) || [], 
+    [product]
+  );
+  
+  const availableColors = useMemo(() => 
+    product?.variants?.filter(v => v.type === 'color') || [], 
+    [product]
+  );
+
+  const needsSize = availableSizes.length > 0;
+  const needsColor = availableColors.length > 0;
 
   useEffect(() => {
     if (product) {
@@ -56,8 +70,6 @@ const ProductDetailPage: React.FC = () => {
   const mrp = Number(product.original_price || product.price);
   const sellingPrice = Number(product.price);
   const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
-  
-  // Meesho Logic: UPI price is usually 2-3% cheaper than regular
   const upiPrice = Math.floor(sellingPrice * 0.98);
 
   const handleToggleWishlist = () => {
@@ -68,14 +80,24 @@ const ProductDetailPage: React.FC = () => {
   };
 
   const handleAction = (type: 'cart' | 'buy') => {
-    if (!selectedSize) {
-      const sizeSection = document.getElementById('size-selection');
-      sizeSection?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Shake animation effect could be added here
+    if (needsSize && !selectedSize) {
+      const el = document.getElementById('size-selection');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (needsColor && !selectedColor) {
+      const el = document.getElementById('color-selection');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     
-    addToCart({ ...product, selectedSize, quantity } as any);
+    addToCart({ 
+      ...product, 
+      selectedSize: needsSize ? selectedSize : undefined, 
+      selectedColor: needsColor ? selectedColor : undefined,
+      quantity 
+    } as any);
+
     if (type === 'cart') {
       setShowAddedToast(true);
     } else {
@@ -86,6 +108,8 @@ const ProductDetailPage: React.FC = () => {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/F8F9FA/A0A0A0?text=Product+Image';
   };
+
+  const isBuyDisabled = (needsSize && !selectedSize) || (needsColor && !selectedColor);
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] pb-32 font-sans select-none">
@@ -134,12 +158,10 @@ const ProductDetailPage: React.FC = () => {
           ))}
         </div>
         
-        {/* Pagination Label (e.g. 1/4) */}
         <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">
           {currentImageIndex + 1}/{displayImages.length}
         </div>
 
-        {/* Scroll dots (Optional Meesho Style) */}
         <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
           {displayImages.map((_, i) => (
             <div 
@@ -189,38 +211,59 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SIZE SELECTION SECTION */}
-      <div id="size-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-bold text-gray-800">Select Size</h3>
-          <button className="text-[#F43397] text-xs font-bold">Size Chart</button>
+      {/* COLOR SELECTION SECTION (Vendor Defined) */}
+      {needsColor && (
+        <div id="color-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
+          <h3 className="text-sm font-bold text-gray-800">Select Color</h3>
+          <div className="flex flex-wrap gap-4">
+            {availableColors.map((color, i) => (
+              <button
+                key={i}
+                onClick={() => setSelectedColor(color.value)}
+                className={`flex flex-col items-center gap-1 p-1 rounded-xl border-2 transition-all ${
+                  selectedColor === color.value ? 'border-[#F43397] bg-[#FFF0F7]' : 'border-transparent'
+                }`}
+              >
+                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                  <img src={color.image || 'https://placehold.co/100x100?text=Color'} className="w-full h-full object-cover" alt={color.value} />
+                </div>
+                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tighter">{color.value}</span>
+              </button>
+            ))}
+          </div>
+          {needsColor && !selectedColor && (
+            <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a color to continue</p>
+          )}
         </div>
-        <div className="flex flex-wrap gap-3">
-          {SIZES.map((size) => {
-            // Simulated stock logic for visual fidelity
-            const isOutOfStock = product.stock < 5 && (size === 'XS' || size === 'XXL');
-            return (
+      )}
+
+      {/* SIZE SELECTION SECTION (Vendor Defined) */}
+      {needsSize && (
+        <div id="size-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold text-gray-800">Select Size</h3>
+            <button className="text-[#F43397] text-xs font-bold">Size Chart</button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {availableSizes.map((size) => (
               <button
                 key={size}
-                disabled={isOutOfStock}
                 onClick={() => setSelectedSize(size)}
                 className={`min-w-[56px] py-2 px-3 rounded-full text-sm font-bold border transition-all ${
                   selectedSize === size
                     ? 'border-[#F43397] bg-[#FFF0F7] text-[#F43397]'
-                    : isOutOfStock 
-                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-400'
                 }`}
               >
                 {size}
               </button>
-            );
-          })}
+            ))}
+          </div>
+          {needsSize && !selectedSize && (
+              <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a size to continue</p>
+          )}
         </div>
-        {!selectedSize && (
-            <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a size to continue</p>
-        )}
-      </div>
+      )}
 
       {/* QUANTITY SELECTOR */}
       <div className="mt-2 bg-white p-4 flex items-center justify-between shadow-sm">
@@ -238,11 +281,11 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* PRODUCT HIGHLIGHTS (Key-Value Table) */}
+      {/* PRODUCT HIGHLIGHTS & DESCRIPTION (Accordion Style) */}
       <div className="mt-2 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-bold text-gray-800 mb-4">Product Details</h3>
         <div className="space-y-3">
-          {(product.highlights || ['Fabric: Cotton', 'Pattern: Printed', 'Fit: Regular']).map((h, i) => {
+          {(product.highlights || []).length > 0 ? product.highlights?.map((h, i) => {
             const [label, ...valParts] = h.includes(':') ? h.split(':') : ['Highlight', h];
             const value = valParts.join(':').trim();
             return (
@@ -251,11 +294,29 @@ const ProductDetailPage: React.FC = () => {
                 <span className="w-2/3 text-gray-700 font-semibold">{value}</span>
               </div>
             );
-          })}
+          }) : (
+            <p className="text-xs text-text-muted italic">No specific highlights provided.</p>
+          )}
         </div>
-        <p className="text-xs text-gray-500 mt-4 leading-relaxed whitespace-pre-line">
-          {product.description}
-        </p>
+        
+        {/* Description with "Read More" logic */}
+        <div className="mt-4 relative">
+          <div 
+            className={`text-xs text-gray-500 leading-relaxed whitespace-pre-line overflow-hidden transition-all duration-500 ease-in-out ${
+              isDescriptionExpanded ? 'max-h-[2000px]' : 'max-h-[4.8rem]'
+            }`}
+          >
+            {product.description}
+          </div>
+          {product.description && product.description.length > 120 && (
+            <button 
+              onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+              className="text-[#F43397] text-xs font-bold mt-2 hover:opacity-80 transition-opacity"
+            >
+              {isDescriptionExpanded ? 'Read Less ▲' : 'See More ▼'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* SOLD BY SECTION */}
@@ -309,11 +370,11 @@ const ProductDetailPage: React.FC = () => {
         </button>
         <button 
           onClick={() => handleAction('buy')}
-          disabled={!selectedSize}
+          disabled={isBuyDisabled}
           className={`flex-[1.2] py-4 rounded-lg font-bold uppercase tracking-tight text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
-            selectedSize 
+            !isBuyDisabled 
             ? 'bg-[#F43397] text-white shadow-[#F43397]/20' 
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
           }`}
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
