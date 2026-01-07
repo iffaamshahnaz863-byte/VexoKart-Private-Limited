@@ -71,14 +71,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // CRITICAL FIX: Sanitize payload and ensure vendor_id is the VENDOR TABLE ID (bigint)
-    const { category, category_data, payment_modes, ...dbPayload } = productData;
+    // Exclude virtual/unmapped fields and ID to let DB handle it
+    const { id, category, category_data, payment_modes, variants, ...dbPayload } = productData;
     
     const finalPayload = {
       ...dbPayload,
-      vendor_id: Number(productData.vendor_id), // Must be bigint FK to vendors.id
+      vendor_id: Number(productData.vendor_id),
       category_id: Number(dbPayload.category_id),
-      // Images must be sent as JSON array
       images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
       created_at: new Date().toISOString(),
       status: dbPayload.status || 'approved'
@@ -105,7 +104,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    const { category, category_data, payment_modes, ...dbPayload } = product as any;
+    // CRITICAL FIX: Destructure 'id' out of the payload body.
+    // In PostgreSQL, identity columns cannot be part of the UPDATE SET clause.
+    const { id, category, category_data, payment_modes, variants, ...dbPayload } = product as any;
 
     const finalPayload = {
       ...dbPayload,
@@ -114,7 +115,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     try {
-      const res = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
+      const res = await fetch(`${BASE_API_URL}/products?id=eq.${id}`, {
         method: 'PATCH',
         headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
         body: JSON.stringify(finalPayload)
@@ -149,7 +150,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const deleteProduct = async (id: number) => {
-    const target = getProduct(id);
     try {
       const res = await fetch(`${BASE_API_URL}/products?id=eq.${id}`, { 
         method: 'DELETE', 

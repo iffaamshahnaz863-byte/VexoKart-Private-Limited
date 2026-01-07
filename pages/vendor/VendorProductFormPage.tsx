@@ -141,6 +141,7 @@ const VendorProductFormPage: React.FC = () => {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
         
         // CONSTRUCT SECURE PAYLOAD
+        // Note: 'variants' is excluded here because the column does not exist in the Supabase schema.
         const payload = { 
             name: formData.name,
             description: formData.description,
@@ -149,7 +150,6 @@ const VendorProductFormPage: React.FC = () => {
             stock: Number(formData.stock),
             category_id: Number(formData.category_id),
             images: formData.images, // JSONB compatible
-            variants: formData.variants || [],
             highlights: finalHighlights,
             // CRITICAL FIX: Use numeric vendor_id from VENDORS table
             vendor_id: Number(currentVendor.id), 
