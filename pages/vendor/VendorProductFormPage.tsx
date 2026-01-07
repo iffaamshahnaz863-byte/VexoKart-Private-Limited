@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -30,20 +31,21 @@ const VendorProductFormPage: React.FC = () => {
     highlights: [],
     stock: 10,
     specifications: {},
-    cash_on_delivery: false, // Default to false as per requirement
+    cash_on_delivery: false,
     variants: [] as ProductVariant[]
   });
 
+  const [enableSize, setEnableSize] = useState(false);
+  const [enableColor, setEnableColor] = useState(false);
   const [highlightsText, setHighlightsText] = useState('');
-  const [newVarType, setNewVarType] = useState<'color' | 'size'>('color');
+  
   const [newVarName, setNewVarName] = useState('');
   const [newVarImage, setNewVarImage] = useState('');
-
   const [cropQueue, setCropQueue] = useState<string[]>([]);
   const [currentCropIndex, setCurrentCropIndex] = useState(0);
   const [isAddingToVariant, setIsAddingToVariant] = useState(false);
 
-  const inputClasses = "w-full mt-1 bg-surface text-text-main border border-border rounded-xl p-3 transition focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 disabled:opacity-50";
+  const inputClasses = "w-full mt-1 bg-surface text-text-main border border-border rounded-2xl p-4 transition focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 disabled:opacity-50 text-sm font-medium";
 
   useEffect(() => {
     if (isEditing) {
@@ -53,13 +55,14 @@ const VendorProductFormPage: React.FC = () => {
             ...p, 
             category_id: p.category_id.toString(),
             variants: p.variants || [],
-            // Load exactly what is in the DB
             cash_on_delivery: !!p.cash_on_delivery
         });
         setHighlightsText((p.highlights || []).join('\n'));
+        setEnableSize(p.variants?.some(v => v.type === 'size') || false);
+        setEnableColor(p.variants?.some(v => v.type === 'color') || false);
       }
     } else if (categories.length > 0) {
-      setFormData(prev => ({...prev, category_id: categories[0].id.toString()}));
+      setFormData((prev: any) => ({...prev, category_id: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
 
@@ -67,9 +70,9 @@ const VendorProductFormPage: React.FC = () => {
     const { name, value, type } = e.target as any;
     if (type === 'checkbox') {
         const checked = (e.target as any).checked;
-        setFormData(prev => ({ ...prev, [name]: checked }));
+        setFormData((prev: any) => ({ ...prev, [name]: checked }));
     } else {
-        setFormData(prev => ({ ...prev, [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
+        setFormData((prev: any) => ({ ...prev, [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
     }
   };
 
@@ -87,7 +90,7 @@ const VendorProductFormPage: React.FC = () => {
     if (isAddingToVariant) {
         setNewVarImage(croppedBase64);
     } else {
-        setFormData(prev => ({ 
+        setFormData((prev: any) => ({ 
             ...prev, 
             images: Array.isArray(prev.images) ? [...prev.images, croppedBase64] : [croppedBase64] 
         }));
@@ -101,53 +104,36 @@ const VendorProductFormPage: React.FC = () => {
     }
   };
 
-  const addVariant = () => {
+  const addVariant = (type: 'size' | 'color') => {
     if (!newVarName) return;
     const variant: ProductVariant = {
-        type: newVarType,
-        name: newVarType === 'color' ? newVarName : 'Size',
+        type,
+        name: type === 'size' ? 'Size' : 'Color',
         value: newVarName,
-        image: newVarImage || undefined
+        image: type === 'color' ? (newVarImage || undefined) : undefined
     };
-    setFormData(prev => ({ ...prev, variants: [...(prev.variants || []), variant] }));
+    setFormData((prev: any) => ({ ...prev, variants: [...(prev.variants || []), variant] }));
     setNewVarName('');
     setNewVarImage('');
   };
 
   const removeVariant = (idx: number) => {
-    setFormData(prev => ({ ...prev, variants: prev.variants.filter((_, i) => i !== idx) }));
+    setFormData((prev: any) => ({ ...prev, variants: prev.variants.filter((_: any, i: number) => i !== idx) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!currentVendor) { 
-        alert("Vendor identity synchronization in progress. Please wait."); 
-        return; 
-    }
-    
-    if (formData.images.length === 0) {
-      alert("Please upload at least one image.");
-      return;
-    }
+    if (!currentVendor) { alert("Auth sync error"); return; }
+    if (formData.images.length === 0) { alert("Add at least one image"); return; }
 
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
-        
         const payload = { 
-            name: formData.name,
-            description: formData.description,
-            price: Number(formData.price),
-            original_price: Number(formData.original_price || formData.price),
-            stock: Number(formData.stock),
-            category_id: Number(formData.category_id),
-            images: formData.images, 
+            ...formData,
             highlights: finalHighlights,
             vendor_id: Number(currentVendor.id), 
             status: 'approved',
-            // Save exactly what the vendor chose
-            cash_on_delivery: !!formData.cash_on_delivery
         };
 
         if (isEditing) {
@@ -156,124 +142,160 @@ const VendorProductFormPage: React.FC = () => {
             await addProduct(payload);
         }
         
-        setToast({ show: true, message: 'Listing Live', type: 'success' });
+        setToast({ show: true, message: 'Saved Successfully', type: 'success' });
         setTimeout(() => navigate('/vendor/products'), 1000);
     } catch (err: any) {
-        console.error("[VendorForm] Submit Fail:", err);
-        alert(`Failed to save: ${err.message || "Server Error"}`);
+        alert(`Fail: ${err.message}`);
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  const removeImage = (index: number) => {
-    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
-  };
-
   return (
-    <div className="pb-20 max-w-5xl mx-auto p-4">
+    <div className="pb-24 animate-in fade-in duration-300">
       {cropQueue.length > 0 && (
           <ImageCropperModal 
             image={cropQueue[currentCropIndex]} 
             onCropComplete={handleCropComplete}
             onCancel={() => { setCropQueue([]); setIsAddingToVariant(false); }}
-            title={isAddingToVariant ? "Standardize Variant" : "Product Vision"}
+            title={isAddingToVariant ? "Variant Photo" : "Product Vision"}
           />
       )}
 
-      <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => navigate('/vendor/products')} className="p-3 bg-white rounded-2xl border border-border shadow-sm"><ChevronLeftIcon className="w-5 h-5" /></button>
-          <h1 className="text-3xl font-black text-text-main italic uppercase">Inventory Manifest</h1>
+      <div className="sticky top-0 z-40 bg-[#F8F9FA]/80 backdrop-blur-md pb-4 pt-1 mb-6">
+          <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/vendor/products')} className="p-2 -ml-2">
+                  <ChevronLeftIcon className="w-6 h-6 text-gray-800" />
+              </button>
+              <h1 className="text-xl font-black text-gray-900 italic uppercase tracking-tighter">
+                {isEditing ? 'Edit Listing' : 'Add Product'}
+              </h1>
+          </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Listing Intelligence</h2>
-                <div className="space-y-4">
-                    <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Product Title" className={inputClasses} />
-                    <div className="grid grid-cols-2 gap-4">
-                        <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputClasses}>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <input type="number" name="stock" value={formData.stock} onChange={handleChange} required placeholder="Stock Available" className={inputClasses} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} required placeholder="Selling Price (₹)" className={inputClasses} />
-                        <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} placeholder="Market Price (₹)" className={inputClasses} />
-                    </div>
-                    <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Detailed product narrative..." className={inputClasses}></textarea>
+      <form onSubmit={handleSubmit} className="space-y-6 px-1">
+        {/* Core Info */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-5">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Listing Intelligence</h2>
+            <div>
+              <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Product Title</label>
+              <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="What are you selling?" className={inputClasses} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Category</label>
+                  <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputClasses}>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
                 </div>
-            </GlassmorphicCard>
-
-            <GlassmorphicCard className="p-8">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Visual Discovery</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                    {formData.images && formData.images.map((img: string, i: number) => (
-                        <div key={i} className="aspect-square rounded-xl overflow-hidden border border-border relative group">
-                            <img src={img} className="w-full h-full object-cover" />
-                            <button type="button" onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
-                        </div>
-                    ))}
-                    <label className="aspect-square rounded-xl border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:bg-surface transition-colors">
-                        <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, false)} className="hidden" />
-                        <div className="text-center">
-                            <svg className="w-6 h-6 text-text-muted mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            <span className="text-[8px] font-black uppercase mt-1 block">Add Media</span>
-                        </div>
-                    </label>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Available Stock</label>
+                  <input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} />
                 </div>
-                
-                <div className="mt-8">
-                    <p className="text-[10px] font-black uppercase text-text-muted mb-4">Highlights (Bullet points per line)</p>
-                    <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Premium Quality&#10;Verified Authentic&#10;Eco-Friendly Material" className={inputClasses}></textarea>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-black uppercase text-accent ml-2">Selling Price (₹)</label>
+                  <input type="number" name="price" value={formData.price} onChange={handleChange} required className={`${inputClasses} border-accent/20 bg-accent/5`} />
                 </div>
-            </GlassmorphicCard>
+                <div>
+                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">MRP / Market Price</label>
+                  <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} className={inputClasses} />
+                </div>
+            </div>
         </div>
 
-        <div className="space-y-6">
-            <GlassmorphicCard className="p-8 sticky top-24">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Publication Control</h2>
-                <div className="space-y-6">
-                    <div>
-                        <p className="text-[10px] font-black uppercase text-text-muted mb-3">Fulfillment Protocol</p>
-                        <div className="space-y-3">
-                            <div className="p-4 bg-surface rounded-2xl border border-border">
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input 
-                                        type="checkbox" 
-                                        name="cash_on_delivery" 
-                                        checked={formData.cash_on_delivery} 
-                                        onChange={handleChange} 
-                                        className="w-5 h-5 rounded text-accent focus:ring-accent border-border" 
-                                    />
-                                    <div>
-                                        <span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main transition-colors">Cash on Delivery</span>
-                                        <p className="text-[8px] text-text-muted font-bold mt-0.5">ALLOW COD SETTLEMENT</p>
-                                    </div>
-                                </label>
-                            </div>
-                            
-                            <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100 flex items-center gap-3">
-                                <div className="w-5 h-5 flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
-                                </div>
-                                <div>
-                                    <span className="text-xs font-black uppercase text-indigo-700">Digital Pre-paid</span>
-                                    <p className="text-[8px] text-indigo-400 font-bold mt-0.5">MANDATORY PROTOCOL</p>
-                                </div>
-                            </div>
-                        </div>
+        {/* Media */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Visual Discovery</h2>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                {formData.images.map((img: string, i: number) => (
+                    <div key={i} className="w-24 h-24 rounded-2xl overflow-hidden border border-gray-100 shrink-0 relative group">
+                        <img src={img} className="w-full h-full object-cover" alt="" />
+                        <button type="button" onClick={() => setFormData((p: any) => ({ ...p, images: p.images.filter((_: any, idx: number) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
                     </div>
-                    
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-5 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50">
-                        {isSubmitting ? 'Synchronizing Manifest...' : (isEditing ? 'Update Listing' : 'Publish to Marketplace')}
-                    </button>
-                    
-                    <p className="text-[8px] text-text-muted text-center uppercase font-bold tracking-widest italic opacity-60">Listing monitored by VexoKart Verified Protocol</p>
-                </div>
-            </GlassmorphicCard>
+                ))}
+                <label className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center shrink-0 cursor-pointer bg-gray-50 hover:border-accent/30 transition-all">
+                    <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, false)} className="hidden" />
+                    <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                    <span className="text-[8px] font-black text-gray-400 uppercase mt-1">Add Media</span>
+                </label>
+            </div>
         </div>
+
+        {/* Variants Toggle Section */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Marketplace Variants</h2>
+            
+            <div className="flex gap-4">
+               <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" checked={enableSize} onChange={(e) => setEnableSize(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
+                  <span className="text-[10px] font-black uppercase text-gray-600">Enable Sizes</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" checked={enableColor} onChange={(e) => setEnableColor(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
+                  <span className="text-[10px] font-black uppercase text-gray-600">Enable Colors</span>
+               </label>
+            </div>
+
+            {(enableSize || enableColor) && (
+              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={newVarName} 
+                      onChange={(e) => setNewVarName(e.target.value)}
+                      placeholder={enableSize ? "Size (e.g. XL, 42)" : "Color Name"}
+                      className="flex-grow bg-surface border border-gray-100 rounded-xl p-3 text-xs font-bold uppercase"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => addVariant(enableSize ? 'size' : 'color')}
+                      className="bg-gray-900 text-white px-4 rounded-xl text-[9px] font-black uppercase"
+                    >Add</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                   {formData.variants.map((v: ProductVariant, idx: number) => (
+                     <div key={idx} className="bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full flex items-center gap-2">
+                        <span className="text-[8px] font-black uppercase text-gray-400">{v.type}:</span>
+                        <span className="text-[10px] font-black uppercase text-gray-900">{v.value}</span>
+                        <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 hover:text-red-600">&times;</button>
+                     </div>
+                   ))}
+                </div>
+              </div>
+            )}
+        </div>
+
+        {/* Narrative */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Narrative & Highlights</h2>
+            <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Tell your customers about the magic of this product..." className={inputClasses}></textarea>
+            <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Premium Quality (New Line per highlight)" className={inputClasses}></textarea>
+        </div>
+
+        {/* Logistics */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Logistic Control</h2>
+            <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100 flex items-center justify-between">
+                <div>
+                   <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
+                   <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Allow buyers to pay at doorstep</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="cash_on_delivery" checked={formData.cash_on_delivery} onChange={handleChange} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                </label>
+            </div>
+        </div>
+
+        <button 
+          type="submit" 
+          disabled={isSubmitting} 
+          className="w-full bg-[#F43397] text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl shadow-[#F43397]/30 active:scale-95 transition-all disabled:opacity-50"
+        >
+          {isSubmitting ? 'ESTABLISHING CONNECTION...' : (isEditing ? 'UPDATE MANIFEST' : 'PUBLISH TO MARKET')}
+        </button>
       </form>
     </div>
   );

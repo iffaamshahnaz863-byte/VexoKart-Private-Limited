@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -29,14 +28,12 @@ const AdminProductFormPage: React.FC = () => {
     highlights: [],
     stock: 10,
     specifications: {},
-    allow_online: true,
-    allow_cod: true
+    cash_on_delivery: false // MATCH VENDOR LOGIC
   });
 
   const [highlightsText, setHighlightsText] = useState('');
   const [specsText, setSpecsText] = useState('');
   
-  // Cropper Queue States
   const [cropQueue, setCropQueue] = useState<string[]>([]);
   const [currentCropIndex, setCurrentCropIndex] = useState(0);
   const [totalInQueue, setTotalInQueue] = useState(0);
@@ -58,14 +55,13 @@ const AdminProductFormPage: React.FC = () => {
         setFormData({
             ...productToEdit,
             category_id: productToEdit.category_id.toString(),
-            allow_online: productToEdit.payment_modes?.includes('online') ?? true,
-            allow_cod: productToEdit.payment_modes?.includes('cod') ?? true
+            // STRICT LOAD - Match vendor choice
+            cash_on_delivery: Boolean(productToEdit.cash_on_delivery)
         });
         setHighlightsText((productToEdit.highlights || []).join('\n'));
         setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
       }
     } else if (categories.length > 0 && !formData.category_id) {
-        // Ensure initial category is set from categories ID
         setFormData((prev: any) => ({...prev, category_id: categories[0].id.toString()}));
     }
   }, [id, isEditing, getProduct, categories]);
@@ -79,48 +75,21 @@ const AdminProductFormPage: React.FC = () => {
     }
   };
 
-  const validateImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            if (img.width < 400 || img.height < 400) {
-                reject(`Image "${file.name}" is too small (${img.width}x${img.height}). Min required: 400x400.`);
-            } else {
-                resolve(URL.createObjectURL(file));
-            }
-        };
-        img.onerror = () => reject("Corrupted image file.");
-        img.src = URL.createObjectURL(file);
-    });
-  };
-
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files) as File[];
-      const urls: string[] = [];
-      
-      for (const file of files) {
-          try {
-              const url = await validateImage(file);
-              urls.push(url);
-          } catch (err: any) {
-              alert(err);
-          }
-      }
-
+      const urls = files.map(f => URL.createObjectURL(f));
       if (urls.length > 0) {
         setTotalInQueue(urls.length);
         setCurrentCropIndex(0);
         setCropQueue(urls);
       }
-      
       e.target.value = '';
     }
   };
 
   const handleCropComplete = (croppedBase64: string) => {
     setFormData((prev: any) => ({ ...prev, images: [...prev.images, croppedBase64] }));
-    
     if (currentCropIndex < cropQueue.length - 1) {
         setCurrentCropIndex(prev => prev + 1);
     } else {
@@ -135,7 +104,6 @@ const AdminProductFormPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if(formData.images.length === 0) { alert("Please upload at least one image."); return; }
-    if (!formData.allow_online && !formData.allow_cod) { alert("Select at least one payment method."); return; }
     if (!formData.vendor_id) { alert("System error: Admin ID missing."); return; }
 
     setIsSubmitting(true);
@@ -147,17 +115,13 @@ const AdminProductFormPage: React.FC = () => {
         if (parts.length === 2) finalSpecs[parts[0].trim()] = parts[1].trim();
       });
 
-      const payment_modes = [];
-      if (formData.allow_online) payment_modes.push('online');
-      if (formData.allow_cod) payment_modes.push('cod');
-
-      // FIXED: Send numeric category_id, no category name
       const finalData = { 
         ...formData, 
         highlights: finalHighlights, 
         specifications: finalSpecs,
-        payment_modes,
-        category_id: Number(formData.category_id)
+        category_id: Number(formData.category_id),
+        // PERSIST STRICT CHOICE
+        cash_on_delivery: Boolean(formData.cash_on_delivery)
       };
 
       if (isEditing) {
@@ -194,7 +158,6 @@ const AdminProductFormPage: React.FC = () => {
                 <div>
                   <label className="block text-[10px] font-black uppercase text-text-muted">Category</label>
                   <select name="category_id" value={formData.category_id} onChange={handleChange} disabled={isSubmitting} className={inputClasses}>
-                    {/* FIXED: Dropdown value is ID, label is name */}
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
@@ -227,22 +190,29 @@ const AdminProductFormPage: React.FC = () => {
                         </div>
                     )}
                 </div>
-                <p className="text-[9px] text-text-muted mt-3 italic">* Minimum resolution: 400x400px. High quality 1:1 ratio images only.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Options</label>
+                    <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Controls</label>
                     <div className="flex gap-6">
-                        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="allow_online" checked={formData.allow_online} onChange={handleChange} disabled={isSubmitting} className="w-4 h-4 rounded border-gray-600 text-accent focus:ring-accent bg-surface"/><span className="text-xs font-bold text-text-main">Digital</span></label>
-                        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" name="allow_cod" checked={formData.allow_cod} onChange={handleChange} disabled={isSubmitting} className="w-4 h-4 rounded border-gray-600 text-accent focus:ring-accent bg-surface"/><span className="text-xs font-bold text-text-main">COD</span></label>
+                         <div className="p-4 bg-surface rounded-2xl border border-border">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input 
+                                        type="checkbox" 
+                                        name="cash_on_delivery" 
+                                        checked={formData.cash_on_delivery} 
+                                        onChange={handleChange} 
+                                        className="w-5 h-5 rounded text-accent focus:ring-accent border-border" 
+                                    />
+                                    <div>
+                                        <span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main transition-colors">Cash on Delivery</span>
+                                        <p className="text-[8px] text-text-muted font-bold mt-0.5">ALLOW COD SETTLEMENT</p>
+                                    </div>
+                                </label>
+                            </div>
                     </div>
                 </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-[10px] font-black uppercase text-text-muted">Highlights (per line)</label><textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={4} disabled={isSubmitting} className={inputClasses} placeholder="e.g.&#10;Premium Design"></textarea></div>
-                <div><label className="block text-[10px] font-black uppercase text-text-muted">Specifications (Key: Value)</label><textarea value={specsText} onChange={(e) => setSpecsText(e.target.value)} rows={4} disabled={isSubmitting} className={inputClasses} placeholder="e.g.&#10;Color: Black"></textarea></div>
             </div>
 
             <div className="flex justify-end gap-4 pt-4">

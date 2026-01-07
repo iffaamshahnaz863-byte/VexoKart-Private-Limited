@@ -1,25 +1,20 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Order, OrderStatus, OrderItem } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import { Order, OrderStatus } from '../../types';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useAuth } from '../../context/AuthContext';
 import { useVendors } from '../../context/VendorContext';
 import { useOrders } from '../../context/OrderContext';
-import ShippingDetailsModal from '../../components/admin/ShippingDetailsModal';
-
-interface VendorAugmentedOrder extends Order {
-    vendorItems: OrderItem[];
-    vendorSubtotal: number;
-}
+import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 
 const VendorOrdersPage: React.FC = () => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const { currentVendor, fetchCurrentVendor } = useVendors();
-    const { orders, isLoading, updateOrderStatus, generateShippingLabel, refreshOrders, isLabelGenerating } = useOrders();
+    const { orders, isLoading, refreshOrders } = useOrders();
     
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [isShippingModalOpen, setShippingModalOpen] = useState(false);
 
     useEffect(() => {
         refreshOrders();
@@ -28,162 +23,117 @@ const VendorOrdersPage: React.FC = () => {
         }
     }, [user, currentVendor]);
 
+    const vid = currentVendor ? String(currentVendor.id) : '';
+
     const vendorOrders = useMemo(() => {
-        if (!currentVendor) return [];
-
         return orders.filter(order => {
-            const matchesVendorId = Number(order.vendor_id) === Number(currentVendor.id);
-            const hasVendorItems = Array.isArray(order.items) && order.items.some(item => 
-                Number(item.vendor_id) === Number(currentVendor.id)
+            const hasVendorItems = Array.isArray(order.items) && order.items.some((item: any) => 
+                String(item.vendor_id) === vid
             );
-            return matchesVendorId || hasVendorItems;
+            return hasVendorItems;
         }).map(order => {
-            const matchedItems = order.items.filter(item => 
-                Number(item.vendor_id) === Number(currentVendor.id)
+            const matchedItems = order.items.filter((item: any) => 
+                String(item.vendor_id) === vid
             );
-            const vendorSubtotal = matchedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-            return {
-                ...order,
-                vendorItems: matchedItems,
-                vendorSubtotal: vendorSubtotal
-            } as VendorAugmentedOrder;
-        }).filter((o): o is VendorAugmentedOrder => {
+            const vendorSubtotal = matchedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+            return { ...order, vendorItems: matchedItems, vendorSubtotal };
+        }).filter((o: any) => {
             if (statusFilter === 'all') return true;
             if (statusFilter === 'pending') return ['Placed', 'Confirmed'].includes(o.status);
             return o.status === statusFilter;
         });
-    }, [orders, currentVendor, statusFilter]);
+    }, [orders, vid, statusFilter]);
 
-    const handleConfirmOrder = async (orderId: string) => {
-        await updateOrderStatus(orderId, 'Confirmed', { note: "Consignment confirmed by merchant node." });
-    };
-
-    const handlePacked = async (orderId: string) => {
-        await updateOrderStatus(orderId, 'Packed', { note: "Items verified and manifest generated." });
-    };
-
-    const handleStatusChange = (order: Order, status: OrderStatus) => {
-        if (status === 'Shipped') {
-            setSelectedOrder(order);
-            setShippingModalOpen(true);
-        } else {
-            updateOrderStatus(order.id, status);
-        }
-    };
-
-    const handleShippingSubmit = (courierName: string, trackingId: string) => {
-        if (selectedOrder) {
-            updateOrderStatus(selectedOrder.id, 'Shipped', { courier_name: courierName, tracking_id: trackingId });
-        }
-        setShippingModalOpen(false);
-        setSelectedOrder(null);
-    };
+    const filters = [
+      { id: 'all', label: 'All' },
+      { id: 'pending', label: 'Pending' },
+      { id: 'Packed', label: 'Packed' },
+      { id: 'Shipped', label: 'Shipped' },
+      { id: 'Delivered', label: 'Delivered' }
+    ];
 
     if (isLoading && vendorOrders.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-20">
-                <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Loading orders...</p>
+                <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {isShippingModalOpen && (
-                <ShippingDetailsModal
-                    onClose={() => setShippingModalOpen(false)}
-                    onSubmit={handleShippingSubmit}
-                />
-            )}
-
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">Vendor Orders</h1>
-                  <p className="text-text-muted mt-1 text-sm font-medium">Automated fulfillment lifecycle.</p>
+        <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="sticky top-0 z-40 bg-[#F8F9FA]/80 backdrop-blur-md pb-4 pt-1">
+                <div className="flex items-center gap-3 mb-6">
+                    <button onClick={() => navigate('/vendor')} className="p-2 -ml-2">
+                        <ChevronLeftIcon className="w-6 h-6 text-gray-800" />
+                    </button>
+                    <h1 className="text-xl font-black text-gray-900 italic uppercase tracking-tighter">Order Manifests</h1>
                 </div>
 
-                <div className="flex bg-surface p-1 rounded-xl border border-border">
-                    {['all', 'pending', 'Packed', 'Shipped', 'Delivered'].map(f => (
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                    {filters.map(f => (
                         <button
-                            key={f}
-                            onClick={() => setStatusFilter(f)}
-                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === f ? 'bg-accent text-white shadow-lg' : 'text-text-muted hover:text-text-secondary'}`}
+                            key={f.id}
+                            onClick={() => setStatusFilter(f.id)}
+                            className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shrink-0 border ${statusFilter === f.id ? 'bg-accent border-accent text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500'}`}
                         >
-                            {f}
+                            {f.label}
                         </button>
                     ))}
                 </div>
             </div>
 
-            <GlassmorphicCard>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead>
-                            <tr className="border-b border-white/5 text-text-muted text-[10px] uppercase font-black tracking-widest">
-                                <th className="p-6">Order Reference</th>
-                                <th className="p-6 text-center">Settlement</th>
-                                <th className="p-6 text-center">Status</th>
-                                <th className="p-6 text-right">Workflow Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {vendorOrders.map(order => (
-                                <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
-                                    <td className="p-6">
-                                        <p className="text-text-main font-mono font-bold text-base">#{order.id}</p>
-                                        <p className="text-[10px] text-text-muted font-bold mt-1 uppercase tracking-tighter">{order.shippingAddress?.fullName || 'Buyer'}</p>
-                                    </td>
-                                    <td className="p-6 text-center">
-                                        <span className="text-text-main font-black text-sm italic">₹{order.vendorSubtotal.toLocaleString()}</span>
-                                    </td>
-                                    <td className="p-6 text-center">
-                                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${
-                                            order.status === 'Delivered' ? 'text-green-500 border-green-500/20 bg-green-500/5' : 
-                                            order.status === 'Cancelled' ? 'text-red-500 border-red-500/20 bg-red-500/5' : 
-                                            'text-blue-400 border-blue-400/20 bg-blue-400/5'
+            <div className="space-y-4">
+                {vendorOrders.map((order: any) => {
+                    const firstItem = order.vendorItems[0];
+                    return (
+                        <div 
+                          key={order.id} 
+                          onClick={() => navigate(`/vendor/order/${order.id}`)}
+                          className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                        >
+                            <div className="flex gap-4">
+                                <div className="w-20 h-20 bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shrink-0">
+                                    <img src={firstItem.image} className="w-full h-full object-contain" alt="" />
+                                </div>
+                                <div className="flex-grow min-w-0">
+                                    <div className="flex justify-between items-start">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">#{order.id.slice(-6)}</p>
+                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border ${
+                                            order.status === 'Delivered' ? 'bg-green-50 text-green-600 border-green-100' :
+                                            order.status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
+                                            'bg-blue-50 text-blue-600 border-blue-100'
                                         }`}>
                                             {order.status}
                                         </span>
-                                    </td>
-                                    <td className="p-6 text-right space-x-2 whitespace-nowrap">
-                                        {order.status === 'Placed' && (
-                                            <button onClick={() => handleConfirmOrder(order.id)} className="bg-accent text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg transition-all hover:scale-105 active:scale-95">Accept Order</button>
-                                        )}
-                                        {order.status === 'Confirmed' && (
-                                            <button 
-                                                onClick={() => handlePacked(order.id)} 
-                                                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg transition-all hover:scale-105 active:scale-95"
-                                            >
-                                                Generate Manifest
-                                            </button>
-                                        )}
-                                        {['Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) && (
-                                            <button 
-                                                onClick={() => generateShippingLabel(order.id)}
-                                                disabled={isLabelGenerating}
-                                                className="bg-white border border-border text-text-main px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:border-accent transition-all shadow-sm inline-flex items-center gap-2 group disabled:opacity-50"
-                                            >
-                                                <svg className="w-3.5 h-3.5 text-accent group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                {isLabelGenerating ? '...' : 'View Label'}
-                                            </button>
-                                        )}
-                                        {order.status === 'Packed' && (
-                                            <button onClick={() => handleStatusChange(order, 'Shipped')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg transition-all hover:scale-105 active:scale-95">Dispatch</button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {vendorOrders.length === 0 && !isLoading && (
-                        <div className="p-20 text-center text-text-muted italic font-medium uppercase text-[10px] tracking-widest">
-                            Market Node Manifest Empty
+                                    </div>
+                                    <h3 className="text-sm font-bold text-gray-800 line-clamp-1 italic uppercase tracking-tight mt-1">{firstItem.name}</h3>
+                                    <div className="mt-2 flex items-center gap-3">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[10px] font-black text-gray-400 uppercase">Qty:</span>
+                                            <span className="text-[10px] font-black text-gray-900">{order.vendorItems.length > 1 ? `${order.vendorItems.length} items` : firstItem.quantity}</span>
+                                        </div>
+                                        <div className="w-1 h-1 bg-gray-200 rounded-full"></div>
+                                        <p className="text-xs font-black text-accent italic">₹{order.vendorSubtotal.toLocaleString()}</p>
+                                    </div>
+                                    {order.payment_mode === 'Cash on Delivery' && (
+                                        <span className="mt-2 inline-block bg-gray-900 text-white text-[7px] font-black uppercase px-2 py-0.5 rounded italic">COD Order</span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </div>
-            </GlassmorphicCard>
+                    );
+                })}
+
+                {vendorOrders.length === 0 && (
+                    <div className="py-20 text-center space-y-4 opacity-50 grayscale">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                           <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] italic">No orders match this criteria</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

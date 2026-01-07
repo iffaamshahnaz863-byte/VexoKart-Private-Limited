@@ -41,6 +41,7 @@ export interface Product {
   reviews: Review[];
   created_at: string;
   return_policy?: string;
+  variants?: ProductVariant[];
 }
 
 export interface Category {
@@ -110,6 +111,40 @@ export interface Order {
     seller_name?: string;
 }
 
+export interface WalletTransaction {
+  id: string;
+  vendor_id: string;
+  order_id?: string;
+  amount: number;
+  type: 'credit' | 'debit' | 'withdrawal';
+  status: 'pending' | 'settled' | 'withdrawn' | 'failed';
+  note?: string;
+  created_at: string;
+}
+
+export interface Vendor {
+  id: number;
+  user_id: string;
+  store_name: string;
+  profile_image: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  email: string;
+  phone: string;
+  owner_name: string;
+  store_address?: string;
+  created_at: string;
+  rejection_reason?: string;
+  wallet_balance?: number;
+  pending_balance?: number;
+  bank_account?: {
+    account_holder: string;
+    account_number: string;
+    ifsc_code: string;
+    bank_name: string;
+  };
+  upi_id?: string;
+}
+
 export interface AppNotification {
   id: number;
   user_id?: number | string;
@@ -145,48 +180,6 @@ export interface User {
   sms_enabled?: boolean;
 }
 
-export interface Vendor {
-  id: number;
-  user_id: string;
-  store_name: string;
-  profile_image: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  email: string;
-  phone: string;
-  owner_name: string;
-  store_address?: string;
-  created_at: string;
-  rejection_reason?: string;
-}
-
-export interface NotificationLog {
-  id: string;
-  createdAt: string;
-  userId: string;
-  orderId: string;
-  title: string;
-  message: string;
-  channel: 'email' | 'sms' | 'in-app';
-  status: 'sent' | 'failed';
-  is_read: boolean;
-  response?: string;
-  type?: string;
-  retryCount?: number;
-}
-
-export interface NotificationSettings {
-  emailEnabled: boolean;
-  smsEnabled: boolean;
-  testMode: boolean;
-  smtpHost: string;
-  smtpUser: string;
-  smtpPass: string;
-  emailFrom: string;
-  smsApiKey: string;
-  smsSenderId: string;
-  smsTemplateId: string;
-}
-
 export interface AdminCode {
   id: string;
   code: string;
@@ -206,4 +199,28 @@ export interface Banner {
   status: boolean;
   display_order: number;
   created_at: string;
+}
+
+// Added missing NotificationSettings interface to fix context/NotificationContext.tsx
+export interface NotificationSettings {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  smtpHost: string;
+  smtpUser: string;
+  smtpPass: string;
+  emailFrom: string;
+  smsApiKey: string;
+  smsSenderId: string;
+  smsTemplateId: string;
+  testMode: boolean;
+}
+
+// Added missing NotificationLog interface to fix context/NotificationContext.tsx
+export interface NotificationLog {
+  id: number | string;
+  createdAt: string;
+  channel: 'email' | 'sms';
+  orderId: string;
+  status: 'sent' | 'failed';
+  response: string;
 }

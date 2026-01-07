@@ -1,5 +1,5 @@
+
 import React, { useMemo, useEffect } from 'react';
-/* Import useNavigate hook from react-router-dom */
 import { useNavigate } from 'react-router-dom';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useProducts } from '../../hooks/useProducts';
@@ -12,7 +12,6 @@ const VendorDashboardPage: React.FC = () => {
   const { products = [], refreshProducts } = useProducts();
   const { orders = [], refreshOrders } = useOrders();
   const { currentVendor, fetchCurrentVendor, isVendorLoading } = useVendors();
-  /* Fix: Initialize navigate hook to handle programmatic routing */
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,122 +22,154 @@ const VendorDashboardPage: React.FC = () => {
     }
   }, [user?.id]);
 
-  // CRITICAL FIX: Strictly filter by vendors.id FK
+  const vid = currentVendor ? String(currentVendor.id) : '';
+
   const vendorProducts = useMemo(() => {
-    if (!currentVendor) return [];
-    const vid = String(currentVendor.id);
     return products.filter(p => String(p.vendor_id) === vid);
-  }, [currentVendor, products]);
+  }, [vid, products]);
   
   const vendorOrders = useMemo(() => {
-    if (!currentVendor) return [];
-    const vid = String(currentVendor.id);
-
     return orders.filter(order => 
-        order.items && order.items.some(item => String(item.vendor_id) === vid)
+        order.items && order.items.some((item: any) => String(item.vendor_id) === vid)
     );
-  }, [currentVendor, orders]);
-  
-  const totalRevenue = useMemo(() => {
-    if (!currentVendor) return 0;
-    const vid = String(currentVendor.id);
+  }, [vid, orders]);
 
-    return vendorOrders.reduce((total, order) => {
-        if (order.status === 'Cancelled') return total;
-        
-        const vendorItemsTotal = order.items
-            .filter(item => String(item.vendor_id) === vid)
-            .reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-        return total + vendorItemsTotal;
-    }, 0);
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayOrders = vendorOrders.filter(o => o.created_at.startsWith(today));
+    const pending = vendorOrders.filter(o => ['Placed', 'Confirmed', 'Packed'].includes(o.status));
+    const delivered = vendorOrders.filter(o => o.status === 'Delivered');
+    const cancelled = vendorOrders.filter(o => o.status === 'Cancelled');
+    
+    const todayRev = todayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalRev = vendorOrders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + (o.total || 0), 0);
+
+    return {
+      todayCount: todayOrders.length,
+      pendingCount: pending.length,
+      deliveredCount: delivered.length,
+      cancelledCount: cancelled.length,
+      todayRev,
+      totalRev,
+      balance: currentVendor?.wallet_balance || 0
+    };
   }, [vendorOrders, currentVendor]);
-
-  const pendingOrdersCount = vendorOrders.filter(o => ['Placed', 'Confirmed', 'Packed'].includes(o.status)).length;
 
   if (isVendorLoading || !currentVendor) {
     return (
         <div className="flex flex-col items-center justify-center p-20 animate-pulse">
             <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Synchronizing Market Node...</p>
+            <p className="mt-4 text-text-muted font-black uppercase tracking-widest text-[10px]">Syncing Vendor Cloud...</p>
         </div>
     );
   }
 
+  const StatCard = ({ label, value, colorClass, onClick, icon }: any) => (
+    <div 
+      onClick={onClick}
+      className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm active:scale-95 transition-all cursor-pointer group"
+    >
+      <div className="flex justify-between items-start mb-3">
+         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${colorClass.replace('text', 'bg')}/10 ${colorClass}`}>
+            {icon}
+         </div>
+         <svg className="w-4 h-4 text-gray-300 group-hover:text-accent transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+         </svg>
+      </div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">{label}</p>
+      <p className={`text-2xl font-black italic tracking-tighter leading-none ${colorClass}`}>{value}</p>
+    </div>
+  );
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end">
+    <div className="space-y-6 pb-10">
+      <div className="flex justify-between items-center px-1">
         <div>
-          <h1 className="text-3xl font-black text-text-main italic tracking-tight uppercase">Dashboard</h1>
-          <p className="text-text-muted mt-1">Live performance analytics for <span className="text-accent font-black">{currentVendor?.store_name}</span></p>
+           <h1 className="text-2xl font-black text-gray-900 italic uppercase leading-none">Market<br/><span className="text-accent">Console</span></h1>
+           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Hello, {currentVendor.store_name}</p>
         </div>
-        <div className="bg-surface px-4 py-2 rounded-2xl border border-border">
-            <p className="text-[9px] font-black text-text-muted uppercase tracking-widest">Market Node ID</p>
-            <p className="text-xs font-bold text-text-main">#VXK-M-{currentVendor?.id}</p>
-        </div>
+        <button 
+          onClick={() => navigate('/vendor/products/new')}
+          className="bg-[#F43397] text-white p-4 rounded-2xl shadow-lg shadow-[#F43397]/20 flex items-center gap-2 active:scale-95 transition-all"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+          <span className="text-[10px] font-black uppercase tracking-widest">Add Product</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GlassmorphicCard className="p-6 relative overflow-hidden group border-none shadow-premium">
-              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
-                  <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-              </div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted">Managed Inventory</h3>
-              <p className="text-4xl font-black text-text-main italic tracking-tighter mt-2">{vendorProducts.length}</p>
-              <div className="mt-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
-                  <span className="text-[9px] font-bold text-text-secondary uppercase">Active Listings</span>
-              </div>
-          </GlassmorphicCard>
-
-          <GlassmorphicCard className="p-6 relative overflow-hidden group border-none shadow-premium">
-               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform text-accent">
-                  <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted">Fulfillment Queue</h3>
-              <p className="text-4xl font-black text-accent italic tracking-tighter mt-2">{pendingOrdersCount}</p>
-              <div className="mt-4">
-                  <span className="text-[9px] font-bold text-text-secondary uppercase bg-accent/10 px-2 py-1 rounded-lg">Action Required</span>
-              </div>
-          </GlassmorphicCard>
-
-          <GlassmorphicCard className="p-6 border-green-500/10 relative overflow-hidden group border-none shadow-premium">
-               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform text-green-600">
-                  <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted">Business Volume</h3>
-              <p className="text-4xl font-black text-green-600 italic tracking-tighter mt-2">₹{totalRevenue.toLocaleString('en-IN')}</p>
-              <div className="mt-4">
-                  <span className="text-[9px] font-bold text-green-600 uppercase bg-green-50/10 px-2 py-1 rounded-lg">Gross Revenue</span>
-              </div>
-          </GlassmorphicCard>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard 
+          label="Today Orders" 
+          value={stats.todayCount} 
+          colorClass="text-blue-500" 
+          onClick={() => navigate('/vendor/orders')}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+        />
+        <StatCard 
+          label="Pending" 
+          value={stats.pendingCount} 
+          colorClass="text-orange-500" 
+          onClick={() => navigate('/vendor/orders')}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+        />
+        <StatCard 
+          label="Delivered" 
+          value={stats.deliveredCount} 
+          colorClass="text-green-500" 
+          onClick={() => navigate('/vendor/orders')}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
+        />
+        <StatCard 
+          label="Today Sales" 
+          value={`₹${stats.todayRev.toLocaleString()}`} 
+          colorClass="text-[#F43397]" 
+          onClick={() => navigate('/vendor/wallet')}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+        />
+        <StatCard 
+          label="Wallet Bal" 
+          value={`₹${stats.balance.toLocaleString()}`} 
+          colorClass="text-purple-600" 
+          onClick={() => navigate('/vendor/wallet')}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+        />
+        <StatCard 
+          label="Listings" 
+          value={vendorProducts.length} 
+          colorClass="text-gray-900" 
+          onClick={() => navigate('/vendor/products')}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>}
+        />
       </div>
 
-      <div className="mt-10">
-        <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4 ml-1">Digital Manifest Audit</h2>
-        <GlassmorphicCard className="p-10 flex flex-col items-center justify-center text-center bg-white border-none shadow-premium">
-            {vendorOrders.length > 0 ? (
-                <div className="space-y-6 w-full max-w-lg">
-                    <div className="w-20 h-20 bg-accent/10 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-                        <svg className="w-10 h-10 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                    </div>
-                    <div>
-                        <p className="text-text-main font-black italic text-xl uppercase tracking-tight">Active Supply Chain</p>
-                        <p className="text-text-muted text-sm mt-2 leading-relaxed">Your Market Node has successfully mediated <span className="text-text-main font-black underline underline-offset-4">{vendorOrders.length}</span> transaction(s).</p>
-                    </div>
-                    <button onClick={() => navigate('/vendor/orders')} className="text-accent font-black uppercase tracking-widest text-[9px] border-b-2 border-accent pb-1 hover:opacity-70 transition-opacity">Review Full History</button>
+      <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-premium">
+        <h3 className="text-sm font-black uppercase italic text-gray-800 mb-6 flex items-center justify-between">
+          Fulfillment Task Hub
+          <span className="bg-accent/10 text-accent text-[9px] font-black px-2 py-1 rounded-lg">LIVE FEED</span>
+        </h3>
+        
+        {stats.pendingCount > 0 ? (
+          <div className="space-y-4">
+             <div className="flex items-center gap-4 bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-500/20">!</div>
+                <div className="flex-grow">
+                   <p className="text-xs font-black text-gray-800 uppercase italic">Pending Action Required</p>
+                   <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">You have {stats.pendingCount} orders waiting for shipment manifest.</p>
                 </div>
-            ) : (
-                <div className="space-y-4">
-                    <div className="w-20 h-20 bg-surface rounded-3xl flex items-center justify-center mx-auto border border-border shadow-inner">
-                        <svg className="w-10 h-10 text-text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    </div>
-                    <div className="max-w-xs mx-auto">
-                        <p className="text-text-main font-black italic uppercase tracking-tight">No Market Activity</p>
-                        <p className="text-text-muted text-[10px] font-bold mt-2 leading-relaxed uppercase tracking-tighter">Expand your catalog to increase digital visibility and attract your first buyer.</p>
-                    </div>
-                </div>
-            )}
-        </GlassmorphicCard>
+                <button onClick={() => navigate('/vendor/orders')} className="text-orange-600 text-[10px] font-black underline uppercase">Resolve</button>
+             </div>
+          </div>
+        ) : (
+          <div className="text-center py-10 opacity-40 grayscale">
+            <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p className="text-[10px] font-black uppercase tracking-widest italic">All Manifests Synced</p>
+          </div>
+        )}
+      </div>
+
+      <div className="pt-4 text-center">
+         <p className="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300">VexoKart Merchant Protocol v6.2 • Secure Node</p>
       </div>
     </div>
   );

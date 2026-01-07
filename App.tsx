@@ -51,6 +51,8 @@ import VendorDashboardPage from './pages/vendor/VendorDashboardPage.tsx';
 import VendorProductsPage from './pages/vendor/VendorProductsPage.tsx';
 import VendorProductFormPage from './pages/vendor/VendorProductFormPage.tsx';
 import VendorOrdersPage from './pages/vendor/VendorOrdersPage.tsx';
+import VendorOrderDetailPage from './pages/vendor/VendorOrderDetailPage.tsx';
+import VendorWalletPage from './pages/vendor/VendorWalletPage.tsx';
 import VendorProfilePage from './pages/vendor/VendorProfilePage.tsx';
 import CourierScanPage from './pages/CourierScanPage.tsx';
 
@@ -158,6 +160,8 @@ const AppContent: React.FC = () => {
             <Route path="products/new" element={<VendorProductFormPage />} />
             <Route path="products/edit/:id" element={<VendorProductFormPage />} />
             <Route path="orders" element={<VendorOrdersPage />} />
+            <Route path="order/:id" element={<VendorOrderDetailPage />} />
+            <Route path="wallet" element={<VendorWalletPage />} />
             <Route path="profile" element={<VendorProfilePage />} />
           </Route>
         </Routes>

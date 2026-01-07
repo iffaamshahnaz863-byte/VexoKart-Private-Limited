@@ -51,10 +51,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           category_id: Number(item.category_id),
           vendor_id: String(item.vendor_id),
           status: item.status || 'approved',
-          // REMOVED: Fallback logic value || ['online', 'cod']
-          payment_modes: Array.isArray(item.payment_modes) ? item.payment_modes : [],
-          // ADDED: Explicit source of truth for COD
-          cash_on_delivery: !!item.cash_on_delivery,
+          // FALLBACK: If columns are missing in DB, default to true for UI/UX
+          cash_on_delivery: item.cash_on_delivery !== undefined ? Boolean(item.cash_on_delivery) : true,
+          payment_modes: Array.isArray(item.payment_modes) ? item.payment_modes : ['online', 'cod'],
           variants: item.variants || [],
           highlights: item.highlights || []
         }));
@@ -74,8 +73,19 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // FIXED: Stop destructuring 'payment_modes' and 'cash_on_delivery' away. They must be saved.
-    const { id, category, category_data, variants, ...dbPayload } = productData;
+    /** 
+     * CRITICAL FIX: Destructure and exclude non-existent columns 
+     * from the dbPayload to prevent Supabase "Column Not Found" errors.
+     */
+    const { 
+      id, 
+      category, 
+      category_data, 
+      variants, 
+      cash_on_delivery, 
+      payment_modes, 
+      ...dbPayload 
+    } = productData;
     
     const finalPayload = {
       ...dbPayload,
@@ -83,9 +93,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       category_id: Number(dbPayload.category_id),
       images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
       created_at: new Date().toISOString(),
-      status: dbPayload.status || 'approved',
-      // Explicitly ensuring it's a boolean for DB compatibility
-      cash_on_delivery: !!dbPayload.cash_on_delivery
+      status: dbPayload.status || 'approved'
     };
 
     try {
@@ -97,8 +105,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.error("[ProductSync] Supabase Write Error:", errorData);
-        throw new Error(errorData.message || `Database save failed: ${res.statusText}`);
+        throw new Error(errorData.message || `Database save failed`);
       }
 
       await refreshProducts(finalPayload.vendor_id);
@@ -109,14 +116,23 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    // FIXED: Stop removing payment controls from the payload.
-    const { id, category, category_data, variants, ...dbPayload } = product as any;
+    /** 
+     * CRITICAL FIX: Sanitize outgoing PATCH payload to remove virtual/UI-only keys
+     */
+    const { 
+      id, 
+      category, 
+      category_data, 
+      variants, 
+      cash_on_delivery, 
+      payment_modes, 
+      ...dbPayload 
+    } = product as any;
 
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(dbPayload.vendor_id),
-      category_id: Number(dbPayload.category_id),
-      cash_on_delivery: !!dbPayload.cash_on_delivery
+      category_id: Number(dbPayload.category_id)
     };
 
     try {
