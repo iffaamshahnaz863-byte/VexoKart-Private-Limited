@@ -1,9 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
-import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { Product, ProductVariant } from '../../types';
 import { useVendors } from '../../context/VendorContext';
 import Toast from '../../components/Toast';
@@ -31,7 +29,9 @@ const VendorProductFormPage: React.FC = () => {
     highlights: [],
     stock: 10,
     specifications: {},
-    cash_on_delivery: false,
+    product_type: 'simple',
+    allow_cod: true,
+    allow_online: true,
     variants: [] as ProductVariant[]
   });
 
@@ -55,7 +55,9 @@ const VendorProductFormPage: React.FC = () => {
             ...p, 
             category_id: p.category_id.toString(),
             variants: p.variants || [],
-            cash_on_delivery: !!p.cash_on_delivery
+            product_type: p.product_type || 'simple',
+            allow_cod: p.allow_cod !== undefined ? p.allow_cod : true,
+            allow_online: p.allow_online !== undefined ? p.allow_online : true
         });
         setHighlightsText((p.highlights || []).join('\n'));
         setEnableSize(p.variants?.some(v => v.type === 'size') || false);
@@ -70,7 +72,14 @@ const VendorProductFormPage: React.FC = () => {
     const { name, value, type } = e.target as any;
     if (type === 'checkbox') {
         const checked = (e.target as any).checked;
-        setFormData((prev: any) => ({ ...prev, [name]: checked }));
+        setFormData((prev: any) => {
+            const next = { ...prev, [name]: checked };
+            // Validation: Must have at least one payment method
+            if (!next.allow_cod && !next.allow_online) {
+                return prev;
+            }
+            return next;
+        });
     } else {
         setFormData((prev: any) => ({ ...prev, [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
     }
@@ -129,10 +138,22 @@ const VendorProductFormPage: React.FC = () => {
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
+        
+        // Filter variants based on current toggles if Variant Product
+        let finalVariants = formData.variants;
+        if (formData.product_type === 'simple') {
+            finalVariants = [];
+        } else {
+            finalVariants = formData.variants.filter((v: ProductVariant) => 
+                (v.type === 'size' && enableSize) || (v.type === 'color' && enableColor)
+            );
+        }
+
         const payload = { 
             ...formData,
             highlights: finalHighlights,
-            vendor_id: Number(currentVendor.id), 
+            variants: finalVariants,
+            vendor_id: String(currentVendor.id), 
             status: 'approved',
         };
 
@@ -205,6 +226,72 @@ const VendorProductFormPage: React.FC = () => {
             </div>
         </div>
 
+        {/* Product Type Selection */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Product Architecture</h2>
+            <div className="grid grid-cols-2 gap-3">
+                <button 
+                    type="button"
+                    onClick={() => setFormData((p:any) => ({...p, product_type: 'simple'}))}
+                    className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'simple' ? 'border-accent bg-accent/5 text-accent' : 'border-gray-100 text-gray-400'}`}
+                >
+                    <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    <span className="text-[10px] font-black uppercase">Simple Product</span>
+                </button>
+                <button 
+                    type="button"
+                    onClick={() => setFormData((p:any) => ({...p, product_type: 'variant'}))}
+                    className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'variant' ? 'border-accent bg-accent/5 text-accent' : 'border-gray-100 text-gray-400'}`}
+                >
+                    <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    <span className="text-[10px] font-black uppercase">Variant Product</span>
+                </button>
+            </div>
+
+            {formData.product_type === 'variant' && (
+                <div className="pt-4 space-y-6 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" checked={enableSize} onChange={(e) => setEnableSize(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
+                            <span className="text-[10px] font-black uppercase text-gray-600">Enable Sizes</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" checked={enableColor} onChange={(e) => setEnableColor(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
+                            <span className="text-[10px] font-black uppercase text-gray-600">Enable Colors</span>
+                        </label>
+                    </div>
+
+                    {(enableSize || enableColor) && (
+                        <div className="space-y-4">
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={newVarName} 
+                                    onChange={(e) => setNewVarName(e.target.value)}
+                                    placeholder={enableSize && !enableColor ? "Size (XL, 42)" : "Color Name (Red, Blue)"}
+                                    className="flex-grow bg-surface border border-gray-100 rounded-xl p-3 text-xs font-bold uppercase"
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={() => addVariant(enableSize ? 'size' : 'color')}
+                                    className="bg-gray-900 text-white px-4 rounded-xl text-[9px] font-black uppercase"
+                                >Add</button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {formData.variants.map((v: ProductVariant, idx: number) => (
+                                    <div key={idx} className="bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full flex items-center gap-2">
+                                        <span className="text-[8px] font-black uppercase text-gray-400">{v.type}:</span>
+                                        <span className="text-[10px] font-black uppercase text-gray-900">{v.value}</span>
+                                        <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 hover:text-red-600 font-bold">&times;</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+
         {/* Media */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Visual Discovery</h2>
@@ -212,7 +299,7 @@ const VendorProductFormPage: React.FC = () => {
                 {formData.images.map((img: string, i: number) => (
                     <div key={i} className="w-24 h-24 rounded-2xl overflow-hidden border border-gray-100 shrink-0 relative group">
                         <img src={img} className="w-full h-full object-cover" alt="" />
-                        <button type="button" onClick={() => setFormData((p: any) => ({ ...p, images: p.images.filter((_: any, idx: number) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
+                        <button type="button" onClick={() => setFormData((p: any) => ({ ...p, images: p.images.filter((_: any, idx: number) => idx !== i) }))} className="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity font-bold shadow-md">&times;</button>
                     </div>
                 ))}
                 <label className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center shrink-0 cursor-pointer bg-gray-50 hover:border-accent/30 transition-all">
@@ -223,50 +310,6 @@ const VendorProductFormPage: React.FC = () => {
             </div>
         </div>
 
-        {/* Variants Toggle Section */}
-        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
-            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Marketplace Variants</h2>
-            
-            <div className="flex gap-4">
-               <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" checked={enableSize} onChange={(e) => setEnableSize(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
-                  <span className="text-[10px] font-black uppercase text-gray-600">Enable Sizes</span>
-               </label>
-               <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" checked={enableColor} onChange={(e) => setEnableColor(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
-                  <span className="text-[10px] font-black uppercase text-gray-600">Enable Colors</span>
-               </label>
-            </div>
-
-            {(enableSize || enableColor) && (
-              <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
-                <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      value={newVarName} 
-                      onChange={(e) => setNewVarName(e.target.value)}
-                      placeholder={enableSize ? "Size (e.g. XL, 42)" : "Color Name"}
-                      className="flex-grow bg-surface border border-gray-100 rounded-xl p-3 text-xs font-bold uppercase"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => addVariant(enableSize ? 'size' : 'color')}
-                      className="bg-gray-900 text-white px-4 rounded-xl text-[9px] font-black uppercase"
-                    >Add</button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                   {formData.variants.map((v: ProductVariant, idx: number) => (
-                     <div key={idx} className="bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full flex items-center gap-2">
-                        <span className="text-[8px] font-black uppercase text-gray-400">{v.type}:</span>
-                        <span className="text-[10px] font-black uppercase text-gray-900">{v.value}</span>
-                        <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 hover:text-red-600">&times;</button>
-                     </div>
-                   ))}
-                </div>
-              </div>
-            )}
-        </div>
-
         {/* Narrative */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Narrative & Highlights</h2>
@@ -274,19 +317,34 @@ const VendorProductFormPage: React.FC = () => {
             <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Premium Quality (New Line per highlight)" className={inputClasses}></textarea>
         </div>
 
-        {/* Logistics */}
+        {/* Logistics & Payment Control */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Logistic Control</h2>
-            <div className="p-5 bg-orange-50 rounded-3xl border border-orange-100 flex items-center justify-between">
-                <div>
-                   <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
-                   <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Allow buyers to pay at doorstep</p>
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Financial Protocol</h2>
+            
+            <div className="space-y-3">
+                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${formData.allow_cod ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
+                    <div>
+                        <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Allow buyers to pay at doorstep</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="allow_cod" checked={formData.allow_cod} onChange={handleChange} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                    </label>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="cash_on_delivery" checked={formData.cash_on_delivery} onChange={handleChange} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                </label>
+
+                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${formData.allow_online ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
+                    <div>
+                        <p className="text-xs font-black text-gray-800 uppercase italic">Online Payment</p>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Enable UPI, Cards & Netbanking</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="allow_online" checked={formData.allow_online} onChange={handleChange} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                    </label>
+                </div>
             </div>
+            <p className="text-[8px] text-gray-400 text-center uppercase font-bold">* At least one payment method must remain active</p>
         </div>
 
         <button 

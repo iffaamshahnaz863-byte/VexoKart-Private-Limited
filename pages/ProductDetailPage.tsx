@@ -51,8 +51,12 @@ const ProductDetailPage: React.FC = () => {
     [product]
   );
 
-  const needsSize = availableSizes.length > 0;
-  const needsColor = availableColors.length > 0;
+  // STRICT RULE: Only show if vendor enabled and items exist
+  const showSizeSelector = product?.product_type === 'variant' && availableSizes.length > 0;
+  const showColorSelector = product?.product_type === 'variant' && availableColors.length > 0;
+
+  const needsSize = showSizeSelector;
+  const needsColor = showColorSelector;
 
   useEffect(() => {
     if (product && isAuthenticated) {
@@ -79,6 +83,9 @@ const ProductDetailPage: React.FC = () => {
   const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
   const upiPrice = Math.floor(sellingPrice * 0.98);
 
+  const allowCod = product.allow_cod !== undefined ? product.allow_cod : true;
+  const allowOnline = product.allow_online !== undefined ? product.allow_online : true;
+
   // Swipe Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
@@ -93,7 +100,6 @@ const ProductDetailPage: React.FC = () => {
     const diffX = touchStart.x - currentX;
     const diffY = touchStart.y - currentY;
 
-    // Horizontal swipe priority: If user is swiping horizontally, lock vertical scroll
     if (Math.abs(diffX) > Math.abs(diffY)) {
       if (e.cancelable) e.preventDefault();
       setSwipeOffset(diffX);
@@ -108,7 +114,6 @@ const ProductDetailPage: React.FC = () => {
     const diffX = touchStart.x - touchEnd.x;
     const diffY = touchStart.y - touchEnd.y;
 
-    // Only process if it was primarily a horizontal swipe
     if (Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX > minSwipeDistance && currentImageIndex < displayImages.length - 1) {
         setCurrentImageIndex(prev => prev + 1);
@@ -215,7 +220,6 @@ const ProductDetailPage: React.FC = () => {
           ))}
         </div>
         
-        {/* SLIDE INDICATORS */}
         <div className="absolute bottom-4 right-4 bg-black/60 text-white text-[10px] font-black px-3 py-1 rounded-full backdrop-blur-sm tracking-widest">
           {currentImageIndex + 1}/{displayImages.length}
         </div>
@@ -227,22 +231,6 @@ const ProductDetailPage: React.FC = () => {
               className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === i ? 'w-5 bg-[#F43397]' : 'w-1.5 bg-gray-300/80'}`}
             />
           ))}
-        </div>
-
-        {/* DESKTOP CONTROLS */}
-        <div className="hidden md:flex absolute inset-y-0 left-0 right-0 items-center justify-between px-4 pointer-events-none">
-           <button 
-             onClick={() => currentImageIndex > 0 && setCurrentImageIndex(prev => prev - 1)}
-             className={`p-2 rounded-full bg-white/80 shadow-md pointer-events-auto transition-opacity ${currentImageIndex === 0 ? 'opacity-0' : 'opacity-100'}`}
-           >
-             <ChevronLeftIcon className="w-6 h-6" />
-           </button>
-           <button 
-             onClick={() => currentImageIndex < displayImages.length - 1 && setCurrentImageIndex(prev => prev + 1)}
-             className={`p-2 rounded-full bg-white/80 shadow-md pointer-events-auto transition-opacity ${currentImageIndex === displayImages.length - 1 ? 'opacity-0' : 'opacity-100'}`}
-           >
-             <ChevronLeftIcon className="w-6 h-6 rotate-180" />
-           </button>
         </div>
       </div>
 
@@ -273,10 +261,31 @@ const ProductDetailPage: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium">{product.review_count || '25'} Reviews</span>
         </div>
 
+        {/* PAYMENT BADGES */}
+        <div className="flex flex-wrap gap-2 pt-1">
+            {allowCod && allowOnline && (
+                <div className="bg-gray-100 px-2 py-1 rounded flex items-center gap-1.5 border border-gray-200">
+                    <span className="text-[9px] font-black text-gray-600 uppercase tracking-tighter">COD Available</span>
+                </div>
+            )}
+            {!allowCod && (
+                <div className="bg-blue-50 px-2 py-1 rounded flex items-center gap-1.5 border border-blue-100">
+                    <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter">Online Payment Only</span>
+                </div>
+            )}
+            {!allowOnline && (
+                <div className="bg-orange-50 px-2 py-1 rounded flex items-center gap-1.5 border border-orange-100">
+                    <svg className="w-3 h-3 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    <span className="text-[9px] font-black text-orange-600 uppercase tracking-tighter">Pay at Doorstep Only</span>
+                </div>
+            )}
+        </div>
+
         <div className="pt-3 mt-1 border-t border-gray-100">
            <div className="flex items-center gap-2 cursor-pointer active:opacity-60" onClick={() => navigate('/addresses')}>
               <svg className="w-4 h-4 text-[#F43397]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              <p className="text-[11px] font-bold text-gray-700">
+              <p className="text-[11px] font-bold text-gray-700 truncate max-w-[250px]">
                 {defaultAddress 
                    ? `Delivering to ${defaultAddress.city} - ${defaultAddress.zip}` 
                    : 'Add delivery address'}
@@ -285,21 +294,22 @@ const ProductDetailPage: React.FC = () => {
            </div>
         </div>
 
-        <div className="pt-2">
-          <div className="bg-[#F3FFF9] border border-[#D1F7E6] p-3 rounded-lg flex items-center justify-between">
-             <div className="flex items-center gap-2">
-                <div className="bg-[#34BE82] p-1 rounded-full"><svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></div>
-                <p className="text-[11px] font-bold text-gray-700">₹{upiPrice} with UPI offer</p>
-             </div>
-             <p className="text-[10px] font-bold text-[#34BE82]">Applied</p>
-          </div>
-          <p className="text-[10px] text-gray-400 mt-2 font-medium">Free Delivery • 7-day Easy Returns</p>
-        </div>
+        {allowOnline && (
+            <div className="pt-2">
+                <div className="bg-[#F3FFF9] border border-[#D1F7E6] p-3 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-[#34BE82] p-1 rounded-full"><svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></div>
+                        <p className="text-[11px] font-bold text-gray-700">₹{upiPrice} with UPI offer</p>
+                    </div>
+                    <p className="text-[10px] font-bold text-[#34BE82]">Applied</p>
+                </div>
+            </div>
+        )}
       </div>
 
       {/* COLOR SELECTION SECTION */}
-      {needsColor && (
-        <div id="color-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
+      {showColorSelector && (
+        <div id="color-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
           <h3 className="text-sm font-bold text-gray-800">Select Color</h3>
           <div className="flex flex-wrap gap-4">
             {availableColors.map((color, i) => (
@@ -317,15 +327,12 @@ const ProductDetailPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {!selectedColor && (
-            <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a color to continue</p>
-          )}
         </div>
       )}
 
       {/* SIZE SELECTION SECTION */}
-      {needsSize && (
-        <div id="size-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm">
+      {showSizeSelector && (
+        <div id="size-selection" className="mt-2 bg-white p-4 space-y-4 shadow-sm animate-in slide-in-from-top-2 duration-300">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-gray-800">Select Size</h3>
             <button className="text-[#F43397] text-xs font-bold active:opacity-60">Size Chart</button>
@@ -345,9 +352,6 @@ const ProductDetailPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {!selectedSize && (
-              <p className="text-[10px] text-[#F43397] font-bold italic animate-pulse">! Please select a size to continue</p>
-          )}
         </div>
       )}
 
@@ -367,7 +371,7 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* PRODUCT DETAILS (ACCORDION) */}
+      {/* PRODUCT DETAILS */}
       <div className="mt-2 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-bold text-gray-800 mb-4">Product Details</h3>
         <div className="space-y-3">
@@ -381,7 +385,7 @@ const ProductDetailPage: React.FC = () => {
               </div>
             );
           }) : (
-            <p className="text-xs text-text-muted italic">No specific highlights provided.</p>
+            <p className="text-xs text-text-muted italic">Specifications available upon request.</p>
           )}
         </div>
         

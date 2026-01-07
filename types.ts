@@ -31,11 +31,14 @@ export interface Product {
   category_id: number;
   category?: string; // Virtual field for UI
   status: ProductStatus;
-  payment_modes: string[]; // Deprecated in favor of explicit booleans
-  cash_on_delivery: boolean; // Source of truth for COD availability
+  payment_modes: string[]; // Legacy field
+  product_type: 'simple' | 'variant'; // New field
+  allow_cod: boolean; // New field
+  allow_online: boolean; // New field
+  cash_on_delivery: boolean; // Synced with allow_cod
   stock: number;
   highlights?: string[];
-  specifications?: { [key: string]: string };
+  specifications?: { [key: string]: any };
   rating: number;
   review_count: number;
   reviews: Review[];
@@ -201,7 +204,6 @@ export interface Banner {
   created_at: string;
 }
 
-// Added missing NotificationSettings interface to fix context/NotificationContext.tsx
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -215,7 +217,6 @@ export interface NotificationSettings {
   testMode: boolean;
 }
 
-// Added missing NotificationLog interface to fix context/NotificationContext.tsx
 export interface NotificationLog {
   id: number | string;
   createdAt: string;

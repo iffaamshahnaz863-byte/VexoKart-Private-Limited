@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../context/AuthContext';
@@ -18,12 +18,32 @@ const CheckoutPage: React.FC = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const { addOrder } = useOrders();
-  const { vendors, getVendorById, refreshVendors } = useVendors();
+  const { vendors, refreshVendors } = useVendors();
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+
+  /* 🚫 PAYMENT RESTRICTION LOGIC */
+  const allowCodForCart = useMemo(() => {
+    // If any item restricts COD, we must disable it for the whole order
+    return cartItems.every(item => item.allow_cod !== false);
+  }, [cartItems]);
+
+  const allowOnlineForCart = useMemo(() => {
+    // If any item restricts Online, we must disable it for the whole order
+    return cartItems.every(item => item.allow_online !== false);
+  }, [cartItems]);
+
+  // Adjust selection if current becomes invalid
+  useEffect(() => {
+    if (paymentMethod === 'cod' && !allowCodForCart) {
+      setPaymentMethod('card');
+    } else if (paymentMethod === 'card' && !allowOnlineForCart) {
+      setPaymentMethod('cod');
+    }
+  }, [allowCodForCart, allowOnlineForCart]);
 
   /* ✅ Precise Calculations */
   const gstAmount = Number((cartTotal * GST_RATE).toFixed(2));
@@ -33,7 +53,6 @@ const CheckoutPage: React.FC = () => {
     if (user?.addresses?.length) {
       setSelectedAddress(user.addresses[0]);
     }
-    // Ensure vendors are loaded for proper "Sold By" resolution
     if (vendors.length === 0) {
       refreshVendors();
     }
@@ -80,7 +99,6 @@ const CheckoutPage: React.FC = () => {
         });
 
         clearCart();
-        // Redirect to Order Success strictly
         navigate('/order-success', {
           state: { 
             orderId: String(orderIdString), 
@@ -108,7 +126,6 @@ const CheckoutPage: React.FC = () => {
         description: 'Secured Checkout Payment',
         image: 'https://ghzadiplpazekzgjbdxu.supabase.co/storage/v1/object/public/assets/logo.png',
         handler: async (response: any) => {
-          // Success Callback from Razorpay
           const orderIdString = await addOrder({
             items: orderItems,
             subtotal: cartTotal,
@@ -120,7 +137,6 @@ const CheckoutPage: React.FC = () => {
           });
 
           clearCart();
-          // Deterministic navigation to Success Page
           navigate('/order-success', {
             state: { 
               orderId: String(orderIdString), 
@@ -134,14 +150,12 @@ const CheckoutPage: React.FC = () => {
           email: user.email,
           contact: selectedAddress.phone,
         },
-        /* 🚀 CRITICAL FIX: Explicitly enable ALL payment methods */
         method: {
           upi: true,
           card: true,
           netbanking: true,
           wallet: false,
         },
-        /* MODERN CONFIGURATION FOR BETTER UI VISIBILITY */
         config: {
           display: {
             blocks: {
@@ -192,7 +206,7 @@ const CheckoutPage: React.FC = () => {
   return (
     <div className="bg-surface min-h-screen">
       {/* Header */}
-      <div className="sticky top-0 z-10 p-4 bg-white flex items-center border-b">
+      <div className="sticky top-0 z-10 p-4 bg-white flex items-center border-b shadow-sm">
         <button onClick={() => navigate('/cart')} className="p-2 -ml-2 mr-2">
           <ChevronLeftIcon className="h-6 w-6" />
         </button>
@@ -219,7 +233,7 @@ const CheckoutPage: React.FC = () => {
                   <div className="flex justify-between items-start">
                       <div>
                         <p className="font-black text-xs uppercase">{address.fullName}</p>
-                        <p className="text-[10px] mt-1 text-text-secondary leading-relaxed">
+                        <p className="text-[10px] mt-1 text-text-secondary leading-relaxed uppercase tracking-tighter">
                             {address.street}<br/>
                             {address.city}, {address.state} — {address.zip}
                         </p>
@@ -247,29 +261,45 @@ const CheckoutPage: React.FC = () => {
           </h2>
 
           <div className="space-y-3">
-            <div
-              onClick={() => setPaymentMethod('card')}
-              className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
-                paymentMethod === 'card'
-                  ? 'border-accent bg-accent/5'
-                  : 'border-border hover:border-accent/20'
-              }`}
-            >
-              <span className="font-bold text-sm">Online Payment (Cards / UPI / Netbanking)</span>
-              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-            </div>
+            {allowOnlineForCart ? (
+                <div
+                    onClick={() => setPaymentMethod('card')}
+                    className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
+                        paymentMethod === 'card'
+                        ? 'border-accent bg-accent/5'
+                        : 'border-border hover:border-accent/20'
+                    }`}
+                >
+                    <span className="font-bold text-sm">Online Payment (UPI / Cards)</span>
+                    <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                </div>
+            ) : (
+                <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-between opacity-60">
+                    <span className="font-bold text-sm text-gray-400 italic">Online Payment Unavailable for this Selection</span>
+                </div>
+            )}
 
-            <div
-              onClick={() => setPaymentMethod('cod')}
-              className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
-                paymentMethod === 'cod'
-                  ? 'border-accent bg-accent/5'
-                  : 'border-border hover:border-accent/20'
-              }`}
-            >
-              <span className="font-bold text-sm">Cash on Delivery</span>
-              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-            </div>
+            {allowCodForCart ? (
+                <div
+                    onClick={() => setPaymentMethod('cod')}
+                    className={`p-4 rounded-xl border-2 cursor-pointer flex items-center justify-between transition-all ${
+                        paymentMethod === 'cod'
+                        ? 'border-accent bg-accent/5'
+                        : 'border-border hover:border-accent/20'
+                    }`}
+                >
+                    <span className="font-bold text-sm">Cash on Delivery</span>
+                    <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                </div>
+            ) : (
+                <div className="p-4 rounded-xl border border-red-50 bg-red-50/30 flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                         <span className="font-bold text-sm text-red-400">COD Restricted for some items</span>
+                         <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    </div>
+                    <p className="text-[9px] text-red-400 font-bold uppercase tracking-widest italic">Please pay online to complete this order.</p>
+                </div>
+            )}
           </div>
         </GlassmorphicCard>
 
@@ -303,7 +333,7 @@ const CheckoutPage: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-border z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <button
           onClick={handlePlaceOrder}
-          disabled={isProcessing || !selectedAddress}
+          disabled={isProcessing || !selectedAddress || (!allowCodForCart && !allowOnlineForCart)}
           className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50"
         >
           {isProcessing

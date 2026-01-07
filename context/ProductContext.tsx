@@ -42,21 +42,28 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       const data = await response.json();
       
       if (Array.isArray(data)) {
-        const mappedProducts: Product[] = data.map((item: any) => ({
-          ...item,
-          id: Number(item.id),
-          price: Number(item.price || 0),
-          original_price: Number(item.original_price || item.price || 0),
-          category: item.category_data?.name || 'General',
-          category_id: Number(item.category_id),
-          vendor_id: String(item.vendor_id),
-          status: item.status || 'approved',
-          // FALLBACK: If columns are missing in DB, default to true for UI/UX
-          cash_on_delivery: item.cash_on_delivery !== undefined ? Boolean(item.cash_on_delivery) : true,
-          payment_modes: Array.isArray(item.payment_modes) ? item.payment_modes : ['online', 'cod'],
-          variants: item.variants || [],
-          highlights: item.highlights || []
-        }));
+        const mappedProducts: Product[] = data.map((item: any) => {
+          // Extra logic to extract metadata from specifications if columns were missing
+          const meta = item.specifications || {};
+          return {
+            ...item,
+            id: Number(item.id),
+            price: Number(item.price || 0),
+            original_price: Number(item.original_price || item.price || 0),
+            category: item.category_data?.name || 'General',
+            category_id: Number(item.category_id),
+            vendor_id: String(item.vendor_id),
+            status: item.status || 'approved',
+            // Load from meta if not in direct columns
+            product_type: meta.vxk_product_type || item.product_type || 'simple',
+            allow_cod: meta.vxk_allow_cod !== undefined ? meta.vxk_allow_cod : (item.allow_cod !== undefined ? item.allow_cod : true),
+            allow_online: meta.vxk_allow_online !== undefined ? meta.vxk_allow_online : (item.allow_online !== undefined ? item.allow_online : true),
+            cash_on_delivery: meta.vxk_allow_cod !== undefined ? meta.vxk_allow_cod : true,
+            variants: item.variants || [],
+            highlights: item.highlights || [],
+            specifications: item.specifications || {}
+          };
+        });
         setProducts(mappedProducts);
       }
     } catch (error: any) {
@@ -73,10 +80,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    /** 
-     * CRITICAL FIX: Destructure and exclude non-existent columns 
-     * from the dbPayload to prevent Supabase "Column Not Found" errors.
-     */
     const { 
       id, 
       category, 
@@ -84,16 +87,30 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       variants, 
       cash_on_delivery, 
       payment_modes, 
+      product_type,
+      allow_cod,
+      allow_online,
+      specifications,
       ...dbPayload 
     } = productData;
     
+    // Embed metadata into specifications to bypass schema cache missing columns
+    const finalSpecs = {
+      ...(specifications || {}),
+      vxk_product_type: product_type,
+      vxk_allow_cod: allow_cod,
+      vxk_allow_online: allow_online
+    };
+
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(productData.vendor_id),
       category_id: Number(dbPayload.category_id),
       images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
       created_at: new Date().toISOString(),
-      status: dbPayload.status || 'approved'
+      status: dbPayload.status || 'approved',
+      specifications: finalSpecs,
+      variants: variants || []
     };
 
     try {
@@ -116,9 +133,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    /** 
-     * CRITICAL FIX: Sanitize outgoing PATCH payload to remove virtual/UI-only keys
-     */
     const { 
       id, 
       category, 
@@ -126,13 +140,26 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       variants, 
       cash_on_delivery, 
       payment_modes, 
+      product_type,
+      allow_cod,
+      allow_online,
+      specifications,
       ...dbPayload 
     } = product as any;
+
+    const finalSpecs = {
+      ...(specifications || {}),
+      vxk_product_type: product_type,
+      vxk_allow_cod: allow_cod,
+      vxk_allow_online: allow_online
+    };
 
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(dbPayload.vendor_id),
-      category_id: Number(dbPayload.category_id)
+      category_id: Number(dbPayload.category_id),
+      specifications: finalSpecs,
+      variants: variants || []
     };
 
     try {
