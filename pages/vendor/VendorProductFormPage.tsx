@@ -30,7 +30,7 @@ const VendorProductFormPage: React.FC = () => {
     highlights: [],
     stock: 10,
     specifications: {},
-    payment_modes: ['online', 'cod'],
+    cash_on_delivery: false, // Default to false as per requirement
     variants: [] as ProductVariant[]
   });
 
@@ -53,7 +53,8 @@ const VendorProductFormPage: React.FC = () => {
             ...p, 
             category_id: p.category_id.toString(),
             variants: p.variants || [],
-            payment_modes: p.payment_modes || ['online', 'cod']
+            // Load exactly what is in the DB
+            cash_on_delivery: !!p.cash_on_delivery
         });
         setHighlightsText((p.highlights || []).join('\n'));
       }
@@ -65,13 +66,8 @@ const VendorProductFormPage: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as any;
     if (type === 'checkbox') {
-        const modes = [...formData.payment_modes];
-        if ((e.target as any).checked) modes.push(value);
-        else {
-            const idx = modes.indexOf(value);
-            if (idx > -1) modes.splice(idx, 1);
-        }
-        setFormData(prev => ({ ...prev, payment_modes: modes }));
+        const checked = (e.target as any).checked;
+        setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
         setFormData(prev => ({ ...prev, [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
     }
@@ -125,7 +121,6 @@ const VendorProductFormPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // VENDOR IDENTITY VALIDATION
     if (!currentVendor) { 
         alert("Vendor identity synchronization in progress. Please wait."); 
         return; 
@@ -140,8 +135,6 @@ const VendorProductFormPage: React.FC = () => {
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
         
-        // CONSTRUCT SECURE PAYLOAD
-        // Note: 'variants' is excluded here because the column does not exist in the Supabase schema.
         const payload = { 
             name: formData.name,
             description: formData.description,
@@ -149,11 +142,12 @@ const VendorProductFormPage: React.FC = () => {
             original_price: Number(formData.original_price || formData.price),
             stock: Number(formData.stock),
             category_id: Number(formData.category_id),
-            images: formData.images, // JSONB compatible
+            images: formData.images, 
             highlights: finalHighlights,
-            // CRITICAL FIX: Use numeric vendor_id from VENDORS table
             vendor_id: Number(currentVendor.id), 
-            status: 'approved' 
+            status: 'approved',
+            // Save exactly what the vendor chose
+            cash_on_delivery: !!formData.cash_on_delivery
         };
 
         if (isEditing) {
@@ -242,18 +236,41 @@ const VendorProductFormPage: React.FC = () => {
                 <h2 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6 border-b border-border pb-2">Publication Control</h2>
                 <div className="space-y-6">
                     <div>
-                        <p className="text-[10px] font-black uppercase text-text-muted mb-3">Enabled Checkouts</p>
+                        <p className="text-[10px] font-black uppercase text-text-muted mb-3">Fulfillment Protocol</p>
                         <div className="space-y-3">
-                            <label className="flex items-center gap-3 cursor-pointer group"><input type="checkbox" value="online" checked={formData.payment_modes.includes('online')} onChange={handleChange} className="w-5 h-5 rounded text-accent focus:ring-accent" /><span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main">Digital Pre-paid</span></label>
-                            <label className="flex items-center gap-3 cursor-pointer group"><input type="checkbox" value="cod" checked={formData.payment_modes.includes('cod')} onChange={handleChange} className="w-5 h-5 rounded text-accent focus:ring-accent" /><span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main">Cash on Delivery</span></label>
+                            <div className="p-4 bg-surface rounded-2xl border border-border">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input 
+                                        type="checkbox" 
+                                        name="cash_on_delivery" 
+                                        checked={formData.cash_on_delivery} 
+                                        onChange={handleChange} 
+                                        className="w-5 h-5 rounded text-accent focus:ring-accent border-border" 
+                                    />
+                                    <div>
+                                        <span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main transition-colors">Cash on Delivery</span>
+                                        <p className="text-[8px] text-text-muted font-bold mt-0.5">ALLOW COD SETTLEMENT</p>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100 flex items-center gap-3">
+                                <div className="w-5 h-5 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
+                                </div>
+                                <div>
+                                    <span className="text-xs font-black uppercase text-indigo-700">Digital Pre-paid</span>
+                                    <p className="text-[8px] text-indigo-400 font-bold mt-0.5">MANDATORY PROTOCOL</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
                     <button type="submit" disabled={isSubmitting} className="w-full bg-accent text-white py-5 rounded-3xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50">
-                        {isSubmitting ? 'Synchronizing DB...' : (isEditing ? 'Sync Changes' : 'Publish to Marketplace')}
+                        {isSubmitting ? 'Synchronizing Manifest...' : (isEditing ? 'Update Listing' : 'Publish to Marketplace')}
                     </button>
                     
-                    <p className="text-[8px] text-text-muted text-center uppercase font-bold tracking-widest italic opacity-60">Listing strictly monitored by VexoKart AI Protocol</p>
+                    <p className="text-[8px] text-text-muted text-center uppercase font-bold tracking-widest italic opacity-60">Listing monitored by VexoKart Verified Protocol</p>
                 </div>
             </GlassmorphicCard>
         </div>

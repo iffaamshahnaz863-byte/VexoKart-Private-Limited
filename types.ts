@@ -1,4 +1,3 @@
-
 export interface Review {
   id: string;
   author: string;
@@ -32,8 +31,8 @@ export interface Product {
   category_id: number;
   category?: string; // Virtual field for UI
   status: ProductStatus;
-  payment_modes: string[]; // ["online", "cod"]
-  variants: ProductVariant[];
+  payment_modes: string[]; // Deprecated in favor of explicit booleans
+  cash_on_delivery: boolean; // Source of truth for COD availability
   stock: number;
   highlights?: string[];
   specifications?: { [key: string]: string };

@@ -51,7 +51,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           category_id: Number(item.category_id),
           vendor_id: String(item.vendor_id),
           status: item.status || 'approved',
-          payment_modes: item.payment_modes || ['online', 'cod'],
+          // REMOVED: Fallback logic value || ['online', 'cod']
+          payment_modes: Array.isArray(item.payment_modes) ? item.payment_modes : [],
+          // ADDED: Explicit source of truth for COD
+          cash_on_delivery: !!item.cash_on_delivery,
           variants: item.variants || [],
           highlights: item.highlights || []
         }));
@@ -71,8 +74,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // Exclude virtual/unmapped fields and ID to let DB handle it
-    const { id, category, category_data, payment_modes, variants, ...dbPayload } = productData;
+    // FIXED: Stop destructuring 'payment_modes' and 'cash_on_delivery' away. They must be saved.
+    const { id, category, category_data, variants, ...dbPayload } = productData;
     
     const finalPayload = {
       ...dbPayload,
@@ -80,7 +83,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       category_id: Number(dbPayload.category_id),
       images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
       created_at: new Date().toISOString(),
-      status: dbPayload.status || 'approved'
+      status: dbPayload.status || 'approved',
+      // Explicitly ensuring it's a boolean for DB compatibility
+      cash_on_delivery: !!dbPayload.cash_on_delivery
     };
 
     try {
@@ -104,14 +109,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    // CRITICAL FIX: Destructure 'id' out of the payload body.
-    // In PostgreSQL, identity columns cannot be part of the UPDATE SET clause.
-    const { id, category, category_data, payment_modes, variants, ...dbPayload } = product as any;
+    // FIXED: Stop removing payment controls from the payload.
+    const { id, category, category_data, variants, ...dbPayload } = product as any;
 
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(dbPayload.vendor_id),
-      category_id: Number(dbPayload.category_id)
+      category_id: Number(dbPayload.category_id),
+      cash_on_delivery: !!dbPayload.cash_on_delivery
     };
 
     try {
