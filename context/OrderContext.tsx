@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Order, OrderStatus, Address, PaymentStatus, Vendor } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
-import { useNotifications } from "./NotificationsContext.tsx"; // Assuming correct path from user files
+import { useNotifications } from "./NotificationContext.tsx";
 import { BASE_API_URL, API_HEADERS } from "../constants.ts";
 
 interface OrderContextType {
@@ -40,7 +40,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { user } = useAuth();
-  const { fetchInbox } = useNotifications();
+  const { fetchInbox, createAppNotification } = useNotifications();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -101,7 +101,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     if (Array.isArray(data)) {
       setOrders(
         data.map((o: any) => {
-          // Robust address extraction for different schema possibilities
           const addressSource = (typeof o.address === 'object' ? o.address : null) || 
                                 (typeof o.shipping_address === 'object' ? o.shipping_address : null) || 
                                 (typeof o.shippingaddress === 'object' ? o.shippingaddress : null) || 
@@ -165,71 +164,71 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
-    /**
-     * CRITICAL FIX: The error "invalid input syntax for type numeric" occurs when an object 
-     * is sent to a numeric column. Since 'address' and 'shipping_address' seem to be numeric IDs
-     * in the target schema, we try common JSONB column names like 'address_json' or 'metadata'.
-     */
     const payload: any = {
-      user_id: user.id, // Using raw user.id (which sanitizeUser ensures is a number if possible)
+      user_id: user.id,
       vendor_id: vendorIdValue,
       items: orderData.items,
       total_amount: Number(orderData.total),
-      total: Number(orderData.total), // Send both common total column names
+      total: Number(orderData.total),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
       status_history: [{ status: "Placed", timestamp, actor: "User", note: "Order placed" }],
       created_at: timestamp,
-      // Attempt to save the address object in a field that might be JSONB
       address_json: addressSnapshot,
-      // Backup: Stringify address details for text columns
       address_text: JSON.stringify(addressSnapshot)
     };
 
     const res = await fetch(`${BASE_API_URL}/orders`, {
       method: "POST",
-      headers: { 
-        ...API_HEADERS, 
-        "Prefer": "return=representation" 
-      },
+      headers: { ...API_HEADERS, "Prefer": "return=representation" },
       body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
       const errorBody = await res.json().catch(() => ({}));
-      console.error("[OrderContext] Database Rejection Details:", res.status, JSON.stringify(errorBody, null, 2));
-      
-      // Attempt one more time without ANY address keys if numeric conflict persists
-      if (JSON.stringify(errorBody).includes("numeric")) {
-          console.warn("[OrderContext] Numeric conflict detected. Retrying without address object keys...");
-          const { address, shipping_address, address_json, ...retryPayload } = payload;
-          const retryRes = await fetch(`${BASE_API_URL}/orders`, {
-              method: "POST",
-              headers: { ...API_HEADERS, "Prefer": "return=representation" },
-              body: JSON.stringify(retryPayload),
-          });
-          if (retryRes.ok) {
-              const result = await retryRes.json();
-              refreshOrders();
-              return result[0].id.toString();
-          }
-      }
-      
       throw new Error(errorBody.message || `Order placement failed (Status: ${res.status})`);
     }
 
     const result = await res.json();
-    refreshOrders();
-    return result[0].id.toString();
-  };
+    const orderId = result[0].id.toString();
 
-  const createShipment = async (orderId: string, vendor: any) => {};
+    // TRIGGER NOTIFICATIONS
+    try {
+        // User Notification
+        await createAppNotification({
+            user_id: user.id,
+            role: 'user',
+            title: 'Order Confirmed',
+            message: 'Your order has been placed successfully.',
+            type: 'order_status'
+        });
+
+        // Vendor Notification
+        if (vendorIdValue) {
+            await createAppNotification({
+                vendor_id: vendorIdValue,
+                role: 'vendor',
+                title: 'New Order Received',
+                message: `You have received a new order (#${orderId.slice(-6)}). Please pack it.`,
+                type: 'order_alert'
+            });
+        }
+    } catch (notifErr) {
+        console.warn("Background notification trigger failed", notifErr);
+    }
+
+    refreshOrders();
+    fetchInbox(user);
+    return orderId;
+  };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, details: any = {}) => {
     const order = orders.find((o) => o.id === orderId);
-    const history = order?.statusHistory || [];
+    if (!order) return;
+
+    const history = order.statusHistory || [];
     const newHistory = [...history, {
         status,
         timestamp: new Date().toISOString(),
@@ -246,7 +245,61 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       headers: { ...API_HEADERS },
       body: JSON.stringify(updatePayload),
     });
-    if (res.ok) await refreshOrders();
+
+    if (res.ok) {
+        // TRIGGER STATUS NOTIFICATIONS
+        try {
+            if (status === 'Packed') {
+                await createAppNotification({
+                    user_id: order.user_id,
+                    role: 'user',
+                    title: 'Order Packed',
+                    message: 'Your order has been packed and will be shipped soon.',
+                    type: 'order_status'
+                });
+            } else if (status === 'Shipped') {
+                await createAppNotification({
+                    user_id: order.user_id,
+                    role: 'user',
+                    title: 'Order Shipped',
+                    message: 'Your order is on the way. Tracking updates will be available soon.',
+                    type: 'order_status'
+                });
+            } else if (status === 'Delivered') {
+                // User Notification
+                await createAppNotification({
+                    user_id: order.user_id,
+                    role: 'user',
+                    title: 'Order Delivered',
+                    message: 'Your order has been delivered successfully. Please rate the product.',
+                    type: 'order_status'
+                });
+                // Vendor Notification
+                if (order.vendor_id) {
+                    await createAppNotification({
+                        vendor_id: order.vendor_id,
+                        role: 'vendor',
+                        title: 'Payment Credited',
+                        message: `Order #${orderId.slice(-6)} has been delivered. Funds added to your pending wallet.`,
+                        type: 'wallet_update'
+                    });
+                }
+            }
+        } catch (notifErr) {
+            console.warn("Status notification trigger failed", notifErr);
+        }
+        
+        await refreshOrders();
+        if (user) await fetchInbox(user);
+    }
+  };
+
+  // Implementation of createShipment required by OrderContextType.
+  // This function initiates the logistics workflow for an order.
+  const createShipment = async (orderId: string, vendorData: any) => {
+    console.log(`[OrderContext] Creating shipment for Order #${orderId}`, vendorData);
+    // Transition status to Confirmed to show that logistics processing has started
+    await updateOrderStatus(orderId, 'Confirmed', { note: 'Shipment manifest processing started.' });
   };
 
   const getOrderById = (id: string) => orders.find((o) => o.id === id);
