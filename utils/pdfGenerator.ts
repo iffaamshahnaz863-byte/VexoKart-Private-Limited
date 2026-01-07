@@ -2,8 +2,8 @@ import { jsPDF } from 'jspdf';
 import { Order } from '../types';
 
 /**
- * Generates a production-ready shipping and tax label PDF.
- * Returns the jsPDF instance for direct download/printing.
+ * Generates a high-fidelity, professional Shipping Label and Tax Invoice.
+ * Built for VexoKart Logistics Node.
  */
 export const generateShippingLabelPDF = async (order: Order): Promise<jsPDF> => {
   const doc = new jsPDF({
@@ -20,125 +20,140 @@ export const generateShippingLabelPDF = async (order: Order): Promise<jsPDF> => 
   const gstAmount = totalAmount - subtotal;
   
   const vendorName = order.seller_name || order.items[0]?.vendor_name || 'VexoKart Authorized Vendor';
-  const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'VX-001';
+  const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'VX-VND-001';
 
-  // --- HEADER ---
+  // --- TOP HEADER ---
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.text('VexoKart', 20, 20);
+  doc.setFontSize(28);
+  doc.text('VexoKart', 15, 20);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('LOGISTICS HUB', 20, 24);
+  doc.text('LOGISTICS HUB • SECURE FULFILLMENT', 15, 25);
 
+  // COD/PREPAID Badge
   doc.setFillColor(0, 0, 0);
-  doc.rect(140, 12, 50, 12, 'F');
+  doc.rect(145, 12, 50, 10, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(isCOD ? 'COD' : 'PAID', 165, 20, { align: 'center' });
+  doc.text(isCOD ? 'C O D' : 'PREPAID', 170, 19, { align: 'center' });
   
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(10);
-  doc.text(`Order #${order.id}`, 190, 28, { align: 'right' });
+  doc.text(`Order ID: #${order.id}`, 195, 28, { align: 'right' });
+  doc.text(`Date: ${new Date(order.created_at).toLocaleDateString()}`, 195, 33, { align: 'right' });
 
   doc.setLineWidth(0.8);
-  doc.line(20, 32, 190, 32);
+  doc.line(15, 38, 195, 38);
 
-  // --- ADDRESSES ---
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 120);
-  doc.text('SHIP FROM', 20, 40);
-  doc.text('DELIVER TO', 110, 40);
-
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(vendorName, 20, 46);
-  doc.text(address?.fullName || 'Verified Customer', 110, 46);
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(60, 60, 60);
-  doc.text(['Warehouse Node-A1', 'Industrial Estate', 'India', `ID: ${vendorId}`], 20, 52);
-  
-  const customerAddr = [
-    address?.street || '',
-    `${address?.city || ''}, ${address?.state || ''}`,
-    `Phone: ${address?.phone || ''}`
-  ];
-  doc.text(customerAddr, 110, 52);
-
-  doc.setFillColor(245, 245, 245);
-  doc.rect(110, 72, 40, 10, 'F');
-  doc.setDrawColor(0, 0, 0);
-  doc.rect(110, 72, 40, 10, 'S');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text(address?.zip || '000000', 130, 79, { align: 'center' });
-
-  // --- LOGISTICS IDENTIFIERS ---
-  doc.setLineWidth(0.3);
-  doc.line(20, 88, 190, 88);
-
+  // --- PRIMARY BARCODE (Simulated for high-fidelity export) ---
   doc.setFillColor(0, 0, 0);
-  let startX = 25;
-  const barWidths = [0.5, 1, 0.5, 1.5, 0.5, 2, 0.5, 1, 0.5, 1, 0.5, 2, 0.5, 1, 0.5, 1.5];
-  for (let i = 0; i < 6; i++) {
-    barWidths.forEach(w => {
-        doc.rect(startX, 93, w, 15, 'F');
-        startX += w + 0.8;
+  let startX = 20;
+  const barPattern = [1, 2, 0.5, 3, 1, 1, 0.5, 4, 1, 2, 0.5, 3];
+  for (let i = 0; i < 12; i++) {
+    barPattern.forEach(w => {
+        doc.rect(startX, 45, w, 18, 'F');
+        startX += w + 0.5;
     });
   }
+  doc.setFontSize(11);
+  doc.text(`ID: ${order.id}`, 105, 70, { align: 'center', charSpace: 2 });
 
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(9);
-  doc.text(`ID: ${order.id}`, 105, 115, { align: 'center' });
+  // --- ADDRESS SECTION ---
+  doc.setLineWidth(0.8);
+  doc.rect(15, 75, 180, 55); // Outer frame
+  doc.line(105, 75, 105, 130); // Middle divider
 
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.5);
-  doc.rect(160, 93, 25, 25, 'S');
-  doc.setFontSize(6);
-  doc.text('SECURE QR', 172.5, 106, { align: 'center' });
-
-  // --- ITEMS ---
-  doc.setLineWidth(0.5);
-  doc.line(20, 128, 190, 128);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('ITEM DESCRIPTION', 20, 134);
-  doc.text('QTY', 180, 134, { align: 'right' });
-  doc.line(20, 136, 190, 136);
-
-  doc.setFont('helvetica', 'normal');
-  let y = 143;
-  order.items.forEach((item) => {
-    doc.text(item.name.substring(0, 60), 20, y);
-    doc.text(String(item.quantity), 180, y, { align: 'right' });
-    y += 8;
-  });
-
-  // --- TOTALS ---
-  doc.line(130, y + 5, 190, y + 5);
-  y += 12;
+  // Left Side - Ship From
   doc.setFontSize(8);
-  doc.text('SUBTOTAL', 130, y);
-  doc.text(`INR ${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 190, y, { align: 'right' });
-  
-  y += 6;
-  doc.text('GST (18%)', 130, y);
-  doc.text(`INR ${gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 190, y, { align: 'right' });
+  doc.setTextColor(120, 120, 120);
+  doc.text('SHIP FROM (SELLER)', 20, 82);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(vendorName.toUpperCase(), 20, 90);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(['Warehouse Node-A1', 'Industrial Logistics Estate', 'Support: 1800-VEXO-KART'], 20, 98);
+  doc.setFontSize(8);
+  doc.text(`REG ID: ${vendorId}`, 20, 122);
 
-  y += 10;
+  // Right Side - Deliver To
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 120);
+  doc.text('DELIVER TO (CONSIGNEE)', 110, 82);
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL PAYABLE', 130, y);
-  doc.text(`INR ${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 190, y, { align: 'right' });
+  doc.text(address?.fullName.toUpperCase() || 'VALUED CUSTOMER', 110, 90);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text([address?.street || '', `${address?.city || ''}, ${address?.state || ''}`], 110, 98);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PH: ${address?.phone || ''}`, 110, 112);
+
+  // Pincode Highlight Box
+  doc.setLineWidth(1.2);
+  doc.rect(130, 116, 50, 10);
+  doc.setFontSize(18);
+  doc.text(address?.zip || '000000', 155, 123.5, { align: 'center', charSpace: 2 });
+
+  // --- ITEM TABLE ---
+  doc.setLineWidth(0.8);
+  doc.line(15, 140, 195, 140);
+  doc.setFontSize(9);
+  doc.text('ITEM DESCRIPTION', 15, 145);
+  doc.text('QTY', 195, 145, { align: 'right' });
+  doc.line(15, 147, 195, 147);
+
+  doc.setFontSize(10);
+  let y = 155;
+  order.items.forEach((item) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(item.name.substring(0, 65).toUpperCase(), 15, y);
+    doc.text(String(item.quantity), 195, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`SKU: VXK-${item.id} • HSN: 61091000`, 15, y + 4);
+    y += 12;
+  });
+
+  // --- QR & PRICING ---
+  const footerY = 240;
+  // Simulated QR
+  doc.setLineWidth(0.5);
+  doc.rect(15, footerY, 25, 25);
+  doc.setFontSize(6);
+  doc.text('DIGITAL', 27.5, footerY + 12, { align: 'center' });
+  doc.text('AUTH', 27.5, footerY + 15, { align: 'center' });
+
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(['ELECTRONIC FULFILLMENT MANIFEST', 'SUBJECT TO VEXOKART JURISDICTION'], 45, footerY + 5);
+
+  // Billing
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.text('SUBTOTAL', 140, footerY + 5);
+  doc.text(`INR ${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 195, footerY + 5, { align: 'right' });
+  
+  doc.text('GST (18%)', 140, footerY + 10);
+  doc.text(`INR ${gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 195, footerY + 10, { align: 'right' });
+
+  doc.setLineWidth(0.8);
+  doc.line(130, footerY + 14, 195, footerY + 14);
+  
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`INR ${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 195, footerY + 24, { align: 'right' });
+  doc.setFontSize(7);
+  doc.text('TOTAL SETTLEMENT VALUE (INCLUSIVE OF GST)', 195, footerY + 28, { align: 'right' });
 
   // --- FOOTER ---
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(180, 180, 180);
-  doc.text('COMPUTER GENERATED LABEL • VEXOKART LOGISTICS V.5.0', 105, 280, { align: 'center' });
+  doc.text('VEXOKART FULFILLMENT SYSTEM • MANIFEST V1.0 • SYSTEM GENERATED', 105, 285, { align: 'center', charSpace: 1 });
 
   return doc;
 };
