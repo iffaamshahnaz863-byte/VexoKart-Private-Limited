@@ -7,6 +7,7 @@ import { generateShippingLabelPDF } from '../utils/pdfGenerator.ts';
 const ShippingLabelPreviewModal: React.FC = () => {
     const { activeOrderForLabel, closeLabelPreview } = useOrders();
     const [isDownloading, setIsDownloading] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
     // Lock body scroll when modal is open
     useEffect(() => {
@@ -33,7 +34,12 @@ const ShippingLabelPreviewModal: React.FC = () => {
     const handleClose = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        closeLabelPreview();
+        if (pdfUrl) {
+            URL.revokeObjectURL(pdfUrl);
+            setPdfUrl(null);
+        } else {
+            closeLabelPreview();
+        }
     };
 
     const handleDownload = async (e: React.MouseEvent) => {
@@ -41,18 +47,26 @@ const ShippingLabelPreviewModal: React.FC = () => {
         e.stopPropagation();
         setIsDownloading(true);
         try {
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             const doc = await generateShippingLabelPDF(order);
             const blob = doc.output('blob');
             const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `manifest_order_${order.id}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+
+            if (isMobile) {
+                // On Mobile: Show PDF in secure internal viewer to avoid permission errors
+                setPdfUrl(url);
+            } else {
+                // On Desktop: Direct download
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `manifest_order_${order.id}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
         } catch (err) {
-            console.error("PDF Download failed:", err);
+            console.error("PDF generation failed:", err);
             alert("Failed to generate PDF. Please try printing instead.");
         } finally {
             setIsDownloading(false);
@@ -77,7 +91,9 @@ const ShippingLabelPreviewModal: React.FC = () => {
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                     </div>
                     <div>
-                        <h2 className="text-sm font-black uppercase tracking-tight italic">Consignment Manifest</h2>
+                        <h2 className="text-sm font-black uppercase tracking-tight italic">
+                            {pdfUrl ? 'PDF Preview' : 'Consignment Manifest'}
+                        </h2>
                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Order #{order.id}</p>
                     </div>
                 </div>
@@ -90,126 +106,135 @@ const ShippingLabelPreviewModal: React.FC = () => {
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-grow overflow-y-auto p-4 bg-gray-100 flex flex-col items-center">
-                
-                {/* The Manifest Visual (Paper Style) */}
-                <div className="bg-white w-full max-w-[210mm] shadow-2xl p-6 md:p-10 text-black font-sans border border-gray-300">
-                    
-                    {/* 1. BRAND HEADER */}
-                    <div className="flex justify-between items-start border-b-[2px] border-black pb-4 mb-4">
-                        <div>
-                            <h1 className="text-3xl font-black italic tracking-tighter leading-none">VexoKart</h1>
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-60">Logistics Hub • Secure Node</p>
-                        </div>
-                        <div className="text-right">
-                            <div className="bg-black text-white px-4 py-1 font-black text-xs uppercase italic inline-block mb-1">
-                                {isCOD ? 'C O D' : 'PREPAID'}
-                            </div>
-                            <p className="text-[10px] font-black uppercase block">ID: #{order.id}</p>
-                        </div>
-                    </div>
-
-                    {/* 2. PRIMARY SCANNABLE */}
-                    <div className="flex flex-col items-center py-4 border-b border-gray-200 mb-6">
-                        <Barcode 
-                            value={order.id.toString()} 
-                            width={2.5} 
-                            height={60} 
-                            displayValue={false}
-                            margin={0}
+            <div className="flex-grow overflow-y-auto p-4 bg-gray-100 flex flex-col items-center relative">
+                {pdfUrl ? (
+                    <div className="w-full h-full animate-in fade-in duration-500">
+                        <iframe 
+                            src={pdfUrl} 
+                            className="w-full h-full rounded-xl border-none shadow-inner"
+                            title="Label PDF Viewer"
                         />
-                        <p className="text-xs font-black tracking-[0.5em] mt-2">*{order.id}*</p>
                     </div>
-
-                    {/* 3. ADDRESS GRID */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-2 border-black mb-6">
-                        <div className="border-b-2 md:border-b-0 md:border-r-2 border-black p-4 bg-gray-50/30">
-                            <p className="text-[9px] font-black uppercase mb-2 text-gray-400">SHIP FROM (SELLER)</p>
-                            <p className="font-black text-sm uppercase italic">{vendorName}</p>
-                            <p className="text-[10px] mt-1 font-bold text-gray-700 leading-tight uppercase">
-                                Warehouse Node-A1<br/>
-                                Industrial Estate<br/>
-                                Support: 1800-VEXO-KART
-                            </p>
-                        </div>
-                        <div className="p-4">
-                            <p className="text-[9px] font-black uppercase mb-2 text-gray-400">DELIVER TO (CONSIGNEE)</p>
-                            <p className="font-black text-base uppercase italic mb-1">{address?.fullName}</p>
-                            <p className="text-[11px] font-bold text-gray-800 uppercase leading-snug">
-                                {address?.street}<br/>
-                                {address?.city}, {address?.state}
-                            </p>
-                            <p className="mt-2 font-black text-sm">PH: {address?.phone}</p>
-                            
-                            <div className="mt-4 flex justify-center">
-                                <div className="border-2 border-black px-6 py-1 inline-block">
-                                    <p className="font-black text-2xl tracking-[0.1em]">{address?.zip}</p>
+                ) : (
+                    /* The Manifest Visual (Paper Style) */
+                    <div className="bg-white w-full max-w-[210mm] shadow-2xl p-6 md:p-10 text-black font-sans border border-gray-300">
+                        
+                        {/* 1. BRAND HEADER */}
+                        <div className="flex justify-between items-start border-b-[2px] border-black pb-4 mb-4">
+                            <div>
+                                <h1 className="text-3xl font-black italic tracking-tighter leading-none">VexoKart</h1>
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-60">Logistics Hub • Secure Node</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="bg-black text-white px-4 py-1 font-black text-xs uppercase italic inline-block mb-1">
+                                    {isCOD ? 'C O D' : 'PREPAID'}
                                 </div>
+                                <p className="text-[10px] font-black uppercase block">ID: #{order.id}</p>
                             </div>
                         </div>
-                    </div>
 
-                    {/* 4. ITEMS LIST */}
-                    <div className="border-2 border-black p-3 mb-6">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="text-[9px] font-black uppercase border-b border-black">
-                                    <th className="pb-1">DESCRIPTION</th>
-                                    <th className="pb-1 text-right w-12">QTY</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-[10px] font-bold uppercase">
-                                {order.items.map((item: any, i: number) => (
-                                    <tr key={i} className="border-b border-gray-100 last:border-0">
-                                        <td className="py-2">
-                                            <p className="font-black text-[11px]">{item.name}</p>
-                                            <p className="text-[8px] text-gray-400 mt-0.5">SKU: VXK-{item.id}</p>
-                                        </td>
-                                        <td className="py-2 text-right font-black">{item.quantity}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* 5. PRICING & QR */}
-                    <div className="flex flex-col md:flex-row justify-between items-end gap-6 pt-4 border-t border-dashed border-gray-300">
-                        <div className="flex flex-col items-center p-2 border border-gray-100 rounded-lg">
-                            <QRCode 
-                                size={60}
-                                value={JSON.stringify({ oid: order.id, ph: address?.phone })}
-                                viewBox={`0 0 256 256`}
+                        {/* 2. PRIMARY SCANNABLE */}
+                        <div className="flex flex-col items-center py-4 border-b border-gray-200 mb-6">
+                            <Barcode 
+                                value={order.id.toString()} 
+                                width={2.5} 
+                                height={60} 
+                                displayValue={false}
+                                margin={0}
                             />
-                            <p className="text-[7px] font-black uppercase mt-1">Digital Auth</p>
+                            <p className="text-xs font-black tracking-[0.5em] mt-2">*{order.id}*</p>
                         </div>
 
-                        <div className="w-full md:w-64">
-                            <div className="space-y-1 mb-2">
-                                <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
-                                    <span>Subtotal</span>
-                                    <span>₹{subtotal.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
-                                    <span>GST (18%)</span>
-                                    <span>₹{gstAmount.toFixed(2)}</span>
-                                </div>
-                            </div>
-                            <div className="border-t border-black pt-2 text-right">
-                                <p className="text-[8px] font-black uppercase text-gray-400">Total Payable</p>
-                                <p className="text-3xl font-black italic tracking-tighter leading-none mt-1">
-                                    ₹{totalAmount.toLocaleString()}
+                        {/* 3. ADDRESS GRID */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-2 border-black mb-6">
+                            <div className="border-b-2 md:border-b-0 md:border-r-2 border-black p-4 bg-gray-50/30">
+                                <p className="text-[9px] font-black uppercase mb-2 text-gray-400">SHIP FROM (SELLER)</p>
+                                <p className="font-black text-sm uppercase italic">{vendorName}</p>
+                                <p className="text-[10px] mt-1 font-bold text-gray-700 leading-tight uppercase">
+                                    Warehouse Node-A1<br/>
+                                    Industrial Estate<br/>
+                                    Support: 1800-VEXO-KART
                                 </p>
                             </div>
+                            <div className="p-4">
+                                <p className="text-[9px] font-black uppercase mb-2 text-gray-400">DELIVER TO (CONSIGNEE)</p>
+                                <p className="font-black text-base uppercase italic mb-1">{address?.fullName}</p>
+                                <p className="text-[11px] font-bold text-gray-800 uppercase leading-snug">
+                                    {address?.street}<br/>
+                                    {address?.city}, {address?.state}
+                                </p>
+                                <p className="mt-2 font-black text-sm">PH: {address?.phone}</p>
+                                
+                                <div className="mt-4 flex justify-center">
+                                    <div className="border-2 border-black px-6 py-1 inline-block">
+                                        <p className="font-black text-2xl tracking-[0.1em]">{address?.zip}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. ITEMS LIST */}
+                        <div className="border-2 border-black p-3 mb-6">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="text-[9px] font-black uppercase border-b border-black">
+                                        <th className="pb-1">DESCRIPTION</th>
+                                        <th className="pb-1 text-right w-12">QTY</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-[10px] font-bold uppercase">
+                                    {order.items.map((item: any, i: number) => (
+                                        <tr key={i} className="border-b border-gray-100 last:border-0">
+                                            <td className="py-2">
+                                                <p className="font-black text-[11px]">{item.name}</p>
+                                                <p className="text-[8px] text-gray-400 mt-0.5">SKU: VXK-{item.id}</p>
+                                            </td>
+                                            <td className="py-2 text-right font-black">{item.quantity}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 5. PRICING & QR */}
+                        <div className="flex flex-col md:flex-row justify-between items-end gap-6 pt-4 border-t border-dashed border-gray-300">
+                            <div className="flex flex-col items-center p-2 border border-gray-100 rounded-lg">
+                                <QRCode 
+                                    size={60}
+                                    value={JSON.stringify({ oid: order.id, ph: address?.phone })}
+                                    viewBox={`0 0 256 256`}
+                                />
+                                <p className="text-[7px] font-black uppercase mt-1">Digital Auth</p>
+                            </div>
+
+                            <div className="w-full md:w-64">
+                                <div className="space-y-1 mb-2">
+                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
+                                        <span>Subtotal</span>
+                                        <span>₹{subtotal.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
+                                        <span>GST (18%)</span>
+                                        <span>₹{gstAmount.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                <div className="border-t border-black pt-2 text-right">
+                                    <p className="text-[8px] font-black uppercase text-gray-400">Total Payable</p>
+                                    <p className="text-3xl font-black italic tracking-tighter leading-none mt-1">
+                                        ₹{totalAmount.toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 6. MANIFEST FOOTER */}
+                        <div className="mt-8 text-center opacity-30">
+                            <p className="text-[7px] font-black uppercase tracking-[0.3em]">
+                                VexoKart Systems • Electronic Manifest v5.0 • Verified Protocol
+                            </p>
                         </div>
                     </div>
-
-                    {/* 6. MANIFEST FOOTER */}
-                    <div className="mt-8 text-center opacity-30">
-                        <p className="text-[7px] font-black uppercase tracking-[0.3em]">
-                            VexoKart Systems • Electronic Manifest v5.0 • Verified Protocol
-                        </p>
-                    </div>
-                </div>
+                )}
 
                 {/* Secure Protocol Tip */}
                 <div className="mt-10 p-6 text-center text-gray-400 space-y-2 no-print">
