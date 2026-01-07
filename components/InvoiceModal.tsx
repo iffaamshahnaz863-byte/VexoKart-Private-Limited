@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Order } from '../types';
+import { generateInvoicePDF } from '../utils/pdfGenerator.ts';
 
 interface InvoiceModalProps {
   order: Order & { seller_name?: string };
@@ -7,6 +8,7 @@ interface InvoiceModalProps {
 }
 
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
   const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const gstAmount = Number((subtotal * 0.18).toFixed(2));
   const finalTotal = Number((subtotal + gstAmount).toFixed(2));
@@ -31,8 +33,30 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
   const handlePrint = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Selective print is usually fine, but avoid window.open
     window.print();
+  };
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDownloading(true);
+    try {
+        const doc = await generateInvoicePDF(order);
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoice_order_${order.id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error("Invoice Download failed:", err);
+        alert("Failed to generate invoice PDF.");
+    } finally {
+        setIsDownloading(false);
+    }
   };
 
   return (
@@ -45,7 +69,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-white sticky top-0 z-[310] shrink-0">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-white sticky top-0 z-[310] shrink-0 no-print">
             <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -151,14 +175,20 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
         {/* Modal Footer Controls */}
         <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-4 shrink-0 no-print">
             <button 
-                onClick={handleCloseClick}
-                className="flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 active:scale-95 transition-all"
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="flex-1 bg-white border border-gray-300 text-gray-900 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
-                Return to View
+                {isDownloading ? (
+                    <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                )}
+                Download PDF
             </button>
             <button 
                 onClick={handlePrint}
-                className="flex-[1.5] bg-black text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                className="flex-1 bg-black text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-black/20 active:scale-95 transition-all flex items-center justify-center gap-3"
             >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                 Print Manifest
