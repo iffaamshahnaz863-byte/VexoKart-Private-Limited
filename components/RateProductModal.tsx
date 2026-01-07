@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import GlassmorphicCard from './GlassmorphicCard';
 import { OrderItem } from '../types';
@@ -15,6 +14,8 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
   const [comment, setComment] = useState('');
   const [hoverRating, setHoverRating] = useState(0);
 
+  const labels = ["Very Bad", "Bad", "Ok-Ok", "Good", "Very Good"];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) {
@@ -22,27 +23,28 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
       return;
     }
     onSubmit(rating, comment);
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
-      <GlassmorphicCard className="w-full max-w-md p-6 border-white/10 shadow-2xl scale-in-center overflow-visible">
-        <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-4">
-            <img src={item.image} alt={item.name} className="w-16 h-16 rounded-xl object-cover border border-white/5 shadow-inner" />
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1">Reviewing Product</p>
-              <h3 className="text-text-main font-bold truncate max-w-[180px] tracking-tight">{item.name}</h3>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-text-muted hover:text-text-main transition-colors">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl scale-in-center">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white">
+          <h2 className="text-sm font-black uppercase tracking-widest text-gray-800 italic">Rate Product</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-800 transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+            <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover border border-white shadow-sm" />
+            <p className="text-xs font-bold text-gray-700 line-clamp-1 italic uppercase tracking-tight">{item.name}</p>
+          </div>
+
           <div className="text-center">
-            <p className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Overall Satisfaction</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 italic">Overall Satisfaction</p>
             <div className="flex justify-center gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -55,7 +57,7 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
                 >
                   <svg 
                     className={`w-10 h-10 transition-colors ${
-                      (hoverRating || rating) >= star ? 'text-yellow-400' : 'text-white/10'
+                      (hoverRating || rating) >= star ? 'text-yellow-400' : 'text-gray-100'
                     }`} 
                     fill="currentColor" 
                     viewBox="0 0 20 20"
@@ -65,26 +67,27 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
                 </button>
               ))}
             </div>
+            <p className="mt-3 text-xs font-black text-accent uppercase italic tracking-widest">{labels[(hoverRating || rating) - 1]}</p>
           </div>
 
           <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-2 block">Tell us more</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block italic">Add Detailed Feedback</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="What did you like or dislike?"
-              className="w-full bg-background/50 text-text-main border border-white/5 focus:border-accent rounded-xl p-4 text-sm h-32 transition-all resize-none"
+              placeholder="Tell us about the quality, fit, or look..."
+              className="w-full bg-gray-50 text-gray-800 border border-gray-100 focus:border-accent rounded-2xl p-4 text-xs h-24 transition-all resize-none shadow-inner font-medium"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-accent text-white font-black uppercase tracking-widest text-[11px] py-4 rounded-xl shadow-lg shadow-accent/20 hover:-translate-y-1 transition-all"
+            className="w-full bg-accent text-white font-black uppercase tracking-widest text-[11px] py-4 rounded-2xl shadow-xl shadow-accent/20 hover:-translate-y-1 active:translate-y-0 transition-all"
           >
             Submit Verified Review
           </button>
         </form>
-      </GlassmorphicCard>
+      </div>
     </div>
   );
 };

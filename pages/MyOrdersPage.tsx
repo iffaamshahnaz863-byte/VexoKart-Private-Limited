@@ -1,117 +1,122 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
-import InvoiceModal from '../components/InvoiceModal';
+import { SearchIcon } from '../components/icons/SearchIcon';
 import { Order, OrderStatus } from '../types';
 
-const getStatusColor = (status: OrderStatus) => {
+const getStatusTheme = (status: OrderStatus) => {
     switch(status) {
-        case 'Placed': return 'text-gray-400 bg-gray-50 border-gray-100';
-        case 'Confirmed': return 'text-cyan-600 bg-cyan-50 border-cyan-100';
-        case 'Packed': return 'text-indigo-600 bg-indigo-50 border-indigo-100';
-        case 'Shipped': return 'text-blue-600 bg-blue-50 border-blue-100';
-        case 'Out for Delivery': return 'text-orange-600 bg-orange-50 border-orange-100';
-        case 'Delivered': return 'text-green-600 bg-green-50 border-green-100';
-        case 'Cancelled': return 'text-red-600 bg-red-50 border-red-100';
-        default: return 'text-gray-400 bg-gray-50 border-gray-100';
+        case 'Delivered': return { text: 'Delivered', color: 'text-green-600', bg: 'bg-green-50', icon: '✓' };
+        case 'Cancelled': return { text: 'Cancelled', color: 'text-red-600', bg: 'bg-red-50', icon: '✕' };
+        case 'Placed': case 'Confirmed': case 'Packed': return { text: 'Processing', color: 'text-blue-600', bg: 'bg-blue-50', icon: '•' };
+        default: return { text: 'In Transit', color: 'text-blue-600', bg: 'bg-blue-50', icon: '•' };
     }
 }
 
 const MyOrdersPage: React.FC = () => {
-  const { orders } = useOrders();
+  const { orders, isLoading } = useOrders();
   const navigate = useNavigate();
-  const [selectedInvoice, setSelectedInvoice] = useState<Order | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    return orders.filter(o => 
+      o.items.some((i: any) => i.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      o.id.includes(searchQuery)
+    );
+  }, [orders, searchQuery]);
 
   return (
-    <div className="bg-surface min-h-screen pb-20">
-      {selectedInvoice && <InvoiceModal order={selectedInvoice as any} onClose={() => setSelectedInvoice(null)} />}
-
-      <div className="sticky top-0 z-20 p-4 bg-white/80 backdrop-blur-md flex items-center border-b border-border shadow-sm">
-        <button onClick={() => navigate('/profile')} className="p-2 -ml-2 mr-2 bg-surface rounded-full border border-border">
-            <ChevronLeftIcon className="h-5 w-5 text-text-main" />
-        </button>
-        <h1 className="text-xl font-black text-text-main italic tracking-tight uppercase">My Orders</h1>
-      </div>
-      
-      <div className="p-4 max-w-2xl mx-auto space-y-4">
-        {orders.length === 0 ? (
-          <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-border p-10">
-            <div className="w-20 h-20 bg-surface rounded-full flex items-center justify-center mx-auto mb-6">
-                 <svg className="w-10 h-10 text-text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+    <div className="bg-[#F8F9FA] min-h-screen pb-20 font-sans select-none">
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-100">
+        <div className="px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate('/profile')} className="p-1">
+            <ChevronLeftIcon className="w-6 h-6 text-gray-800" />
+          </button>
+          <h1 className="text-base font-bold text-gray-800 uppercase tracking-tight">My Orders</h1>
+        </div>
+        
+        {/* Search Bar */}
+        <div className="px-4 pb-3">
+          <div className="flex gap-2">
+            <div className="relative flex-grow">
+              <input 
+                type="text" 
+                placeholder="Search by product name or ID"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-accent"
+              />
+              <SearchIcon className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             </div>
-            <p className="text-text-main font-bold">No orders found</p>
-            <p className="text-text-muted text-xs mt-1">Start shopping to see your history here.</p>
-            <button onClick={() => navigate('/products')} className="mt-8 bg-accent text-white font-black uppercase text-[10px] tracking-widest py-4 px-8 rounded-2xl shadow-xl shadow-accent/20">
-              Discover Products
+            <button className="px-3 border border-gray-200 rounded-lg flex items-center justify-center bg-white active:bg-gray-50">
+              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="p-3 space-y-3">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Fetching your orders...</p>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="bg-white rounded-xl p-10 text-center border border-dashed border-gray-200 mt-4">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+            </div>
+            <p className="text-sm font-bold text-gray-700">No orders found</p>
+            <p className="text-xs text-gray-400 mt-1">Start shopping to see your history.</p>
+          </div>
         ) : (
-          orders.map(order => {
-            const isCOD = order.payment_mode === 'Cash on Delivery';
-            const paymentStatusText = isCOD ? 'Payment Pending (COD)' : 'Paid';
-            const hasInvoice = order.invoice_generated !== false && order.status !== 'Cancelled';
+          filteredOrders.map(order => {
+            const theme = getStatusTheme(order.status);
+            const firstItem = order.items[0];
+            const dateStr = new Date(order.created_at).toLocaleDateString([], { day: 'numeric', month: 'short' });
 
             return (
-                <GlassmorphicCard key={order.id} className="p-0 overflow-hidden border-none shadow-premium bg-white">
-                  <div className="p-5 flex justify-between items-start border-b border-gray-50">
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-text-muted tracking-widest">Order Reference</p>
-                      <p className="font-mono font-black text-text-main">#{order.id}</p>
-                      <p className="text-[9px] text-text-muted font-bold mt-0.5 uppercase tracking-tighter">{new Date(order.created_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                    </div>
-                    <div className="text-right">
-                        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${getStatusColor(order.status)}`}>
-                            {order.status}
-                        </span>
-                    </div>
+              <Link 
+                to={`/order/${order.id}`} 
+                key={order.id} 
+                className="block bg-white border border-gray-100 rounded-xl p-3 shadow-sm active:scale-[0.98] transition-transform"
+              >
+                <div className="flex gap-4">
+                  {/* Thumbnail */}
+                  <div className="w-20 h-20 bg-gray-50 rounded-lg overflow-hidden border border-gray-100 flex-shrink-0">
+                    <img src={firstItem.image} alt="" className="w-full h-full object-contain" />
                   </div>
 
-                  <Link to={`/order/${order.id}`} className="p-5 block hover:bg-surface transition-colors">
-                      <div className="space-y-4">
-                          {order.items.slice(0, 1).map((item: any) => (
-                              <div key={item.id} className="flex items-center gap-4">
-                                  <img src={item.image} alt={item.name} className="w-14 h-14 rounded-xl object-cover border border-border bg-surface" />
-                                  <div className="flex-grow min-w-0">
-                                      <p className="text-xs font-black text-text-main truncate uppercase italic">{item.name}</p>
-                                      <p className="text-[9px] font-black text-accent uppercase tracking-tighter mt-0.5">Sold by: {order.seller_name || 'Authorized Partner'}</p>
-                                      <div className="flex items-center gap-2 mt-1">
-                                          <p className="text-[10px] font-bold text-text-secondary uppercase">Qty: {item.quantity}</p>
-                                          {order.items.length > 1 && <p className="text-[9px] text-text-muted font-black uppercase">+ {order.items.length - 1} More</p>}
-                                      </div>
-                                  </div>
-                                  <div className="text-right">
-                                       <p className="text-sm font-black text-accent italic">₹{order.total.toLocaleString()}</p>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </Link>
+                  {/* Info */}
+                  <div className="flex-grow min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                       <h3 className="text-sm font-bold text-gray-700 line-clamp-1 truncate">{firstItem.name}</h3>
+                       <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                    </div>
 
-                  <div className="p-5 bg-gray-50/50 flex flex-wrap gap-4 items-center justify-between">
-                      <div className="flex gap-4">
-                          <div className="space-y-1">
-                             <p className="text-[8px] font-black uppercase text-text-muted tracking-widest">Payment Mode</p>
-                             <p className="text-[10px] font-bold text-text-main uppercase">{order.payment_mode}</p>
-                          </div>
-                          <div className="space-y-1">
-                             <p className="text-[8px] font-black uppercase text-text-muted tracking-widest">Status</p>
-                             <p className={`text-[10px] font-black uppercase ${isCOD ? 'text-orange-500' : 'text-green-600'}`}>{paymentStatusText}</p>
-                          </div>
-                      </div>
-                      
-                      {hasInvoice && (
-                        <button 
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedInvoice(order); }}
-                          className="bg-white border border-border text-text-main px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm hover:border-accent transition-all flex items-center gap-2"
-                        >
-                            <svg className="w-3.5 h-3.5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                            Download Invoice
-                        </button>
-                      )}
+                    <div className="mt-1 flex items-center gap-1.5">
+                       <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${theme.bg} ${theme.color}`}>
+                         {theme.icon} {theme.text}
+                       </span>
+                       <span className="text-[10px] font-bold text-gray-400">{dateStr}</span>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                       {firstItem.size && (
+                         <span className="text-[9px] font-black text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded uppercase">Size: {firstItem.size}</span>
+                       )}
+                       {firstItem.color && (
+                         <span className="text-[9px] font-black text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded uppercase">Color: {firstItem.color}</span>
+                       )}
+                       <span className="text-[9px] font-black text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded uppercase">Qty: {firstItem.quantity}</span>
+                    </div>
                   </div>
-                </GlassmorphicCard>
+                </div>
+              </Link>
             );
           })
         )}
