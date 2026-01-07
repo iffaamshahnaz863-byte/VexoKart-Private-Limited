@@ -31,14 +31,12 @@ export interface Product {
   category_id: number;
   category?: string; // Virtual field for UI
   status: ProductStatus;
-  payment_modes: string[]; // Legacy field
-  product_type: 'simple' | 'variant'; // New field
-  allow_cod: boolean; // New field
-  allow_online: boolean; // New field
-  cash_on_delivery: boolean; // Synced with allow_cod
+  payment_modes: string[]; // Persistence layer for payment booleans
+  product_type: 'simple' | 'variant';
+  is_cod_enabled: boolean; // New strict naming
+  is_online_enabled: boolean; // New strict naming
   stock: number;
   highlights?: string[];
-  specifications?: { [key: string]: any };
   rating: number;
   review_count: number;
   reviews: Review[];

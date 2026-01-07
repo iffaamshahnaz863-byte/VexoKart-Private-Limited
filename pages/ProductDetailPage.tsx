@@ -83,8 +83,9 @@ const ProductDetailPage: React.FC = () => {
   const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
   const upiPrice = Math.floor(sellingPrice * 0.98);
 
-  const allowCod = product.allow_cod !== undefined ? product.allow_cod : true;
-  const allowOnline = product.allow_online !== undefined ? product.allow_online : true;
+  // Strict Payment Rule logic
+  const allowCod = product.is_cod_enabled;
+  const allowOnline = product.is_online_enabled;
 
   // Swipe Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -261,20 +262,20 @@ const ProductDetailPage: React.FC = () => {
           <span className="text-xs text-gray-400 font-medium">{product.review_count || '25'} Reviews</span>
         </div>
 
-        {/* PAYMENT BADGES */}
+        {/* PAYMENT BADGES - STRICT PERSISTENCE REFLECTION */}
         <div className="flex flex-wrap gap-2 pt-1">
             {allowCod && allowOnline && (
                 <div className="bg-gray-100 px-2 py-1 rounded flex items-center gap-1.5 border border-gray-200">
                     <span className="text-[9px] font-black text-gray-600 uppercase tracking-tighter">COD Available</span>
                 </div>
             )}
-            {!allowCod && (
+            {allowOnline && !allowCod && (
                 <div className="bg-blue-50 px-2 py-1 rounded flex items-center gap-1.5 border border-blue-100">
                     <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                     <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter">Online Payment Only</span>
                 </div>
             )}
-            {!allowOnline && (
+            {allowCod && !allowOnline && (
                 <div className="bg-orange-50 px-2 py-1 rounded flex items-center gap-1.5 border border-orange-100">
                     <svg className="w-3 h-3 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                     <span className="text-[9px] font-black text-orange-600 uppercase tracking-tighter">Pay at Doorstep Only</span>

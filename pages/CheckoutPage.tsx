@@ -28,12 +28,12 @@ const CheckoutPage: React.FC = () => {
   /* 🚫 PAYMENT RESTRICTION LOGIC */
   const allowCodForCart = useMemo(() => {
     // If any item restricts COD, we must disable it for the whole order
-    return cartItems.every(item => item.allow_cod !== false);
+    return cartItems.every(item => item.is_cod_enabled !== false);
   }, [cartItems]);
 
   const allowOnlineForCart = useMemo(() => {
     // If any item restricts Online, we must disable it for the whole order
-    return cartItems.every(item => item.allow_online !== false);
+    return cartItems.every(item => item.is_online_enabled !== false);
   }, [cartItems]);
 
   // Adjust selection if current becomes invalid
@@ -43,7 +43,7 @@ const CheckoutPage: React.FC = () => {
     } else if (paymentMethod === 'card' && !allowOnlineForCart) {
       setPaymentMethod('cod');
     }
-  }, [allowCodForCart, allowOnlineForCart]);
+  }, [allowCodForCart, allowOnlineForCart, paymentMethod]);
 
   /* ✅ Precise Calculations */
   const gstAmount = Number((cartTotal * GST_RATE).toFixed(2));

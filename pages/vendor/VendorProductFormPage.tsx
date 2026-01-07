@@ -28,10 +28,9 @@ const VendorProductFormPage: React.FC = () => {
     description: '',
     highlights: [],
     stock: 10,
-    specifications: {},
     product_type: 'simple',
-    allow_cod: true,
-    allow_online: true,
+    is_cod_enabled: null, // Start null to indicate loading/uninitialized
+    is_online_enabled: null,
     variants: [] as ProductVariant[]
   });
 
@@ -56,15 +55,21 @@ const VendorProductFormPage: React.FC = () => {
             category_id: p.category_id.toString(),
             variants: p.variants || [],
             product_type: p.product_type || 'simple',
-            allow_cod: p.allow_cod !== undefined ? p.allow_cod : true,
-            allow_online: p.allow_online !== undefined ? p.allow_online : true
+            is_cod_enabled: p.is_cod_enabled,
+            is_online_enabled: p.is_online_enabled
         });
         setHighlightsText((p.highlights || []).join('\n'));
         setEnableSize(p.variants?.some(v => v.type === 'size') || false);
         setEnableColor(p.variants?.some(v => v.type === 'color') || false);
       }
-    } else if (categories.length > 0) {
-      setFormData((prev: any) => ({...prev, category_id: categories[0].id.toString()}));
+    } else {
+      // Default for new product - strictly apply defaults only once
+      setFormData(prev => ({
+        ...prev,
+        is_cod_enabled: true,
+        is_online_enabled: true,
+        category_id: categories.length > 0 ? categories[0].id.toString() : ''
+      }));
     }
   }, [id, isEditing, getProduct, categories]);
 
@@ -72,14 +77,8 @@ const VendorProductFormPage: React.FC = () => {
     const { name, value, type } = e.target as any;
     if (type === 'checkbox') {
         const checked = (e.target as any).checked;
-        setFormData((prev: any) => {
-            const next = { ...prev, [name]: checked };
-            // Validation: Must have at least one payment method
-            if (!next.allow_cod && !next.allow_online) {
-                return prev;
-            }
-            return next;
-        });
+        // Strictly controlled: update exactly what vendor clicked
+        setFormData((prev: any) => ({ ...prev, [name]: checked }));
     } else {
         setFormData((prev: any) => ({ ...prev, [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
     }
@@ -135,11 +134,16 @@ const VendorProductFormPage: React.FC = () => {
     if (!currentVendor) { alert("Auth sync error"); return; }
     if (formData.images.length === 0) { alert("Add at least one image"); return; }
 
+    // VALIDATION RULE: At least one payment method must be selected
+    if (!formData.is_cod_enabled && !formData.is_online_enabled) {
+        alert("Select at least one payment method (COD or Online)");
+        return;
+    }
+
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
         
-        // Filter variants based on current toggles if Variant Product
         let finalVariants = formData.variants;
         if (formData.product_type === 'simple') {
             finalVariants = [];
@@ -171,6 +175,10 @@ const VendorProductFormPage: React.FC = () => {
         setIsSubmitting(false);
     }
   };
+
+  // Safe checks for uninitialized payment state
+  const isCodActive = formData.is_cod_enabled !== null ? formData.is_cod_enabled : true;
+  const isOnlineActive = formData.is_online_enabled !== null ? formData.is_online_enabled : true;
 
   return (
     <div className="pb-24 animate-in fade-in duration-300">
@@ -322,24 +330,24 @@ const VendorProductFormPage: React.FC = () => {
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Financial Protocol</h2>
             
             <div className="space-y-3">
-                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${formData.allow_cod ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
+                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${isCodActive ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
                         <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Allow buyers to pay at doorstep</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="allow_cod" checked={formData.allow_cod} onChange={handleChange} className="sr-only peer" />
+                        <input type="checkbox" name="is_cod_enabled" checked={isCodActive} onChange={handleChange} className="sr-only peer" />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                     </label>
                 </div>
 
-                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${formData.allow_online ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
+                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${isOnlineActive ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Online Payment</p>
                         <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Enable UPI, Cards & Netbanking</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="allow_online" checked={formData.allow_online} onChange={handleChange} className="sr-only peer" />
+                        <input type="checkbox" name="is_online_enabled" checked={isOnlineActive} onChange={handleChange} className="sr-only peer" />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                     </label>
                 </div>

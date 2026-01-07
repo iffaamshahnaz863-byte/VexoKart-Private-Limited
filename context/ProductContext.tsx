@@ -43,8 +43,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          // Extra logic to extract metadata from specifications if columns were missing
-          const meta = item.specifications || {};
+          // Persistence strategy: map DB payment_modes (array) to UI booleans
+          const modes = Array.isArray(item.payment_modes) ? item.payment_modes : ['cod', 'online'];
           return {
             ...item,
             id: Number(item.id),
@@ -54,11 +54,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             category_id: Number(item.category_id),
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
-            // Load from meta if not in direct columns
-            product_type: meta.vxk_product_type || item.product_type || 'simple',
-            allow_cod: meta.vxk_allow_cod !== undefined ? meta.vxk_allow_cod : (item.allow_cod !== undefined ? item.allow_cod : true),
-            allow_online: meta.vxk_allow_online !== undefined ? meta.vxk_allow_online : (item.allow_online !== undefined ? item.allow_online : true),
-            cash_on_delivery: meta.vxk_allow_cod !== undefined ? meta.vxk_allow_cod : true,
+            product_type: item.product_type || 'simple',
+            // Load strictly from database state
+            is_cod_enabled: modes.includes('cod'),
+            is_online_enabled: modes.includes('online'),
             variants: item.variants || [],
             highlights: item.highlights || [],
             specifications: item.specifications || {}
@@ -80,6 +79,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
+    // UI state to DB state mapping
+    const paymentModes = [];
+    if (productData.is_cod_enabled) paymentModes.push('cod');
+    if (productData.is_online_enabled) paymentModes.push('online');
+
     const { 
       id, 
       category, 
@@ -88,20 +92,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       cash_on_delivery, 
       payment_modes, 
       product_type,
-      allow_cod,
-      allow_online,
+      is_cod_enabled,
+      is_online_enabled,
       specifications,
       ...dbPayload 
     } = productData;
     
-    // Embed metadata into specifications to bypass schema cache missing columns
-    const finalSpecs = {
-      ...(specifications || {}),
-      vxk_product_type: product_type,
-      vxk_allow_cod: allow_cod,
-      vxk_allow_online: allow_online
-    };
-
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(productData.vendor_id),
@@ -109,14 +105,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
       created_at: new Date().toISOString(),
       status: dbPayload.status || 'approved',
-      specifications: finalSpecs,
-      variants: variants || []
+      product_type: product_type || 'simple',
+      payment_modes: paymentModes // STRICT PERSISTENCE
     };
 
     try {
       const res = await fetch(`${BASE_API_URL}/products`, {
         method: 'POST',
-        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
+        headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
         body: JSON.stringify(finalPayload)
       });
 
@@ -133,6 +129,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
+    // UI state to DB state mapping
+    const paymentModes = [];
+    if (product.is_cod_enabled) paymentModes.push('cod');
+    if (product.is_online_enabled) paymentModes.push('online');
+
     const { 
       id, 
       category, 
@@ -141,25 +142,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       cash_on_delivery, 
       payment_modes, 
       product_type,
-      allow_cod,
-      allow_online,
+      is_cod_enabled,
+      is_online_enabled,
       specifications,
       ...dbPayload 
     } = product as any;
-
-    const finalSpecs = {
-      ...(specifications || {}),
-      vxk_product_type: product_type,
-      vxk_allow_cod: allow_cod,
-      vxk_allow_online: allow_online
-    };
 
     const finalPayload = {
       ...dbPayload,
       vendor_id: Number(dbPayload.vendor_id),
       category_id: Number(dbPayload.category_id),
-      specifications: finalSpecs,
-      variants: variants || []
+      product_type: product_type || 'simple',
+      payment_modes: paymentModes // STRICT PERSISTENCE
     };
 
     try {
