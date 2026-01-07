@@ -101,11 +101,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     if (Array.isArray(data)) {
       setOrders(
         data.map((o: any) => {
-          const addressSource = (typeof o.address === 'object' ? o.address : null) || 
+          /**
+           * Robust Address Extraction:
+           * Since address/shipping_address columns in the DB are likely numeric,
+           * we retrieve the snapshot from the status_history entry where it was saved.
+           */
+          const addressSource = (o.status_history?.[0]?.address_snapshot) ||
+                                (typeof o.metadata === 'object' && o.metadata?.address ? o.metadata.address : null) ||
+                                (typeof o.address === 'object' ? o.address : null) || 
                                 (typeof o.shipping_address === 'object' ? o.shipping_address : null) || 
-                                (typeof o.shippingaddress === 'object' ? o.shippingaddress : null) || 
-                                (typeof o.address_json === 'object' ? o.address_json : null) ||
-                                (o.address_text ? JSON.parse(o.address_text) : null) ||
                                 null;
 
           return {
@@ -164,20 +168,29 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
+    /**
+     * CRITICAL FIX: To avoid PGRST204 (Missing Metadata Column) and 
+     * numeric syntax errors, we exclude 'metadata' and 'address' (object).
+     * We store the address snapshot inside the 'status_history' JSONB array.
+     */
     const payload: any = {
       user_id: user.id,
       vendor_id: vendorIdValue,
       items: orderData.items,
       total_amount: Number(orderData.total),
-      total: Number(orderData.total),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
-      status_history: [{ status: "Placed", timestamp, actor: "User", note: "Order placed" }],
-      created_at: timestamp,
-      address_json: addressSnapshot,
-      address_text: JSON.stringify(addressSnapshot)
+      // Store the address snapshot in the JSONB status_history array
+      status_history: [{ 
+        status: "Placed", 
+        timestamp, 
+        actor: "User", 
+        note: "Order placed",
+        address_snapshot: addressSnapshot 
+      }],
+      created_at: timestamp
     };
 
     const res = await fetch(`${BASE_API_URL}/orders`, {
@@ -188,13 +201,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     if (!res.ok) {
       const errorBody = await res.json().catch(() => ({}));
+      console.error("[OrderContext] Database Rejection Details:", res.status, JSON.stringify(errorBody));
       throw new Error(errorBody.message || `Order placement failed (Status: ${res.status})`);
     }
 
     const result = await res.json();
     const orderId = result[0].id.toString();
 
-    // TRIGGER NOTIFICATIONS
+    // MEESHO NOTIFICATION: ORDER CONFIRMED
     try {
         // User Notification
         await createAppNotification({
@@ -247,7 +261,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (res.ok) {
-        // TRIGGER STATUS NOTIFICATIONS
+        // MEESHO NOTIFICATIONS: STATUS UPDATES
         try {
             if (status === 'Packed') {
                 await createAppNotification({
@@ -280,7 +294,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                         vendor_id: order.vendor_id,
                         role: 'vendor',
                         title: 'Payment Credited',
-                        message: `Order #${orderId.slice(-6)} has been delivered. Funds added to your pending wallet.`,
+                        message: `Order #${orderId.slice(-6)} has been delivered. Amount has been added to your wallet.`,
                         type: 'wallet_update'
                     });
                 }
@@ -294,11 +308,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  // Implementation of createShipment required by OrderContextType.
-  // This function initiates the logistics workflow for an order.
   const createShipment = async (orderId: string, vendorData: any) => {
-    console.log(`[OrderContext] Creating shipment for Order #${orderId}`, vendorData);
-    // Transition status to Confirmed to show that logistics processing has started
     await updateOrderStatus(orderId, 'Confirmed', { note: 'Shipment manifest processing started.' });
   };
 

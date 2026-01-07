@@ -132,13 +132,13 @@ const VendorOrderDetailPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Workflow Actions (Sticky) */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-100 flex flex-col gap-3 lg:static lg:bg-transparent lg:border-none lg:p-4">
+            {/* Workflow Actions (Sticky) - FIXED FOR ALL DEVICES */}
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 flex flex-col gap-3 z-[110] shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
                  {order.status === 'Placed' && (
                     <button 
                       onClick={() => handleAction('Confirmed', 'Merchant accepted the commitment.')}
                       disabled={isProcessing}
-                      className="w-full bg-[#F43397] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-[#F43397]/20 active:scale-95 transition-all"
+                      className="w-full h-14 bg-[#F43397] text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-[#F43397]/20 active:scale-95 transition-all flex items-center justify-center"
                     >
                       {isProcessing ? 'SYNCHRONIZING...' : 'ACCEPT ORDER'}
                     </button>
@@ -147,17 +147,17 @@ const VendorOrderDetailPage: React.FC = () => {
                     <button 
                       onClick={() => handleAction('Packed', 'Items verified and packed.')}
                       disabled={isProcessing}
-                      className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                      className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center"
                     >
                       {isProcessing ? 'PACKING...' : 'MARK AS PACKED'}
                     </button>
                  )}
                  {['Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) && (
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 h-14">
                         <button 
                             onClick={() => generateShippingLabel(order.id)}
                             disabled={isLabelGenerating}
-                            className="flex-1 bg-gray-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+                            className="flex-1 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                             {isLabelGenerating ? 'WAIT...' : 'LABEL'}
@@ -166,7 +166,7 @@ const VendorOrderDetailPage: React.FC = () => {
                             <button 
                                 onClick={() => handleAction('Shipped', 'Handed over to logistics partner.')}
                                 disabled={isProcessing}
-                                className="flex-[1.5] bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all"
+                                className="flex-[1.5] bg-accent text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all flex items-center justify-center"
                             >
                                 {isProcessing ? 'SYNC...' : 'DISPATCH'}
                             </button>

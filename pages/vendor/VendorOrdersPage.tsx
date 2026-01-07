@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Order, OrderStatus } from '../../types';
@@ -12,9 +11,10 @@ const VendorOrdersPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { currentVendor, fetchCurrentVendor } = useVendors();
-    const { orders, isLoading, refreshOrders } = useOrders();
+    const { orders, isLoading, refreshOrders, updateOrderStatus } = useOrders();
     
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [processingId, setProcessingId] = useState<string | null>(null);
 
     useEffect(() => {
         refreshOrders();
@@ -24,6 +24,18 @@ const VendorOrdersPage: React.FC = () => {
     }, [user, currentVendor]);
 
     const vid = currentVendor ? String(currentVendor.id) : '';
+
+    const handleAction = async (orderId: string, newStatus: OrderStatus, note: string) => {
+        if (processingId) return;
+        setProcessingId(orderId);
+        try {
+            await updateOrderStatus(orderId, newStatus, { note });
+        } catch (err) {
+            console.error("Action failed", err);
+        } finally {
+            setProcessingId(null);
+        }
+    };
 
     const vendorOrders = useMemo(() => {
         return orders.filter(order => {
@@ -61,7 +73,7 @@ const VendorOrdersPage: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-6 animate-in fade-in duration-300 pb-24">
             <div className="sticky top-0 z-40 bg-[#F8F9FA]/80 backdrop-blur-md pb-4 pt-1">
                 <div className="flex items-center gap-3 mb-6">
                     <button onClick={() => navigate('/vendor')} className="p-2 -ml-2">
@@ -86,11 +98,13 @@ const VendorOrdersPage: React.FC = () => {
             <div className="space-y-4">
                 {vendorOrders.map((order: any) => {
                     const firstItem = order.vendorItems[0];
+                    const isProcessing = processingId === order.id;
+
                     return (
                         <div 
                           key={order.id} 
                           onClick={() => navigate(`/vendor/order/${order.id}`)}
-                          className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                          className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm active:scale-[0.99] transition-all cursor-pointer group"
                         >
                             <div className="flex gap-4">
                                 <div className="w-20 h-20 bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shrink-0">
@@ -116,11 +130,38 @@ const VendorOrdersPage: React.FC = () => {
                                         <div className="w-1 h-1 bg-gray-200 rounded-full"></div>
                                         <p className="text-xs font-black text-accent italic">₹{order.vendorSubtotal.toLocaleString()}</p>
                                     </div>
-                                    {order.payment_mode === 'Cash on Delivery' && (
-                                        <span className="mt-2 inline-block bg-gray-900 text-white text-[7px] font-black uppercase px-2 py-0.5 rounded italic">COD Order</span>
-                                    )}
                                 </div>
                             </div>
+
+                            {/* VENDOR ACTION BUTTONS - FIXED FOR ALL DEVICES */}
+                            {(order.status === 'Placed' || order.status === 'Confirmed') && (
+                                <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col sm:flex-row gap-2">
+                                    {order.status === 'Placed' && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleAction(order.id, 'Confirmed', 'Order accepted via dashboard'); }}
+                                            disabled={isProcessing}
+                                            className="w-full sm:flex-1 h-11 bg-[#F43397] text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-[#F43397]/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                                        >
+                                            {isProcessing ? 'Syncing...' : 'Accept Order'}
+                                        </button>
+                                    )}
+                                    {order.status === 'Confirmed' && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleAction(order.id, 'Packed', 'Order packed via dashboard'); }}
+                                            disabled={isProcessing}
+                                            className="w-full sm:flex-1 h-11 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                                        >
+                                            {isProcessing ? 'Syncing...' : 'Mark as Packed'}
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); navigate(`/vendor/order/${order.id}`); }}
+                                        className="w-full sm:w-auto h-11 px-6 bg-gray-50 text-gray-500 rounded-xl font-black uppercase text-[10px] tracking-widest active:bg-gray-100 transition-all flex items-center justify-center"
+                                    >
+                                        View Details
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     );
                 })}
