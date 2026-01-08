@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
@@ -19,8 +19,8 @@ const VendorProductFormPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'info' });
   
-  // Track if we have already initialized the form to prevent auto-resets
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Requirement: Use a strong initialization lock to prevent multiple loads and resets
+  const initializationLocked = useRef(false);
 
   const [formData, setFormData] = useState<any>({
     name: '',
@@ -49,9 +49,9 @@ const VendorProductFormPage: React.FC = () => {
 
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-border rounded-2xl p-4 transition focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 disabled:opacity-50 text-sm font-medium";
 
-  // Initialization Effect
+  // Requirement: Load product data ONLY ONCE when editing
   useEffect(() => {
-    if (isInitialized) return; // Stop if already loaded
+    if (initializationLocked.current) return;
 
     if (isEditing) {
       const p = getProduct(parseInt(id));
@@ -61,32 +61,48 @@ const VendorProductFormPage: React.FC = () => {
             category_id: p.category_id.toString(),
             variants: p.variants || [],
             product_type: p.product_type || 'simple',
-            is_cod_enabled: p.is_cod_enabled ?? true,
-            is_online_enabled: p.is_online_enabled ?? true
+            // Requirement: Use explicit boolean mapping from source data
+            is_cod_enabled: p.is_cod_enabled === true,
+            is_online_enabled: p.is_online_enabled === true
         });
         setHighlightsText((p.highlights || []).join('\n'));
         setEnableSize(p.variants?.some(v => v.type === 'size') || false);
         setEnableColor(p.variants?.some(v => v.type === 'color') || false);
-        setIsInitialized(true);
+        initializationLocked.current = true;
       }
     } else if (categories.length > 0) {
-      // For new products, set defaults only once
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         category_id: categories[0].id.toString()
       }));
-      setIsInitialized(true);
+      initializationLocked.current = true;
     }
-  }, [id, isEditing, getProduct, categories, isInitialized]);
+  }, [id, isEditing, getProduct, categories]);
 
+  // Requirement: Generic handleChange now only handles non-checkbox types to avoid unreliable updates
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target as any;
-    if (type === 'checkbox') {
-        const checked = (e.target as any).checked;
-        setFormData((prev: any) => ({ ...prev, [name]: checked }));
-    } else {
-        setFormData((prev: any) => ({ ...prev, [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value }));
+    const { name, value, type } = e.target;
+    if (type !== 'checkbox') {
+        setFormData((prev: any) => ({ 
+            ...prev, 
+            [name]: ['price', 'original_price', 'stock'].includes(name) ? parseFloat(value) || 0 : value 
+        }));
     }
+  };
+
+  // Requirement: Dedicated toggle handler for payment options to ensure independent control
+  const togglePayment = (name: 'is_cod_enabled' | 'is_online_enabled') => {
+    setFormData((prev: any) => {
+        const newValue = !prev[name];
+        
+        // Requirement: At least one payment method must remain enabled
+        const otherName = name === 'is_cod_enabled' ? 'is_online_enabled' : 'is_cod_enabled';
+        if (!newValue && !prev[otherName]) {
+            return prev; // Reject toggle if it would disable both
+        }
+
+        return { ...prev, [name]: newValue };
+    });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, forVariant = false) => {
@@ -139,11 +155,6 @@ const VendorProductFormPage: React.FC = () => {
     if (!currentVendor) { alert("Auth sync error"); return; }
     if (formData.images.length === 0) { alert("Add at least one image"); return; }
 
-    if (!formData.is_cod_enabled && !formData.is_online_enabled) {
-        alert("Select at least one payment method (COD or Online)");
-        return;
-    }
-
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
@@ -157,6 +168,7 @@ const VendorProductFormPage: React.FC = () => {
             );
         }
 
+        // Requirement: Send current frontend state as-is without forcing true/false
         const payload = { 
             ...formData,
             highlights: finalHighlights,
@@ -330,26 +342,34 @@ const VendorProductFormPage: React.FC = () => {
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Financial Protocol</h2>
             
             <div className="space-y-3">
-                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${formData.is_cod_enabled ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
+                <div 
+                    onClick={() => togglePayment('is_cod_enabled')}
+                    className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_cod_enabled ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale'}`}
+                >
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
                         <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Allow buyers to pay at doorstep</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="is_cod_enabled" checked={formData.is_cod_enabled} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                    </label>
+                    <div className="relative inline-flex items-center">
+                        <div className={`w-11 h-6 rounded-full transition-all ${formData.is_cod_enabled ? 'bg-accent' : 'bg-gray-200'}`}>
+                            <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all ${formData.is_cod_enabled ? 'translate-x-full border-white' : ''}`}></div>
+                        </div>
+                    </div>
                 </div>
 
-                <div className={`p-4 rounded-3xl border flex items-center justify-between transition-colors ${formData.is_online_enabled ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}>
+                <div 
+                    onClick={() => togglePayment('is_online_enabled')}
+                    className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_online_enabled ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}
+                >
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Online Payment</p>
                         <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Enable UPI, Cards & Netbanking</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" name="is_online_enabled" checked={formData.is_online_enabled} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
-                    </label>
+                    <div className="relative inline-flex items-center">
+                        <div className={`w-11 h-6 rounded-full transition-all ${formData.is_online_enabled ? 'bg-accent' : 'bg-gray-200'}`}>
+                            <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all ${formData.is_online_enabled ? 'translate-x-full border-white' : ''}`}></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <p className="text-[8px] text-gray-400 text-center uppercase font-bold">* At least one payment method must remain active</p>

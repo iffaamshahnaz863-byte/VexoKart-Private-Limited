@@ -35,6 +35,9 @@ export interface Product {
   product_type: 'simple' | 'variant';
   is_cod_enabled: boolean; // New strict naming
   is_online_enabled: boolean; // New strict naming
+  // Fix: Added cash_on_delivery and specifications to fix property access errors in AdminProductFormPage
+  cash_on_delivery?: boolean;
+  specifications?: Record<string, string>;
   stock: number;
   highlights?: string[];
   rating: number;
