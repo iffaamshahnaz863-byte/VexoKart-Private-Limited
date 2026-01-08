@@ -6,121 +6,133 @@ interface SplashScreenProps {
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [isVisible, setIsVisible] = useState(true);
-  const [startReveal, setStartReveal] = useState(false);
+  const [phase, setPhase] = useState(0); // 0: Init, 1: Draw, 2: Reveal, 3: Finish
 
   useEffect(() => {
-    // Start revealing text after shards assemble
-    const revealTimer = setTimeout(() => {
-      setStartReveal(true);
-    }, 1200);
+    // Sequence Logic
+    const timers = [
+      setTimeout(() => setPhase(1), 500),   // Start drawing logo
+      setTimeout(() => setPhase(2), 2000),  // Reveal text & shimmer
+      setTimeout(() => setPhase(3), 3200),  // Start exit fade
+      setTimeout(() => {
+        setIsVisible(false);
+        onFinish();
+      }, 3800)                              // Unmount
+    ];
 
-    // Total duration of the splash
-    const finishTimer = setTimeout(() => {
-      setIsVisible(false);
-      setTimeout(onFinish, 600); // Wait for the fade-out to complete
-    }, 3200);
-
-    return () => {
-      clearTimeout(revealTimer);
-      clearTimeout(finishTimer);
-    };
+    return () => timers.forEach(clearTimeout);
   }, [onFinish]);
 
   return (
     <div 
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white transition-opacity duration-700 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-700 ease-out ${phase === 3 ? 'opacity-0' : 'opacity-100'}`}
       style={{
-        background: 'radial-gradient(circle, #ffffff 0%, #fdf9f4 100%)'
+        background: 'radial-gradient(circle at center, #1E293B 0%, #0F172A 100%)'
       }}
     >
-      {/* Background Subtle Dust Particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
-        {[...Array(6)].map((_, i) => (
-          <div 
-            key={i}
-            className="absolute rounded-full bg-accent animate-pulse"
-            style={{
-              width: Math.random() * 4 + 2 + 'px',
-              height: Math.random() * 4 + 2 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
-              animationDuration: (Math.random() * 3 + 2) + 's',
-              animationDelay: (Math.random() * 2) + 's'
-            }}
-          />
-        ))}
-      </div>
+      {/* Ambient Background Glow (Rich Orange) */}
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] bg-[#FF6A00] rounded-full blur-[120px] opacity-10 transition-all duration-[2000ms] ${phase >= 1 ? 'scale-100 opacity-20' : 'scale-50'}`} />
 
-      <div className="relative flex flex-col items-center">
-        {/* Assemble Logo Container */}
-        <div className="relative w-24 h-24 mb-6">
-          {/* Logo Shard: Top Left */}
-          <div className="absolute top-0 left-0 w-1/2 h-1/2 shard-tl animate-shard-tl">
-            <div className="w-full h-full bg-accent rounded-tl-2xl rounded-br-lg shadow-sm"></div>
-          </div>
-          {/* Logo Shard: Top Right */}
-          <div className="absolute top-0 right-0 w-1/2 h-1/2 shard-tr animate-shard-tr">
-            <div className="w-full h-full bg-accent/90 rounded-tr-2xl rounded-bl-lg shadow-sm"></div>
-          </div>
-          {/* Logo Shard: Bottom Left */}
-          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 shard-bl animate-shard-bl">
-            <div className="w-full h-full bg-accent/80 rounded-bl-2xl rounded-tr-lg shadow-sm"></div>
-          </div>
-          {/* Logo Shard: Bottom Right */}
-          <div className="absolute bottom-0 right-0 w-1/2 h-1/2 shard-br animate-shard-br">
-            <div className="w-full h-full bg-black rounded-br-2xl rounded-tl-lg shadow-sm"></div>
-          </div>
+      {/* Main Logo Container */}
+      <div className="relative z-10 flex flex-col items-center">
+        
+        {/* Animated Cart Icon */}
+        <div className="relative w-32 h-32 mb-6">
+          <svg 
+            width="128" 
+            height="128" 
+            viewBox="0 0 100 100" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            className={`transition-all duration-1000 ${phase >= 1 ? 'opacity-100' : 'opacity-0'} ${phase >= 2 ? 'drop-shadow-[0_0_15px_rgba(255,106,0,0.5)]' : ''}`}
+          >
+            {/* Defs for Gradients */}
+            <defs>
+              <linearGradient id="orangeGold" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#FF6A00" />
+                <stop offset="100%" stopColor="#FFD166" />
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
 
-          {/* Glow sweep overlay */}
-          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-10">
-             <div className="w-full h-full animate-sweep-glow" 
-                  style={{
-                    background: 'linear-gradient(135deg, transparent 0%, transparent 40%, rgba(255,255,255,0.6) 50%, transparent 60%, transparent 100%)',
-                    backgroundSize: '200% 200%',
-                    mixBlendMode: 'overlay'
-                  }}
-             />
-          </div>
+            {/* Shopping Bag (Inside Cart) - Slides Down */}
+            <g className={`transition-transform duration-1000 ease-out ${phase >= 1 ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`} style={{ transitionDelay: '300ms' }}>
+               <rect x="35" y="20" width="30" height="35" rx="4" fill="rgba(255,255,255,0.1)" stroke="url(#orangeGold)" strokeWidth="1.5" />
+               <path d="M42 20V15C42 12 44 10 50 10C56 10 58 12 58 15V20" stroke="url(#orangeGold)" strokeWidth="1.5" strokeLinecap="round" />
+            </g>
+
+            {/* Cart Body - Stroke Animation */}
+            <path 
+              d="M10 25H22L30 65C30.5 68 32 70 36 70H75C79 70 81 68 82 65L88 35H25" 
+              stroke="url(#orangeGold)" 
+              strokeWidth="4" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+              className="cart-stroke"
+              style={{
+                strokeDasharray: 300,
+                strokeDashoffset: phase >= 1 ? 0 : 300,
+                transition: 'stroke-dashoffset 1.5s ease-in-out'
+              }}
+            />
+
+            {/* Wheels - Scale In */}
+            <g className={`transition-all duration-500 ease-back-out ${phase >= 1 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} style={{ transitionDelay: '1000ms' }}>
+              <circle cx="38" cy="82" r="5" fill="#FF6A00" />
+              <circle cx="78" cy="82" r="5" fill="#FF6A00" />
+            </g>
+
+            {/* Speed Lines - Slide In */}
+            <g className={`transition-all duration-700 ease-out ${phase >= 1 ? 'translate-x-0 opacity-100' : '-translate-x-10 opacity-0'}`} style={{ transitionDelay: '600ms' }}>
+               <path d="M5 45H15" stroke="#FFD166" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+               <path d="M2 55H12" stroke="#FFD166" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+               <path d="M8 35H18" stroke="#FFD166" strokeWidth="2" strokeLinecap="round" opacity="0.3" />
+            </g>
+          </svg>
         </div>
 
-        {/* Brand Text Identity */}
-        <div className={`text-center transition-all duration-1000 transform ${startReveal ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <h1 className="text-4xl font-black italic tracking-tighter text-gray-900">
-            Vexo<span className="text-accent">Kart</span>
+        {/* Brand Text */}
+        <div className="relative overflow-hidden pt-2 pb-2 px-4">
+          <h1 
+            className={`text-4xl font-bold tracking-tight text-white transition-all duration-1000 transform ${phase >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
+            Vexo<span className="text-[#FF6A00]">Kart</span>
           </h1>
-          <p className="mt-2 text-[9px] font-black uppercase tracking-[0.4em] text-gray-400">
-            Shop Online • Shop Smart
-          </p>
+          
+          {/* Shimmer Effect Overlay */}
+          <div 
+            className={`absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-20deg] ${phase >= 2 ? 'animate-shimmer' : 'hidden'}`} 
+            style={{ width: '200%', left: '-200%' }}
+          />
         </div>
+
+        {/* Tagline */}
+        <p 
+          className={`mt-2 text-[10px] font-bold uppercase tracking-[0.4em] text-gray-400 transition-all duration-1000 delay-300 ${phase >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+        >
+          Premium Commerce
+        </p>
       </div>
 
-      {/* Embedded Animation Keyframes */}
+      {/* Global Styles for Animations */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes shard-tl {
-          0% { transform: translate(-100px, -100px) rotate(-45deg); opacity: 0; }
-          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        @keyframes shimmer {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(200%); }
         }
-        @keyframes shard-tr {
-          0% { transform: translate(100px, -100px) rotate(45deg); opacity: 0; }
-          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        .animate-shimmer {
+          animation: shimmer 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
-        @keyframes shard-bl {
-          0% { transform: translate(-100px, 100px) rotate(45deg); opacity: 0; }
-          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        .ease-back-out {
+          transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        @keyframes shard-br {
-          0% { transform: translate(100px, 100px) rotate(-45deg); opacity: 0; }
-          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
-        }
-        @keyframes sweep-glow {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        .animate-shard-tl { animation: shard-tl 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-        .animate-shard-tr { animation: shard-tr 1.2s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
-        .animate-shard-bl { animation: shard-bl 1.2s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
-        .animate-shard-br { animation: shard-br 1.2s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
-        .animate-sweep-glow { animation: sweep-glow 1.5s 1.3s ease-out forwards; }
       `}} />
     </div>
   );
