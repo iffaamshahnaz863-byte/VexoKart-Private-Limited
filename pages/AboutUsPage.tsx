@@ -20,7 +20,7 @@ const AboutUsPage: React.FC = () => {
           <section>
             <h2 className="text-sm font-black uppercase tracking-widest text-text-main border-b-2 border-accent pb-2 inline-block mb-6 italic">Our Origin & Vision</h2>
             <p>VexoKart was founded on a simple realization: the Indian digital marketplace was becoming fragmented. Customers were forced to choose between speed and reliability. Our mission was to eliminate this compromise. By building a high-tech marketplace that empowers authorized local vendors with global-standard logistics tools, we've created an ecosystem where "Smart Shopping" is the default experience.</p>
-            <p className="mt-4">We envision a future where every small and medium enterprise (SME) in India has the capability to compete at a national level through our platform, providing consumers with unique, high-quality lifestyle products that aren't available in massive, impersonal retail chains.</p>
+            <p className="mt-4">We envision a future where every small and medium enterprise (SME) in India has the capability to compete at a national level through our platform, providing consumers with unique, high-quality lifestyle products that aren't available in massive, impersonal retail chains. At VexoKart, we don't just sell products; we facilitate the growth of home-grown brands.</p>
           </section>
 
           <section>
@@ -29,42 +29,42 @@ const AboutUsPage: React.FC = () => {
           </section>
 
           <section className="bg-surface p-10 rounded-[2.5rem] border border-gray-100 shadow-inner">
-            <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-6 italic text-center">Our Core Pillars</h2>
+            <h2 className="text-sm font-black uppercase tracking-widest text-text-main mb-6 italic text-center">Our Core Technology Pillars</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 font-bold">01</div>
                     <div>
                         <p className="font-black text-xs uppercase text-gray-900 mb-1">Hyper-Local Logistics</p>
-                        <p className="text-sm">We use intelligent routing to fulfill orders from the nearest available inventory node.</p>
+                        <p className="text-sm">We use intelligent routing to fulfill orders from the nearest available inventory node, ensuring 48-hour delivery averages.</p>
                     </div>
                 </div>
                 <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 font-bold">02</div>
                     <div>
                         <p className="font-black text-xs uppercase text-gray-900 mb-1">Frictionless Payments</p>
-                        <p className="text-sm">Our 1-tap UPI and secure COD options make transactions effortless and safe.</p>
+                        <p className="text-sm">Our 1-tap UPI and secure tokenized card options make transactions effortless and safe for every user.</p>
                     </div>
                 </div>
                 <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 font-bold">03</div>
                     <div>
                         <p className="font-black text-xs uppercase text-gray-900 mb-1">Vendor Empowerment</p>
-                        <p className="text-sm">We provide merchants with the data insights they need to scale their business sustainably.</p>
+                        <p className="text-sm">We provide merchants with the data insights and AI-driven demand forecasting they need to scale sustainably.</p>
                     </div>
                 </div>
                 <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0 font-bold">04</div>
                     <div>
-                        <p className="font-black text-xs uppercase text-gray-900 mb-1">Sustainability</p>
-                        <p className="text-sm">Optimized routes mean fewer miles traveled and a lower carbon footprint for every box.</p>
+                        <p className="font-black text-xs uppercase text-gray-900 mb-1">Sustainability Node</p>
+                        <p className="text-sm">Optimized routes mean fewer miles traveled and a lower carbon footprint for every box that leaves our hubs.</p>
                     </div>
                 </div>
             </div>
           </section>
 
           <section className="text-center py-10">
-            <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-4 text-gray-900">Experience Excellence</h3>
-            <p className="max-w-2xl mx-auto">VexoKart is more than a platform; it's a commitment to the Indian consumer. We invite you to join our growing community of smart shoppers and discover the difference that authenticity makes.</p>
+            <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-4 text-gray-900 text-3xl">Experience Excellence</h3>
+            <p className="max-w-2xl mx-auto">VexoKart is more than a platform; it's a commitment to the modern Indian consumer. We invite you to join our growing community of smart shoppers and discover the difference that authenticity makes in the digital world.</p>
           </section>
         </div>
       </div>
