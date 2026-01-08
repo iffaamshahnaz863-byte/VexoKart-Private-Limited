@@ -18,6 +18,8 @@ import NotificationsPage from './pages/NotificationsPage.tsx';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
 import AboutUsPage from './pages/AboutUsPage.tsx';
 import ContactUsPage from './pages/ContactUsPage.tsx';
+import SafeShoppingPage from './pages/blog/SafeShoppingPage.tsx';
+import ProductQualityPage from './pages/blog/ProductQualityPage.tsx';
 import BottomNav from './components/BottomNav.tsx';
 import Footer from './components/Footer.tsx';
 import SplashScreen from './components/SplashScreen.tsx';
@@ -131,6 +133,8 @@ const AppContent: React.FC = () => {
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/contact-us" element={<ContactUsPage />} />
+          <Route path="/blog/safe-shopping" element={<SafeShoppingPage />} />
+          <Route path="/blog/quality-guide" element={<ProductQualityPage />} />
           <Route path="/scan/:token" element={<CourierScanPage />} />
           <Route path="/order-success" element={<OrderSuccessPage />} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
