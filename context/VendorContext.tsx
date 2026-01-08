@@ -19,8 +19,6 @@ interface VendorContextType {
 
 export const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
-// CRITICAL FIX: Only include columns confirmed to exist in the "EXACT" database structure.
-// Removed: profile_image, email, phone, owner_name, rejection_reason, created_at 
 const VENDOR_COLUMNS = 'id,user_id,store_name,status';
 
 export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -38,14 +36,16 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
       });
       
+      const data = await res.json();
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => ({}));
-        console.error("[VendorSync] List Fetch Failed:", errorBody);
-        throw new Error(errorBody.message || "Failed to fetch vendors list");
+        throw new Error(data?.message || `Fetch failed (${res.status})`);
       }
       
-      const data = await res.json();
-      if (Array.isArray(data)) setVendors(data);
+      if (Array.isArray(data)) {
+          setVendors(data);
+      } else {
+          console.error("[VendorSync] Response not an array:", data);
+      }
     } catch (error: any) {
       console.error("[VendorSync] List Error:", error.message);
     }
@@ -66,13 +66,11 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
       });
       
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("[VendorSync] Profile Fetch Failed:", err);
-        throw new Error(err.message || "Connection to vendor service failed.");
+        throw new Error(data?.message || "Connection to vendor service failed.");
       }
       
-      const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const profile = data[0];
         setCurrentVendor(profile);
@@ -83,7 +81,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         sessionStorage.removeItem('vxk_vendor_cache');
       }
     } catch (error: any) {
-      console.error("[VendorSync] Profile Fetch Error:", error);
+      console.error("[VendorSync] Profile Fetch Error:", error.message);
       setVendorError(error.message || "Failed to sync vendor profile.");
     } finally {
       setIsVendorLoading(false);
@@ -95,7 +93,6 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   const updateVendorProfile = async (id: number, updates: Partial<Vendor>) => {
-    // We only definitely have store_name and status from the user's schema list
     const safeUpdates: any = {};
     if (updates.store_name) safeUpdates.store_name = updates.store_name;
     if (updates.status) safeUpdates.status = updates.status;
@@ -119,7 +116,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
       await fetchVendors();
     } catch (err: any) {
-      console.error("[VendorSync] Update Error:", err);
+      console.error("[VendorSync] Update Error:", err.message);
       throw err;
     }
   };
@@ -142,22 +139,26 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           throw new Error(err.message || 'Record creation failed');
       }
       await fetchVendors();
-    } catch (err) {
-      console.error("[VendorSync] Create Error:", err);
+    } catch (err: any) {
+      console.error("[VendorSync] Create Error:", err.message);
       throw err;
     }
   };
 
   const updateVendorStatus = async (id: number, status: Vendor['status'], reason?: string) => {
     try {
-      await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
+      const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
         method: 'PATCH',
         headers: API_HEADERS,
         body: JSON.stringify({ status })
       });
+      if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("Status update failed:", err?.message);
+      }
       await fetchVendors();
-    } catch (err) {
-      console.error("[VendorSync] Status Error:", err);
+    } catch (err: any) {
+      console.error("[VendorSync] Status Error:", err.message);
     }
   };
 

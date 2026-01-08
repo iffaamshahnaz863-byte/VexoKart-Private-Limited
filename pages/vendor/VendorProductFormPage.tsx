@@ -19,7 +19,6 @@ const VendorProductFormPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'info' });
   
-  // Requirement: Use a strong initialization lock to prevent multiple loads and resets
   const initializationLocked = useRef(false);
 
   const [formData, setFormData] = useState<any>({
@@ -49,7 +48,6 @@ const VendorProductFormPage: React.FC = () => {
 
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-border rounded-2xl p-4 transition focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 disabled:opacity-50 text-sm font-medium";
 
-  // Requirement: Load product data ONLY ONCE when editing
   useEffect(() => {
     if (initializationLocked.current) return;
 
@@ -59,9 +57,9 @@ const VendorProductFormPage: React.FC = () => {
         setFormData({ 
             ...p, 
             category_id: p.category_id.toString(),
-            variants: p.variants || [],
+            variants: Array.isArray(p.variants) ? p.variants : [],
             product_type: p.product_type || 'simple',
-            // Requirement: Use explicit boolean mapping from source data
+            // HYDRATE STRICTLY FROM SOURCE
             is_cod_enabled: p.is_cod_enabled === true,
             is_online_enabled: p.is_online_enabled === true
         });
@@ -79,7 +77,6 @@ const VendorProductFormPage: React.FC = () => {
     }
   }, [id, isEditing, getProduct, categories]);
 
-  // Requirement: Generic handleChange now only handles non-checkbox types to avoid unreliable updates
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type !== 'checkbox') {
@@ -90,17 +87,11 @@ const VendorProductFormPage: React.FC = () => {
     }
   };
 
-  // Requirement: Dedicated toggle handler for payment options to ensure independent control
   const togglePayment = (name: 'is_cod_enabled' | 'is_online_enabled') => {
     setFormData((prev: any) => {
         const newValue = !prev[name];
-        
-        // Requirement: At least one payment method must remain enabled
         const otherName = name === 'is_cod_enabled' ? 'is_online_enabled' : 'is_cod_enabled';
-        if (!newValue && !prev[otherName]) {
-            return prev; // Reject toggle if it would disable both
-        }
-
+        if (!newValue && !prev[otherName]) return prev; // Keep at least one active
         return { ...prev, [name]: newValue };
     });
   };
@@ -152,29 +143,30 @@ const VendorProductFormPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentVendor) { alert("Auth sync error"); return; }
-    if (formData.images.length === 0) { alert("Add at least one image"); return; }
+    if (!currentVendor) { alert("Session mismatch. Please relogin."); return; }
+    if (formData.images.length === 0) { alert("Add at least one product image."); return; }
+    if (!formData.is_cod_enabled && !formData.is_online_enabled) { alert("Select at least one payment method."); return; }
 
     setIsSubmitting(true);
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
         
-        let finalVariants = formData.variants;
-        if (formData.product_type === 'simple') {
-            finalVariants = [];
-        } else {
+        let finalVariants = [];
+        if (formData.product_type === 'variant') {
             finalVariants = formData.variants.filter((v: ProductVariant) => 
                 (v.type === 'size' && enableSize) || (v.type === 'color' && enableColor)
             );
         }
 
-        // Requirement: Send current frontend state as-is without forcing true/false
         const payload = { 
             ...formData,
             highlights: finalHighlights,
             variants: finalVariants,
             vendor_id: String(currentVendor.id), 
             status: 'approved',
+            // PRESERVE EXACT BOOLEANS
+            is_cod_enabled: formData.is_cod_enabled === true,
+            is_online_enabled: formData.is_online_enabled === true
         };
 
         if (isEditing) {
@@ -183,10 +175,10 @@ const VendorProductFormPage: React.FC = () => {
             await addProduct(payload);
         }
         
-        setToast({ show: true, message: 'Saved Successfully', type: 'success' });
+        setToast({ show: true, message: 'Fulfillment manifest updated.', type: 'success' });
         setTimeout(() => navigate('/vendor/products'), 1000);
     } catch (err: any) {
-        alert(`Fail: ${err.message}`);
+        alert(`Fulfillment Error: ${err.message}`);
     } finally {
         setIsSubmitting(false);
     }
@@ -199,7 +191,7 @@ const VendorProductFormPage: React.FC = () => {
             image={cropQueue[currentCropIndex]} 
             onCropComplete={handleCropComplete}
             onCancel={() => { setCropQueue([]); setIsAddingToVariant(false); }}
-            title={isAddingToVariant ? "Variant Photo" : "Product Vision"}
+            title={isAddingToVariant ? "Variant Visual" : "Product Vision"}
           />
       )}
 
@@ -209,18 +201,18 @@ const VendorProductFormPage: React.FC = () => {
                   <ChevronLeftIcon className="w-6 h-6 text-gray-800" />
               </button>
               <h1 className="text-xl font-black text-gray-900 italic uppercase tracking-tighter">
-                {isEditing ? 'Edit Listing' : 'Add Product'}
+                {isEditing ? 'Sync Manifest' : 'Initialize SKU'}
               </h1>
           </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 px-1">
-        {/* Core Info */}
+        {/* Core Identity */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-5">
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Listing Intelligence</h2>
             <div>
               <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Product Title</label>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="What are you selling?" className={inputClasses} />
+              <input type="text" name="name" value={formData.name} onChange={handleChange} required placeholder="Product Display Name" className={inputClasses} />
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -230,7 +222,7 @@ const VendorProductFormPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Available Stock</label>
+                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Inventory Stock</label>
                   <input type="number" name="stock" value={formData.stock} onChange={handleChange} required className={inputClasses} />
                 </div>
             </div>
@@ -240,13 +232,13 @@ const VendorProductFormPage: React.FC = () => {
                   <input type="number" name="price" value={formData.price} onChange={handleChange} required className={`${inputClasses} border-accent/20 bg-accent/5`} />
                 </div>
                 <div>
-                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">MRP / Market Price</label>
+                  <label className="text-[9px] font-black uppercase text-gray-500 ml-2">Original MRP</label>
                   <input type="number" name="original_price" value={formData.original_price} onChange={handleChange} className={inputClasses} />
                 </div>
             </div>
         </div>
 
-        {/* Product Type Selection */}
+        {/* Dynamic Architecting (Variants) */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Product Architecture</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -256,7 +248,7 @@ const VendorProductFormPage: React.FC = () => {
                     className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'simple' ? 'border-accent bg-accent/5 text-accent' : 'border-gray-100 text-gray-400'}`}
                 >
                     <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    <span className="text-[10px] font-black uppercase">Simple Product</span>
+                    <span className="text-[10px] font-black uppercase">Standard</span>
                 </button>
                 <button 
                     type="button"
@@ -264,7 +256,7 @@ const VendorProductFormPage: React.FC = () => {
                     className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'variant' ? 'border-accent bg-accent/5 text-accent' : 'border-gray-100 text-gray-400'}`}
                 >
                     <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                    <span className="text-[10px] font-black uppercase">Variant Product</span>
+                    <span className="text-[10px] font-black uppercase">Multi-Variant</span>
                 </button>
             </div>
 
@@ -273,11 +265,11 @@ const VendorProductFormPage: React.FC = () => {
                     <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer group">
                             <input type="checkbox" checked={enableSize} onChange={(e) => setEnableSize(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
-                            <span className="text-[10px] font-black uppercase text-gray-600">Enable Sizes</span>
+                            <span className="text-[10px] font-black uppercase text-gray-600">Sizes</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer group">
                             <input type="checkbox" checked={enableColor} onChange={(e) => setEnableColor(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
-                            <span className="text-[10px] font-black uppercase text-gray-600">Enable Colors</span>
+                            <span className="text-[10px] font-black uppercase text-gray-600">Colors</span>
                         </label>
                     </div>
 
@@ -288,14 +280,14 @@ const VendorProductFormPage: React.FC = () => {
                                     type="text" 
                                     value={newVarName} 
                                     onChange={(e) => setNewVarName(e.target.value)}
-                                    placeholder={enableSize && !enableColor ? "Size (XL, 42)" : "Color Name (Red, Blue)"}
+                                    placeholder={enableSize ? "Size Code" : "Color Label"}
                                     className="flex-grow bg-surface border border-gray-100 rounded-xl p-3 text-xs font-bold uppercase"
                                 />
                                 <button 
                                     type="button" 
                                     onClick={() => addVariant(enableSize ? 'size' : 'color')}
                                     className="bg-gray-900 text-white px-4 rounded-xl text-[9px] font-black uppercase"
-                                >Add</button>
+                                >Inject</button>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {formData.variants.map((v: ProductVariant, idx: number) => (
@@ -312,9 +304,9 @@ const VendorProductFormPage: React.FC = () => {
             )}
         </div>
 
-        {/* Media */}
+        {/* Media Control */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Visual Discovery</h2>
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Visual Content</h2>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                 {formData.images.map((img: string, i: number) => (
                     <div key={i} className="w-24 h-24 rounded-2xl overflow-hidden border border-gray-100 shrink-0 relative group">
@@ -325,21 +317,21 @@ const VendorProductFormPage: React.FC = () => {
                 <label className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center shrink-0 cursor-pointer bg-gray-50 hover:border-accent/30 transition-all">
                     <input type="file" multiple accept="image/*" onChange={(e) => handleImageChange(e, false)} className="hidden" />
                     <svg className="w-6 h-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
-                    <span className="text-[8px] font-black text-gray-400 uppercase mt-1">Add Media</span>
+                    <span className="text-[8px] font-black text-gray-400 uppercase mt-1">Add Image</span>
                 </label>
             </div>
         </div>
 
-        {/* Narrative */}
+        {/* Marketing Details */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Narrative & Highlights</h2>
-            <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Tell your customers about the magic of this product..." className={inputClasses}></textarea>
-            <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Premium Quality (New Line per highlight)" className={inputClasses}></textarea>
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Description & Highlights</h2>
+            <textarea name="description" value={formData.description} onChange={handleChange} rows={4} placeholder="Full product description..." className={inputClasses}></textarea>
+            <textarea value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} rows={3} placeholder="Highlights (One per line)" className={inputClasses}></textarea>
         </div>
 
-        {/* Logistics & Payment Control */}
+        {/* Financial Flow */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Financial Protocol</h2>
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Payment Protocol</h2>
             
             <div className="space-y-3">
                 <div 
@@ -348,7 +340,7 @@ const VendorProductFormPage: React.FC = () => {
                 >
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
-                        <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Allow buyers to pay at doorstep</p>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase mt-1">Authorize doorstep settlement</p>
                     </div>
                     <div className="relative inline-flex items-center">
                         <div className={`w-11 h-6 rounded-full transition-all ${formData.is_cod_enabled ? 'bg-accent' : 'bg-gray-200'}`}>
@@ -362,8 +354,8 @@ const VendorProductFormPage: React.FC = () => {
                     className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_online_enabled ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}
                 >
                     <div>
-                        <p className="text-xs font-black text-gray-800 uppercase italic">Online Payment</p>
-                        <p className="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-tighter">Enable UPI, Cards & Netbanking</p>
+                        <p className="text-xs font-black text-gray-800 uppercase italic">Digital Settlement</p>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase mt-1">Enable Cards, UPI & Wallets</p>
                     </div>
                     <div className="relative inline-flex items-center">
                         <div className={`w-11 h-6 rounded-full transition-all ${formData.is_online_enabled ? 'bg-accent' : 'bg-gray-200'}`}>
@@ -372,7 +364,6 @@ const VendorProductFormPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <p className="text-[8px] text-gray-400 text-center uppercase font-bold">* At least one payment method must remain active</p>
         </div>
 
         <button 
@@ -380,7 +371,7 @@ const VendorProductFormPage: React.FC = () => {
           disabled={isSubmitting} 
           className="w-full bg-[#F43397] text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl shadow-[#F43397]/30 active:scale-95 transition-all disabled:opacity-50"
         >
-          {isSubmitting ? 'ESTABLISHING CONNECTION...' : (isEditing ? 'UPDATE MANIFEST' : 'PUBLISH TO MARKET')}
+          {isSubmitting ? 'ESTABLISHING HANDSHAKE...' : (isEditing ? 'SYNC CHANGES' : 'DEPLOY LISTING')}
         </button>
       </form>
     </div>

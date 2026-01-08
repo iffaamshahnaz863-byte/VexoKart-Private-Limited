@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const sanitizeUser = (u: any): User => ({
   ...u,
-  id: u.id ? (isNaN(Number(u.id)) ? u.id : Number(u.id)) : 0,
+  id: u.id ? String(u.id) : '',
   addresses: Array.isArray(u.addresses) ? u.addresses : [],
   wishlist: Array.isArray(u.wishlist) ? u.wishlist : [],
   recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : []
@@ -96,7 +96,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const cleanPass = pass.trim();
     
     try {
-      // Fetch user by email first to avoid complex URL encoding of passwords in queries
       const query = `email=ilike.${encodeURIComponent(cleanEmail)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       
@@ -109,7 +108,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (Array.isArray(data) && data.length > 0) {
         const dbUser = data[0];
         
-        // Manual password verification (Supabase Rest usually uses plain text for custom user tables)
         if (dbUser.password === cleanPass) {
           const loggedUser = sanitizeUser(dbUser);
           updateUserSession(loggedUser);

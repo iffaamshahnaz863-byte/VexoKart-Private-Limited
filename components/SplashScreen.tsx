@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 
 interface SplashScreenProps {
@@ -7,78 +6,122 @@ interface SplashScreenProps {
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [isVisible, setIsVisible] = useState(true);
-  const [progress, setProgress] = useState(0);
+  const [startReveal, setStartReveal] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress((oldProgress) => {
-        if (oldProgress >= 100) {
-          clearInterval(timer);
-          return 100;
-        }
-        const diff = Math.random() * 25;
-        return Math.min(oldProgress + diff, 100);
-      });
-    }, 150);
+    // Start revealing text after shards assemble
+    const revealTimer = setTimeout(() => {
+      setStartReveal(true);
+    }, 1200);
 
+    // Total duration of the splash
     const finishTimer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(onFinish, 500); // Allow fade animation to complete
-    }, 2500);
+      setTimeout(onFinish, 600); // Wait for the fade-out to complete
+    }, 3200);
 
     return () => {
-      clearInterval(timer);
+      clearTimeout(revealTimer);
       clearTimeout(finishTimer);
     };
   }, [onFinish]);
 
   return (
-    <div className={`fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#020204] transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-      <div className="relative mb-10 group">
-        {/* Glow effect behind the logo */}
-        <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
-        
-        {/* Stylized Logo Icon based on the new brand identity */}
-        <div className="relative w-40 h-40 bg-gradient-to-br from-[#0d0d14] to-[#1a1a2e] border border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center overflow-hidden">
-            {/* Background pattern */}
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_50%,_#3882F6_0%,_transparent_70%)]"></div>
-            
-            <div className="relative flex flex-col items-center">
-              {/* The Shopping Bag inside the Cart aesthetic */}
-              <div className="relative">
-                {/* Bag */}
-                <div className="w-10 h-12 bg-gradient-to-b from-[#8957E5] to-[#3882F6] rounded-t-lg mb-[-10px] mx-auto relative z-10 shadow-lg">
-                  <div className="absolute top-1 left-1/2 -translate-x-1/2 w-4 h-3 border-2 border-white/30 rounded-full"></div>
-                </div>
-                {/* Cart Body */}
-                <svg className="w-24 h-24 text-white drop-shadow-[0_0_15px_rgba(56,130,246,0.5)]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.707 15.293C4.077 15.923 4.523 17 5.414 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 17C7.89543 17 7 17.8954 7 19C7 20.1046 7.89543 21 9 21C10.1046 21 11 20.1046 11 19C11 17.8954 10.1046 17 9 17Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </div>
-        </div>
-      </div>
-      
-      <div className="text-center">
-        <h1 className="text-5xl font-black tracking-tighter mb-1 italic">
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d2ff] to-[#3a7bd5]">Vexo</span>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#3a7bd5] to-[#8957e5]">Kart</span>
-        </h1>
-        <p className="text-text-secondary font-bold tracking-[0.3em] text-[10px] uppercase mb-12 opacity-80">
-          Shop Online • Shop Smart
-        </p>
+    <div 
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white transition-opacity duration-700 ease-in-out ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+      style={{
+        background: 'radial-gradient(circle, #ffffff 0%, #fdf9f4 100%)'
+      }}
+    >
+      {/* Background Subtle Dust Particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+        {[...Array(6)].map((_, i) => (
+          <div 
+            key={i}
+            className="absolute rounded-full bg-accent animate-pulse"
+            style={{
+              width: Math.random() * 4 + 2 + 'px',
+              height: Math.random() * 4 + 2 + 'px',
+              top: Math.random() * 100 + '%',
+              left: Math.random() * 100 + '%',
+              animationDuration: (Math.random() * 3 + 2) + 's',
+              animationDelay: (Math.random() * 2) + 's'
+            }}
+          />
+        ))}
       </div>
 
-      <div className="w-56 h-1 bg-white/5 rounded-full overflow-hidden border border-white/5 backdrop-blur-sm">
-        <div 
-          className="h-full bg-gradient-to-r from-[#00d2ff] via-[#3a7bd5] to-[#8957e5] transition-all duration-300 ease-out shadow-[0_0_10px_rgba(56,130,246,0.5)]"
-          style={{ width: `${progress}%` }}
-        ></div>
+      <div className="relative flex flex-col items-center">
+        {/* Assemble Logo Container */}
+        <div className="relative w-24 h-24 mb-6">
+          {/* Logo Shard: Top Left */}
+          <div className="absolute top-0 left-0 w-1/2 h-1/2 shard-tl animate-shard-tl">
+            <div className="w-full h-full bg-accent rounded-tl-2xl rounded-br-lg shadow-sm"></div>
+          </div>
+          {/* Logo Shard: Top Right */}
+          <div className="absolute top-0 right-0 w-1/2 h-1/2 shard-tr animate-shard-tr">
+            <div className="w-full h-full bg-accent/90 rounded-tr-2xl rounded-bl-lg shadow-sm"></div>
+          </div>
+          {/* Logo Shard: Bottom Left */}
+          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 shard-bl animate-shard-bl">
+            <div className="w-full h-full bg-accent/80 rounded-bl-2xl rounded-tr-lg shadow-sm"></div>
+          </div>
+          {/* Logo Shard: Bottom Right */}
+          <div className="absolute bottom-0 right-0 w-1/2 h-1/2 shard-br animate-shard-br">
+            <div className="w-full h-full bg-black rounded-br-2xl rounded-tl-lg shadow-sm"></div>
+          </div>
+
+          {/* Glow sweep overlay */}
+          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-10">
+             <div className="w-full h-full animate-sweep-glow" 
+                  style={{
+                    background: 'linear-gradient(135deg, transparent 0%, transparent 40%, rgba(255,255,255,0.6) 50%, transparent 60%, transparent 100%)',
+                    backgroundSize: '200% 200%',
+                    mixBlendMode: 'overlay'
+                  }}
+             />
+          </div>
+        </div>
+
+        {/* Brand Text Identity */}
+        <div className={`text-center transition-all duration-1000 transform ${startReveal ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <h1 className="text-4xl font-black italic tracking-tighter text-gray-900">
+            Vexo<span className="text-accent">Kart</span>
+          </h1>
+          <p className="mt-2 text-[9px] font-black uppercase tracking-[0.4em] text-gray-400">
+            Shop Online • Shop Smart
+          </p>
+        </div>
       </div>
-      
-      <p className="mt-4 text-text-muted text-[9px] uppercase font-black tracking-widest animate-pulse">
-        Powering your lifestyle
-      </p>
+
+      {/* Embedded Animation Keyframes */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes shard-tl {
+          0% { transform: translate(-100px, -100px) rotate(-45deg); opacity: 0; }
+          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        }
+        @keyframes shard-tr {
+          0% { transform: translate(100px, -100px) rotate(45deg); opacity: 0; }
+          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        }
+        @keyframes shard-bl {
+          0% { transform: translate(-100px, 100px) rotate(45deg); opacity: 0; }
+          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        }
+        @keyframes shard-br {
+          0% { transform: translate(100px, 100px) rotate(-45deg); opacity: 0; }
+          100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+        }
+        @keyframes sweep-glow {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .animate-shard-tl { animation: shard-tl 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .animate-shard-tr { animation: shard-tr 1.2s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
+        .animate-shard-bl { animation: shard-bl 1.2s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
+        .animate-shard-br { animation: shard-br 1.2s 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; }
+        .animate-sweep-glow { animation: sweep-glow 1.5s 1.3s ease-out forwards; }
+      `}} />
     </div>
   );
 };

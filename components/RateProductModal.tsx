@@ -22,20 +22,15 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Fix: Cast the file list to an array of File to resolve TypeScript 'unknown' errors
       const files = Array.from(e.target.files) as File[];
       files.forEach(file => {
-        // Fix: 'file' is now correctly typed as File, resolving Property 'type' does not exist on type 'unknown'
         if (file.type.startsWith('image/')) {
           const reader = new FileReader();
           reader.onloadend = () => {
             setImages(prev => [...prev, reader.result as string].slice(0, 5));
           };
-          // Fix: Passing correctly typed 'file' to readAsDataURL
           reader.readAsDataURL(file);
         } else if (file.type.startsWith('video/')) {
-          // In a real app, we'd upload to Supabase Storage. Here we simulate with object URL.
-          // Fix: Passing correctly typed 'file' to createObjectURL which accepts Blob | MediaSource
           const url = URL.createObjectURL(file);
           setVideoUrl(url);
         }
@@ -52,11 +47,11 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
     try {
       await addReview({
         product_id: item.id,
-        order_id: orderId,
+        order_id: Number(orderId), // Ensure it's a number for the DB
         rating,
         review_text: comment,
         images,
-        video_url: videoUrl
+        video_url: videoUrl || undefined // Use video_url string property
       });
       onSubmit();
       onClose();

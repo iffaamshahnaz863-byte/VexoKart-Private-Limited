@@ -1,16 +1,15 @@
 export interface Review {
   id: number;
   product_id: number;
-  user_id: number;
-  order_id: string;
+  user_id: string; // UUID from Supabase Auth
+  order_id: number; // Integer ID
   rating: number;
   review_text?: string;
-  images: string[];
-  video_url?: string;
+  images: string[]; // text[]
+  video_url?: string; // Changed from videos[] to video_url to match DB schema
   is_verified: boolean;
   created_at: string;
   vendor_reply?: string;
-  // Dynamic relation from users table
   user?: {
     name: string;
   };
@@ -91,7 +90,7 @@ export interface StatusHistory {
 
 export interface Order {
     id: string;
-    user_id: number;
+    user_id: string; // UUID string
     vendor_id?: string;
     items: OrderItem[];
     total: number; 
@@ -156,7 +155,7 @@ export interface Vendor {
 
 export interface AppNotification {
   id: number;
-  user_id?: number | string;
+  user_id?: string;
   vendor_id?: number | string;
   role: 'user' | 'vendor' | 'admin';
   title: string;
@@ -177,7 +176,7 @@ export interface Address {
 }
 
 export interface User {
-  id: number;
+  id: string; // Changed to string for UUID
   name: string;
   email: string;
   phone: string;

@@ -34,17 +34,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
       });
       
+      const data = await response.json();
       if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        throw new Error(`Supabase Sync Error: ${errBody.message || response.statusText}`);
+        throw new Error(data?.message || response.statusText);
       }
 
-      const data = await response.json();
-      
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          // Sync payment booleans from database array
-          // FIX: Removed fallback to ['cod', 'online'] to ensure FALSE values stay FALSE.
           const modes = Array.isArray(item.payment_modes) ? item.payment_modes : [];
           
           return {
@@ -57,7 +53,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
             product_type: item.product_type || 'simple',
-            // Deriving booleans strictly from persistence layer
             is_cod_enabled: modes.includes('cod'),
             is_online_enabled: modes.includes('online'),
             variants: item.variants || [],
@@ -81,24 +76,19 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // FIX: Removed variants, product_type, and payment booleans from exclusion list
-    // Only exclude virtual UI fields and joins that PostgREST would reject as columns.
     const { 
       id, 
       category, 
       category_data, 
-      cash_on_delivery, // Match Admin form legacy field
+      cash_on_delivery,
       is_cod_enabled,
       is_online_enabled,
-      payment_modes, // Recalculated below
+      payment_modes,
       ...payloadData 
     } = productData;
     
-    // BUILD PERSISTENCE ARRAY: Map booleans back to the array column
     const activeModes = [];
-    // Trust the explicit frontend state from Vendor form (is_cod_enabled) or Admin form (cash_on_delivery)
     if (productData.is_cod_enabled === true || productData.cash_on_delivery === true) activeModes.push('cod');
-    // Trust explicit online state
     if (productData.is_online_enabled === true) activeModes.push('online');
 
     const finalPayload = {
@@ -125,14 +115,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       await refreshProducts(finalPayload.vendor_id);
     } catch (err: any) {
-      console.error("[ProductSync] Submission Error:", err);
+      console.error("[ProductSync] Submission Error:", err.message);
       throw err;
     }
   };
 
   const updateProduct = async (product: Product) => {
-    // FIX: Removed variants, product_type, and payment booleans from exclusion list
-    // Ensuring exact frontend state flows to database.
     const { 
       id, 
       category, 
@@ -140,11 +128,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       cash_on_delivery,
       is_cod_enabled,
       is_online_enabled,
-      payment_modes, // Recalculated below
+      payment_modes,
       ...payloadData 
     } = product as any;
 
-    // BUILD PERSISTENCE ARRAY: Map booleans back to the array column
     const activeModes = [];
     if (product.is_cod_enabled === true || (product as any).cash_on_delivery === true) activeModes.push('cod');
     if (product.is_online_enabled === true) activeModes.push('online');
@@ -168,8 +155,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error(errorData.message || "Update failed");
       }
       await refreshProducts(finalPayload.vendor_id);
-    } catch (err) {
-      console.error("[ProductSync] Update Error:", err);
+    } catch (err: any) {
+      console.error("[ProductSync] Update Error:", err.message);
       throw err;
     }
   };
@@ -180,14 +167,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const newStatus = product.status === 'approved' ? 'disabled' : 'approved';
     
     try {
-      await fetch(`${BASE_API_URL}/products?id=eq.${id}`, {
+      const res = await fetch(`${BASE_API_URL}/products?id=eq.${id}`, {
         method: 'PATCH',
         headers: { ...API_HEADERS },
         body: JSON.stringify({ status: newStatus })
       });
+      if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("Status toggle failed:", err?.message);
+      }
       await refreshProducts(Number(product.vendor_id));
-    } catch (err) {
-      console.error("[ProductSync] Status Toggle Error:", err);
+    } catch (err: any) {
+      console.error("[ProductSync] Status Toggle Error:", err.message);
     }
   };
 
@@ -199,9 +190,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       });
       if (res.ok) {
           setProducts(prev => prev.filter(p => p.id !== id));
+      } else {
+          const err = await res.json().catch(() => ({}));
+          console.error("Delete failed:", err?.message);
       }
-    } catch (err) {
-      console.error("[ProductSync] Delete Error:", err);
+    } catch (err: any) {
+      console.error("[ProductSync] Delete Error:", err.message);
     }
   };
 

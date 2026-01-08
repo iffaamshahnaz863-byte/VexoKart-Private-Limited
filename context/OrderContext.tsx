@@ -54,14 +54,19 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       setIsLoading(true);
-      let selectString = `*,vendor:vendors!vendor_id(*)`;
+      // Simplified join syntax for better compatibility
+      let selectString = `*,vendor:vendors(*)`;
       let filter = `order=created_at.desc`;
 
       if (user.role === "user") {
         filter += `&user_id=eq.${user.id}`;
       } else if (user.role === "vendor") {
         const vRes = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${user.id}&select=id`, { headers: API_HEADERS });
-        if (!vRes.ok) throw new Error("Vendor profile unreachable");
+        if (!vRes.ok) {
+           const errText = await vRes.text();
+           console.error("[OrderContext] Vendor profile fetch failed:", errText);
+           throw new Error("Vendor profile unreachable");
+        }
         const vData = await vRes.json();
         if (Array.isArray(vData) && vData.length > 0) {
             filter += `&vendor_id=eq.${vData[0].id}`;
@@ -77,21 +82,28 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       });
 
       if (!res.ok) {
+        const errData = await res.json().catch(() => ({ message: res.statusText }));
+        console.warn("[OrderContext] Primary fetch failed, trying fallback. Error:", errData.message);
+        
         const fallbackRes = await fetch(`${BASE_API_URL}/orders?select=*&${filter}`, {
             headers: { ...API_HEADERS, "Cache-Control": "no-cache" },
         });
+        
         if (fallbackRes.ok) {
             const data = await fallbackRes.json();
             processOrders(data);
             return;
+        } else {
+            const fallbackErr = await fallbackRes.json().catch(() => ({ message: fallbackRes.statusText }));
+            console.error("[OrderContext] Fallback fetch failed:", fallbackErr.message);
+            throw new Error(`Order fetch failed: ${fallbackErr.message}`);
         }
-        throw new Error("Order fetch failed");
       }
 
       const data = await res.json();
       processOrders(data);
     } catch (e: any) {
-      console.error("[OrderContext] Fetch failed:", e.message);
+      console.error("[OrderContext] Fatal Sync Error:", e.message);
     } finally {
       setIsLoading(false);
     }
@@ -103,8 +115,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         data.map((o: any) => {
           /**
            * Robust Address Extraction:
-           * Since address/shipping_address columns in the DB are likely numeric,
-           * we retrieve the snapshot from the status_history entry where it was saved.
+           * Retrieve the snapshot from the status_history entry where it was saved.
            */
           const addressSource = (o.status_history?.[0]?.address_snapshot) ||
                                 (typeof o.metadata === 'object' && o.metadata?.address ? o.metadata.address : null) ||
@@ -168,11 +179,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
-    /**
-     * CRITICAL FIX: To avoid PGRST204 (Missing Metadata Column) and 
-     * numeric syntax errors, we exclude 'metadata' and 'address' (object).
-     * We store the address snapshot inside the 'status_history' JSONB array.
-     */
     const payload: any = {
       user_id: user.id,
       vendor_id: vendorIdValue,
@@ -182,7 +188,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
       status: "Placed" as OrderStatus,
       qr_token: qrToken,
-      // Store the address snapshot in the JSONB status_history array
       status_history: [{ 
         status: "Placed", 
         timestamp, 
@@ -208,9 +213,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     const result = await res.json();
     const orderId = result[0].id.toString();
 
-    // MEESHO NOTIFICATION: ORDER CONFIRMED
     try {
-        // User Notification
         await createAppNotification({
             user_id: user.id,
             role: 'user',
@@ -219,7 +222,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
             type: 'order_status'
         });
 
-        // Vendor Notification
         if (vendorIdValue) {
             await createAppNotification({
                 vendor_id: vendorIdValue,
@@ -261,7 +263,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (res.ok) {
-        // MEESHO NOTIFICATIONS: STATUS UPDATES
         try {
             if (status === 'Packed') {
                 await createAppNotification({
@@ -280,7 +281,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                     type: 'order_status'
                 });
             } else if (status === 'Delivered') {
-                // User Notification
                 await createAppNotification({
                     user_id: order.user_id,
                     role: 'user',
@@ -288,7 +288,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                     message: 'Your order has been delivered successfully. Please rate the product.',
                     type: 'order_status'
                 });
-                // Vendor Notification
                 if (order.vendor_id) {
                     await createAppNotification({
                         vendor_id: order.vendor_id,

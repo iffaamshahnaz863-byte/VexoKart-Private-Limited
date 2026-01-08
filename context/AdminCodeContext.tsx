@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { AdminCode } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -22,11 +21,11 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
       if (Array.isArray(data)) {
         setAdminCodes(data);
       } else {
-        console.error("Admin codes fetch failed: API response is not an array", data);
+        console.error("Admin codes fetch failed:", data?.message || data?.error || JSON.stringify(data));
         setAdminCodes([]);
       }
-    } catch (error) {
-      console.error("Error fetching admin codes:", error);
+    } catch (error: any) {
+      console.error("Error fetching admin codes:", error.message || error);
       setAdminCodes([]);
     }
   };
@@ -46,11 +45,15 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
       maxUsage: 1,
       usageCount: 0
     };
-    await fetch(`${BASE_API_URL}/admin_codes`, {
+    const res = await fetch(`${BASE_API_URL}/admin_codes`, {
       method: 'POST',
       headers: API_HEADERS,
       body: JSON.stringify(newCode)
     });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Failed to generate code:", err?.message || res.statusText);
+    }
     await fetchCodes();
   };
 
@@ -67,8 +70,6 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
     const target = adminCodes.find(c => c.code === code);
     if (!target || target.status !== 'unused') return { isValid: false, message: 'Invalid code' };
     
-    // In a real app, we would use an RPC or transaction. 
-    // Here we just update via PATCH.
     fetch(`${BASE_API_URL}/admin_codes?id=eq.${target.id}`, {
       method: 'PATCH',
       headers: API_HEADERS,
@@ -85,7 +86,6 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
   );
 };
 
-// Export useAdminCodes hook for accessing admin code context
 export const useAdminCodes = () => {
   const context = useContext(AdminCodeContext);
   if (context === undefined) {
