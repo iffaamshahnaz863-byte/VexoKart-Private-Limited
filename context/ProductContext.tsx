@@ -44,8 +44,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           // Schema Adaptation:
           // cash_on_delivery column DOES NOT exist.
           // payment_modes column DOES NOT exist.
-          // We use specifications JSON for both flags.
-          const specs = item.specifications || {};
+          // product_type column DOES NOT exist.
+          // specifications column DOES NOT exist.
+          // variants column DOES NOT exist.
+          // We default these flags as we cannot persist them currently.
           
           return {
             ...item,
@@ -56,13 +58,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             category_id: Number(item.category_id),
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
-            product_type: item.product_type || 'simple',
-            // Map JSON keys to UI flags. Default to 'true' if not set.
-            is_cod_enabled: specs['payment.cod'] !== 'false', 
-            is_online_enabled: specs['payment.online'] !== 'false',
-            variants: item.variants || [],
+            
+            // Defaults since persistence is unavailable
+            product_type: 'simple',
+            is_cod_enabled: true, 
+            is_online_enabled: true,
+            
+            variants: [], // Column missing in DB
             highlights: item.highlights || [],
-            specifications: specs
+            specifications: {} 
           };
         });
         setProducts(mappedProducts);
@@ -81,23 +85,24 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // Extract UI flags
+    // Extract UI flags & Virtual fields to exclude from payload
     const { 
       is_cod_enabled,
       is_online_enabled,
       payment_modes, 
-      cash_on_delivery, // Remove potentially existing field
+      cash_on_delivery,
+      product_type,
+      category, 
+      category_data, 
+      specifications,
+      variants,
       ...payloadData 
     } = productData;
     
-    // Prepare specifications to store payment flags
-    const specs = { ...(payloadData.specifications || {}) };
-    specs['payment.online'] = String(is_online_enabled);
-    specs['payment.cod'] = String(is_cod_enabled);
-
+    // NOTE: We cannot save extended config because columns do not exist in the schema.
+    
     const finalPayload = {
       ...payloadData,
-      specifications: specs,
       
       vendor_id: Number(productData.vendor_id),
       category_id: Number(productData.category_id),
@@ -107,8 +112,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     // Strict Cleanup: Ensure no invalid columns are sent
+    delete (finalPayload as any).id; // Auto-generated
     delete (finalPayload as any).payment_modes;
     delete (finalPayload as any).cash_on_delivery;
+    delete (finalPayload as any).category;
+    delete (finalPayload as any).category_data;
+    delete (finalPayload as any).product_type;
+    delete (finalPayload as any).specifications;
+    delete (finalPayload as any).variants; // Remove variants column payload
 
     try {
       const res = await fetch(`${BASE_API_URL}/products`, {
@@ -130,33 +141,39 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    // Extract UI flags
+    // Extract UI flags & Virtual fields to exclude from payload
     const { 
       is_cod_enabled,
       is_online_enabled,
       payment_modes,
       cash_on_delivery,
+      product_type,
+      category, 
+      category_data, 
+      specifications,
+      variants,
       ...payloadData 
     } = product as any;
 
-    // Prepare specifications to store payment flags
-    const specs = { ...(payloadData.specifications || {}) };
-    specs['payment.online'] = String(is_online_enabled);
-    specs['payment.cod'] = String(is_cod_enabled);
-
     const finalPayload = {
       ...payloadData,
-      specifications: specs,
       
       vendor_id: Number(payloadData.vendor_id),
       category_id: Number(payloadData.category_id)
     };
 
     // Strict Cleanup
+    delete (finalPayload as any).id; // Cannot update identity column
+    delete (finalPayload as any).created_at; // Should not update creation timestamp
     delete (finalPayload as any).payment_modes;
     delete (finalPayload as any).cash_on_delivery;
     delete (finalPayload as any).is_cod_enabled;
     delete (finalPayload as any).is_online_enabled;
+    delete (finalPayload as any).category;
+    delete (finalPayload as any).category_data;
+    delete (finalPayload as any).product_type;
+    delete (finalPayload as any).specifications;
+    delete (finalPayload as any).variants; // Remove variants column payload
 
     try {
       const res = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
