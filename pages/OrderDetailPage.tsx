@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
 import { useRecentlyViewed } from '../context/RecentlyViewedContext';
 import { useProducts } from '../hooks/useProducts';
+import { useReviews } from '../context/ReviewContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import OrderTracker from '../components/OrderTracker';
@@ -13,12 +14,23 @@ const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getOrderById } = useOrders();
-  const { products } = useProducts();
+  const { hasUserReviewedOrder } = useReviews();
   
   const [showRating, setShowRating] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
   const order = useMemo(() => id ? getOrderById(id) : null, [id, getOrderById]);
+
+  useEffect(() => {
+    const checkReview = async () => {
+        if (id) {
+            const result = await hasUserReviewedOrder(id);
+            setAlreadyReviewed(result);
+        }
+    };
+    checkReview();
+  }, [id, showRating]);
 
   if (!order) {
     return (
@@ -42,7 +54,7 @@ const OrderDetailPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-32 font-sans select-none overflow-x-hidden">
       {showInvoice && <InvoiceModal order={order} onClose={() => setShowInvoice(false)} />}
-      {showRating && <RateProductModal item={firstItem} orderId={order.id} onClose={() => setShowRating(false)} onSubmit={() => {}} />}
+      {showRating && <RateProductModal item={firstItem} orderId={order.id} onClose={() => setShowRating(false)} onSubmit={() => setAlreadyReviewed(true)} />}
 
       {/* Header */}
       <div className="sticky top-0 z-[100] bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
@@ -93,8 +105,8 @@ const OrderDetailPage: React.FC = () => {
       </div>
 
       {/* Rating Section */}
-      {isDelivered && (
-        <div className="mt-2 bg-white p-4 shadow-sm">
+      {isDelivered && !alreadyReviewed && (
+        <div className="mt-2 bg-white p-4 shadow-sm animate-in slide-in-from-top-4 duration-500">
            <h3 className="text-sm font-bold text-gray-800 mb-3">How was the product?</h3>
            <div className="flex flex-col items-center py-4 bg-gray-50 rounded-2xl border border-gray-100">
               <div className="flex gap-2">
@@ -104,7 +116,7 @@ const OrderDetailPage: React.FC = () => {
                     onClick={() => setShowRating(true)}
                     className="p-1 active:scale-90 transition-transform"
                    >
-                     <svg className={`w-9 h-9 ${star <= 4 ? 'text-yellow-400' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                     <svg className={`w-9 h-9 text-gray-200`} fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
                    </button>
                 ))}
               </div>
@@ -117,6 +129,15 @@ const OrderDetailPage: React.FC = () => {
               </div>
            </div>
            <button onClick={() => setShowRating(true)} className="w-full mt-4 text-center text-accent font-black text-[10px] uppercase tracking-[0.2em] italic">Write a detailed review</button>
+        </div>
+      )}
+
+      {alreadyReviewed && (
+        <div className="mt-2 bg-white p-4 shadow-sm">
+           <div className="flex items-center gap-2 text-[#34BE82] bg-[#E7F7F0] p-4 rounded-2xl border border-[#D1F7E6]">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+              <p className="text-xs font-bold uppercase tracking-tight italic">Feedback submitted successfully. Thank you!</p>
+           </div>
         </div>
       )}
 

@@ -1,13 +1,16 @@
 export interface Review {
-  id: string;
+  id: number;
+  product_id: number;
+  user_id: number;
+  order_id: string;
   author: string;
-  userId: string;
-  orderId: string;
   rating: number;
-  comment: string;
-  date: string;
-  images?: string[];
-  vendorReply?: string;
+  review_text?: string;
+  images: string[];
+  video_url?: string;
+  is_verified: boolean;
+  created_at: string;
+  vendor_reply?: string;
 }
 
 export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected';
@@ -35,7 +38,6 @@ export interface Product {
   product_type: 'simple' | 'variant';
   is_cod_enabled: boolean; // New strict naming
   is_online_enabled: boolean; // New strict naming
-  // Fix: Added cash_on_delivery and specifications to fix property access errors in AdminProductFormPage
   cash_on_delivery?: boolean;
   specifications?: Record<string, string>;
   stock: number;

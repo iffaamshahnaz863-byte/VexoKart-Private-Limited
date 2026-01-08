@@ -36,6 +36,7 @@ import { VendorProvider } from './context/VendorContext.tsx';
 import { AdminCodeProvider } from './context/AdminCodeContext.tsx';
 import { BannerProvider } from './context/BannerContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
+import { ReviewProvider } from './context/ReviewContext.tsx';
 import VendorSignupPage from './pages/VendorSignupPage.tsx';
 import AdminLayout from './pages/admin/AdminLayout.tsx';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage.tsx';
@@ -194,19 +195,21 @@ const App: React.FC = () => {
         <NotificationProvider>
           <AuthProvider>
             <ProductProvider>
-              <CategoryProvider>
-                <BannerProvider>
-                  <CartProvider>
-                    <OrderProvider>
-                      <RecentlyViewedProvider>
-                        <HashRouter>
-                          <AppContent />
-                        </HashRouter>
-                      </RecentlyViewedProvider>
-                    </OrderProvider>
-                  </CartProvider>
-                </BannerProvider>
-              </CategoryProvider>
+              <ReviewProvider>
+                <CategoryProvider>
+                  <BannerProvider>
+                    <CartProvider>
+                      <OrderProvider>
+                        <RecentlyViewedProvider>
+                          <HashRouter>
+                            <AppContent />
+                          </HashRouter>
+                        </RecentlyViewedProvider>
+                      </OrderProvider>
+                    </CartProvider>
+                  </BannerProvider>
+                </CategoryProvider>
+              </ReviewProvider>
             </ProductProvider>
           </AuthProvider>
         </NotificationProvider>

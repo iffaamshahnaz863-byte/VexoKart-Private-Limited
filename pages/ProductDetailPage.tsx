@@ -5,11 +5,13 @@ import { useCart } from '../hooks/useCart';
 import { useAuth } from '../context/AuthContext';
 import { useRecentlyViewed } from '../context/RecentlyViewedContext';
 import { useVendors } from '../context/VendorContext';
+import { useReviews } from '../context/ReviewContext';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { HeartIcon } from '../components/icons/HeartIcon';
 import { SearchIcon } from '../components/icons/SearchIcon';
 import { CartIcon } from '../components/icons/CartIcon';
 import Toast from '../components/Toast';
+import { Review } from '../types';
 
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +21,7 @@ const ProductDetailPage: React.FC = () => {
   const { isAuthenticated, user, addToWishlist, removeFromWishlist, isInWishlist } = useAuth();
   const { addRecentlyViewed } = useRecentlyViewed();
   const { getVendorById } = useVendors();
+  const { getReviewsByProduct } = useReviews();
   
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -27,6 +30,8 @@ const ProductDetailPage: React.FC = () => {
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [isWishlistAnimating, setIsWishlistAnimating] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const productId = parseInt(id || '');
@@ -53,6 +58,28 @@ const ProductDetailPage: React.FC = () => {
       addRecentlyViewed(product.id);
     }
   }, [product?.id, isAuthenticated]);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (productId) {
+        setIsLoadingReviews(true);
+        const data = await getReviewsByProduct(productId);
+        setReviews(data);
+        setIsLoadingReviews(false);
+      }
+    };
+    fetchReviews();
+  }, [productId]);
+
+  const sortedReviews = useMemo(() => {
+    return [...reviews].sort((a, b) => {
+      const aHasMedia = (a.images?.length || 0) > 0 || !!a.video_url;
+      const bHasMedia = (b.images?.length || 0) > 0 || !!b.video_url;
+      if (aHasMedia && !bHasMedia) return -1;
+      if (!aHasMedia && bHasMedia) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [reviews]);
 
   const displayImages = useMemo(() => {
     if (!product) return ['https://placehold.co/600x600/F8F9FA/A0A0A0?text=VexoKart'];
@@ -215,7 +242,7 @@ const ProductDetailPage: React.FC = () => {
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
             {product.rating || '4.0'}
           </div>
-          <span className="text-xs text-gray-400 font-medium">{product.review_count || '25'} Reviews</span>
+          <span className="text-xs text-gray-400 font-medium">{reviews.length || '0'} Reviews</span>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-1">
@@ -325,6 +352,77 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* REVIEWS SECTION - MEESHO STYLE */}
+      <div className="mt-2 bg-white p-4 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-sm font-bold text-gray-800">Product Reviews</h3>
+          {reviews.length > 0 && (
+             <div className="flex items-center gap-1 bg-[#34BE82] text-white px-2 py-0.5 rounded text-[10px] font-bold">
+               {product.rating || '4.0'} <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+             </div>
+          )}
+        </div>
+
+        {isLoadingReviews ? (
+          <div className="flex justify-center py-6">
+             <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : sortedReviews.length > 0 ? (
+          <div className="space-y-6">
+            {sortedReviews.slice(0, 10).map((review) => (
+              <div key={review.id} className="border-b border-gray-50 pb-6 last:border-0">
+                <div className="flex justify-between items-start">
+                   <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 uppercase">
+                        {review.author[0]}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800">{review.author}</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase">{new Date(review.created_at).toLocaleDateString()}</p>
+                      </div>
+                   </div>
+                   <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold text-white ${review.rating >= 4 ? 'bg-[#34BE82]' : review.rating >= 3 ? 'bg-yellow-400' : 'bg-red-400'}`}>
+                      {review.rating} <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                   </div>
+                </div>
+
+                {review.review_text && (
+                  <p className="mt-2 text-xs text-gray-600 leading-relaxed font-medium">{review.review_text}</p>
+                )}
+
+                {(review.images.length > 0 || review.video_url) && (
+                  <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    {review.video_url && (
+                      <div className="relative w-16 h-16 shrink-0 bg-black rounded-lg overflow-hidden border border-gray-100">
+                        <video src={review.video_url} className="w-full h-full object-cover opacity-80" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                        </div>
+                      </div>
+                    )}
+                    {review.images.map((img, i) => (
+                      <img key={i} src={img} loading="lazy" className="w-16 h-16 shrink-0 object-cover rounded-lg border border-gray-100" alt="" />
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 flex items-center gap-1 text-[#34BE82]">
+                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                   <span className="text-[10px] font-black uppercase tracking-widest">Verified Purchase</span>
+                </div>
+              </div>
+            ))}
+            {reviews.length > 5 && (
+              <button className="w-full py-3 bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-xl active:bg-gray-100">View all {reviews.length} reviews</button>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-6 grayscale opacity-60">
+             <p className="text-xs font-bold text-gray-400 italic">No reviews yet. Be the first to share your experience!</p>
+          </div>
+        )}
+      </div>
+
       {/* SOLD BY SECTION */}
       <div className="mt-2 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
@@ -365,7 +463,7 @@ const ProductDetailPage: React.FC = () => {
             : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-80'
           }`}
         >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
           Buy Now
         </button>
       </div>

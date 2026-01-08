@@ -43,8 +43,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          // Sync payment booleans from database array (Fallback to all enabled if column missing)
-          const modes = Array.isArray(item.payment_modes) ? item.payment_modes : ['cod', 'online'];
+          // Sync payment booleans from database array
+          // FIX: Removed fallback to ['cod', 'online'] to ensure FALSE values stay FALSE.
+          const modes = Array.isArray(item.payment_modes) ? item.payment_modes : [];
+          
           return {
             ...item,
             id: Number(item.id),
@@ -55,7 +57,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
             product_type: item.product_type || 'simple',
-            // Explicit boolean mapping from DB state
+            // Deriving booleans strictly from persistence layer
             is_cod_enabled: modes.includes('cod'),
             is_online_enabled: modes.includes('online'),
             variants: item.variants || [],
@@ -79,32 +81,34 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    /**
-     * CRITICAL FIX: Destructure and EXCLUDE virtual/missing columns
-     * to prevent "Could not find column... in schema cache" errors.
-     */
+    // FIX: Removed variants, product_type, and payment booleans from exclusion list
+    // Only exclude virtual UI fields and joins that PostgREST would reject as columns.
     const { 
       id, 
       category, 
       category_data, 
-      variants, 
-      cash_on_delivery, 
-      product_type,
-      is_cod_enabled, 
-      is_online_enabled, 
-      payment_modes, // EXCLUDE from DB write
-      specifications,
-      ...dbPayload 
+      cash_on_delivery, // Match Admin form legacy field
+      is_cod_enabled,
+      is_online_enabled,
+      payment_modes, // Recalculated below
+      ...payloadData 
     } = productData;
     
+    // BUILD PERSISTENCE ARRAY: Map booleans back to the array column
+    const activeModes = [];
+    // Trust the explicit frontend state from Vendor form (is_cod_enabled) or Admin form (cash_on_delivery)
+    if (productData.is_cod_enabled === true || productData.cash_on_delivery === true) activeModes.push('cod');
+    // Trust explicit online state
+    if (productData.is_online_enabled === true) activeModes.push('online');
+
     const finalPayload = {
-      ...dbPayload,
+      ...payloadData,
+      payment_modes: activeModes,
       vendor_id: Number(productData.vendor_id),
-      category_id: Number(dbPayload.category_id),
-      images: Array.isArray(dbPayload.images) ? dbPayload.images : [],
+      category_id: Number(productData.category_id),
+      images: Array.isArray(productData.images) ? productData.images : [],
       created_at: new Date().toISOString(),
-      status: dbPayload.status || 'approved'
-      // payment_modes is omitted because it's missing in DB schema
+      status: productData.status || 'approved'
     };
 
     try {
@@ -127,28 +131,29 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    /**
-     * CRITICAL FIX: Sanitize outgoing PATCH payload to remove columns not in DB
-     */
+    // FIX: Removed variants, product_type, and payment booleans from exclusion list
+    // Ensuring exact frontend state flows to database.
     const { 
       id, 
       category, 
       category_data, 
-      variants, 
-      cash_on_delivery, 
-      product_type,
-      is_cod_enabled, 
-      is_online_enabled, 
-      payment_modes, // EXCLUDE from DB write
-      specifications,
-      ...dbPayload 
+      cash_on_delivery,
+      is_cod_enabled,
+      is_online_enabled,
+      payment_modes, // Recalculated below
+      ...payloadData 
     } = product as any;
 
+    // BUILD PERSISTENCE ARRAY: Map booleans back to the array column
+    const activeModes = [];
+    if (product.is_cod_enabled === true || (product as any).cash_on_delivery === true) activeModes.push('cod');
+    if (product.is_online_enabled === true) activeModes.push('online');
+
     const finalPayload = {
-      ...dbPayload,
-      vendor_id: Number(dbPayload.vendor_id),
-      category_id: Number(dbPayload.category_id)
-      // payment_modes is omitted because it's missing in DB schema
+      ...payloadData,
+      payment_modes: activeModes,
+      vendor_id: Number(payloadData.vendor_id),
+      category_id: Number(payloadData.category_id)
     };
 
     try {
