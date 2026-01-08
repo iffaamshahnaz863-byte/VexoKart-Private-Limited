@@ -118,19 +118,19 @@ const HomePage: React.FC = () => {
         </section>
       )}
 
-      {/* 4. PRODUCT FEED */}
-      <section className="p-2 pt-6">
-        <div className="flex items-center justify-between px-2 mb-4">
+      {/* 4. PRODUCT FEED - Fixed Grid Columns for Meesho Behavior */}
+      <section className="p-3 pt-6 max-w-[1400px] mx-auto">
+        <div className="flex items-center justify-between px-1 mb-4">
             <h2 className="text-sm font-black text-gray-900 uppercase italic tracking-tighter">
                 {selectedCatName === 'All' ? 'Products For You' : `${selectedCatName} Collection`}
             </h2>
             <div className="bg-green-100 text-green-700 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter border border-green-200">Free Delivery</div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {isLoading ? (
               <>
-                  {[...Array(6)].map((_, i) => <ProductCardSkeleton key={i} />)}
+                  {[...Array(8)].map((_, i) => <ProductCardSkeleton key={i} />)}
               </>
           ) : liveProducts.length > 0 ? (
             liveProducts.map(product => (

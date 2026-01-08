@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
@@ -80,10 +79,10 @@ const ProductsPage: React.FC = () => {
           ))}
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 animate-in fade-in duration-500">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 animate-in fade-in duration-500">
           {isLoading ? (
               <>
-                  {[...Array(8)].map((_, i) => <ProductCardSkeleton key={i} />)}
+                  {[...Array(10)].map((_, i) => <ProductCardSkeleton key={i} />)}
               </>
           ) : filteredProducts.length > 0 ? (
             filteredProducts.map(product => (
