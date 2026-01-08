@@ -41,7 +41,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          const modes = Array.isArray(item.payment_modes) ? item.payment_modes : [];
+          // Schema Adaptation:
+          // cash_on_delivery column DOES NOT exist.
+          // payment_modes column DOES NOT exist.
+          // We use specifications JSON for both flags.
+          const specs = item.specifications || {};
           
           return {
             ...item,
@@ -53,11 +57,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
             product_type: item.product_type || 'simple',
-            is_cod_enabled: modes.includes('cod'),
-            is_online_enabled: modes.includes('online'),
+            // Map JSON keys to UI flags. Default to 'true' if not set.
+            is_cod_enabled: specs['payment.cod'] !== 'false', 
+            is_online_enabled: specs['payment.online'] !== 'false',
             variants: item.variants || [],
             highlights: item.highlights || [],
-            specifications: item.specifications || {}
+            specifications: specs
           };
         });
         setProducts(mappedProducts);
@@ -76,30 +81,34 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
+    // Extract UI flags
     const { 
-      id, 
-      category, 
-      category_data, 
-      cash_on_delivery,
       is_cod_enabled,
       is_online_enabled,
-      payment_modes,
+      payment_modes, 
+      cash_on_delivery, // Remove potentially existing field
       ...payloadData 
     } = productData;
     
-    const activeModes = [];
-    if (productData.is_cod_enabled === true || productData.cash_on_delivery === true) activeModes.push('cod');
-    if (productData.is_online_enabled === true) activeModes.push('online');
+    // Prepare specifications to store payment flags
+    const specs = { ...(payloadData.specifications || {}) };
+    specs['payment.online'] = String(is_online_enabled);
+    specs['payment.cod'] = String(is_cod_enabled);
 
     const finalPayload = {
       ...payloadData,
-      payment_modes: activeModes,
+      specifications: specs,
+      
       vendor_id: Number(productData.vendor_id),
       category_id: Number(productData.category_id),
       images: Array.isArray(productData.images) ? productData.images : [],
       created_at: new Date().toISOString(),
       status: productData.status || 'approved'
     };
+
+    // Strict Cleanup: Ensure no invalid columns are sent
+    delete (finalPayload as any).payment_modes;
+    delete (finalPayload as any).cash_on_delivery;
 
     try {
       const res = await fetch(`${BASE_API_URL}/products`, {
@@ -121,30 +130,36 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
+    // Extract UI flags
     const { 
-      id, 
-      category, 
-      category_data, 
-      cash_on_delivery,
       is_cod_enabled,
       is_online_enabled,
       payment_modes,
+      cash_on_delivery,
       ...payloadData 
     } = product as any;
 
-    const activeModes = [];
-    if (product.is_cod_enabled === true || (product as any).cash_on_delivery === true) activeModes.push('cod');
-    if (product.is_online_enabled === true) activeModes.push('online');
+    // Prepare specifications to store payment flags
+    const specs = { ...(payloadData.specifications || {}) };
+    specs['payment.online'] = String(is_online_enabled);
+    specs['payment.cod'] = String(is_cod_enabled);
 
     const finalPayload = {
       ...payloadData,
-      payment_modes: activeModes,
+      specifications: specs,
+      
       vendor_id: Number(payloadData.vendor_id),
       category_id: Number(payloadData.category_id)
     };
 
+    // Strict Cleanup
+    delete (finalPayload as any).payment_modes;
+    delete (finalPayload as any).cash_on_delivery;
+    delete (finalPayload as any).is_cod_enabled;
+    delete (finalPayload as any).is_online_enabled;
+
     try {
-      const res = await fetch(`${BASE_API_URL}/products?id=eq.${id}`, {
+      const res = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {
         method: 'PATCH',
         headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
         body: JSON.stringify(finalPayload)

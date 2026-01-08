@@ -28,7 +28,8 @@ const AdminProductFormPage: React.FC = () => {
     highlights: [],
     stock: 10,
     specifications: {},
-    cash_on_delivery: false // MATCH VENDOR LOGIC
+    is_cod_enabled: true, // Default ON
+    is_online_enabled: true // Default ON
   });
 
   const [highlightsText, setHighlightsText] = useState('');
@@ -55,8 +56,9 @@ const AdminProductFormPage: React.FC = () => {
         setFormData({
             ...productToEdit,
             category_id: productToEdit.category_id.toString(),
-            // STRICT LOAD - Match vendor choice
-            cash_on_delivery: Boolean(productToEdit.cash_on_delivery)
+            // HYDRATE STRICTLY
+            is_cod_enabled: productToEdit.is_cod_enabled === true,
+            is_online_enabled: productToEdit.is_online_enabled === true
         });
         setHighlightsText((productToEdit.highlights || []).join('\n'));
         setSpecsText(Object.entries(productToEdit.specifications || {}).map(([k, v]) => `${k}: ${v}`).join('\n'));
@@ -120,8 +122,9 @@ const AdminProductFormPage: React.FC = () => {
         highlights: finalHighlights, 
         specifications: finalSpecs,
         category_id: Number(formData.category_id),
-        // PERSIST STRICT CHOICE
-        cash_on_delivery: Boolean(formData.cash_on_delivery)
+        // FORCE BOOLEANS
+        is_cod_enabled: formData.is_cod_enabled === true,
+        is_online_enabled: formData.is_online_enabled === true
       };
 
       if (isEditing) {
@@ -192,7 +195,7 @@ const AdminProductFormPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
                 <div>
                     <label className="block text-[10px] font-black uppercase text-text-muted mb-4 border-b border-border pb-1">Payment Controls</label>
                     <div className="flex gap-6">
@@ -200,14 +203,29 @@ const AdminProductFormPage: React.FC = () => {
                                 <label className="flex items-center gap-3 cursor-pointer group">
                                     <input 
                                         type="checkbox" 
-                                        name="cash_on_delivery" 
-                                        checked={formData.cash_on_delivery} 
+                                        name="is_cod_enabled" 
+                                        checked={formData.is_cod_enabled} 
                                         onChange={handleChange} 
                                         className="w-5 h-5 rounded text-accent focus:ring-accent border-border" 
                                     />
                                     <div>
                                         <span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main transition-colors">Cash on Delivery</span>
                                         <p className="text-[8px] text-text-muted font-bold mt-0.5">ALLOW COD SETTLEMENT</p>
+                                    </div>
+                                </label>
+                            </div>
+                            <div className="p-4 bg-surface rounded-2xl border border-border">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input 
+                                        type="checkbox" 
+                                        name="is_online_enabled" 
+                                        checked={formData.is_online_enabled} 
+                                        onChange={handleChange} 
+                                        className="w-5 h-5 rounded text-accent focus:ring-accent border-border" 
+                                    />
+                                    <div>
+                                        <span className="text-xs font-black uppercase text-text-secondary group-hover:text-text-main transition-colors">Online Payment</span>
+                                        <p className="text-[8px] text-text-muted font-bold mt-0.5">CARDS / UPI / NETBANKING</p>
                                     </div>
                                 </label>
                             </div>

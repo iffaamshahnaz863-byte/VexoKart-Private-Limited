@@ -88,12 +88,7 @@ const VendorProductFormPage: React.FC = () => {
   };
 
   const togglePayment = (name: 'is_cod_enabled' | 'is_online_enabled') => {
-    setFormData((prev: any) => {
-        const newValue = !prev[name];
-        const otherName = name === 'is_cod_enabled' ? 'is_online_enabled' : 'is_cod_enabled';
-        if (!newValue && !prev[otherName]) return prev; // Keep at least one active
-        return { ...prev, [name]: newValue };
-    });
+    setFormData((prev: any) => ({ ...prev, [name]: !prev[name] }));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, forVariant = false) => {
@@ -145,7 +140,11 @@ const VendorProductFormPage: React.FC = () => {
     e.preventDefault();
     if (!currentVendor) { alert("Session mismatch. Please relogin."); return; }
     if (formData.images.length === 0) { alert("Add at least one product image."); return; }
-    if (!formData.is_cod_enabled && !formData.is_online_enabled) { alert("Select at least one payment method."); return; }
+    
+    // Warning if both disabled, but allow update to proceed as per requirement "dono disabled hain -> block checkout" implies this state is valid DB state
+    if (!formData.is_cod_enabled && !formData.is_online_enabled) { 
+        if(!confirm("You have disabled BOTH payment methods. Customers will not be able to checkout. Continue?")) return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -336,7 +335,7 @@ const VendorProductFormPage: React.FC = () => {
             <div className="space-y-3">
                 <div 
                     onClick={() => togglePayment('is_cod_enabled')}
-                    className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_cod_enabled ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale'}`}
+                    className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_cod_enabled ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100 grayscale opacity-70'}`}
                 >
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Cash on Delivery</p>
@@ -351,7 +350,7 @@ const VendorProductFormPage: React.FC = () => {
 
                 <div 
                     onClick={() => togglePayment('is_online_enabled')}
-                    className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_online_enabled ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale'}`}
+                    className={`p-4 rounded-3xl border flex items-center justify-between transition-colors cursor-pointer ${formData.is_online_enabled ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100 grayscale opacity-70'}`}
                 >
                     <div>
                         <p className="text-xs font-black text-gray-800 uppercase italic">Digital Settlement</p>

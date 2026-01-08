@@ -25,22 +25,25 @@ const CheckoutPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
-  /* 🚫 PAYMENT RESTRICTION LOGIC */
+  /* 🟢 REVERTED SIMPLE LOGIC: TRUST THE PRODUCT FLAGS */
+  
   const allowCodForCart = useMemo(() => {
-    // If any item restricts COD, we must disable it for the whole order
-    return cartItems.every(item => item.is_cod_enabled !== false);
+    // If ANY item explicitly disables COD, the whole cart is restricted.
+    // Otherwise (undefined or true), it is allowed.
+    return !cartItems.some(item => item.is_cod_enabled === false);
   }, [cartItems]);
 
   const allowOnlineForCart = useMemo(() => {
-    // If any item restricts Online, we must disable it for the whole order
-    return cartItems.every(item => item.is_online_enabled !== false);
+    // If ANY item explicitly disables Online, the whole cart is restricted.
+    // Otherwise, allowed.
+    return !cartItems.some(item => item.is_online_enabled === false);
   }, [cartItems]);
 
-  // Adjust selection if current becomes invalid
+  // Auto-switch payment method if current selection is invalid
   useEffect(() => {
     if (paymentMethod === 'cod' && !allowCodForCart) {
       setPaymentMethod('card');
-    } else if (paymentMethod === 'card' && !allowOnlineForCart) {
+    } else if (paymentMethod === 'card' && !allowOnlineForCart && allowCodForCart) {
       setPaymentMethod('cod');
     }
   }, [allowCodForCart, allowOnlineForCart, paymentMethod]);
@@ -87,8 +90,14 @@ const CheckoutPage: React.FC = () => {
     });
 
     try {
-      /* 🟢 CASH ON DELIVERY FLOW - CRITICAL: Skip Razorpay */
+      /* 🟢 CASH ON DELIVERY FLOW */
       if (paymentMethod === 'cod') {
+        if (!allowCodForCart) {
+            alert("Cash on Delivery is not available for one or more items in your cart.");
+            setIsProcessing(false);
+            return;
+        }
+
         const orderIdString = await addOrder({
           items: orderItems,
           subtotal: cartTotal,
@@ -258,13 +267,14 @@ const CheckoutPage: React.FC = () => {
           )}
         </GlassmorphicCard>
 
-        {/* Payment Logic */}
+        {/* Payment Logic - Reverted to Simple Conditional Rendering */}
         <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
           <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted tracking-[0.2em] italic">
             Settlement Method
           </h2>
 
           <div className="space-y-3">
+            {/* ONLINE PAYMENT */}
             {allowOnlineForCart ? (
                 <div
                     onClick={() => setPaymentMethod('card')}
@@ -288,6 +298,7 @@ const CheckoutPage: React.FC = () => {
                 </div>
             )}
 
+            {/* CASH ON DELIVERY */}
             {allowCodForCart ? (
                 <div
                     onClick={() => setPaymentMethod('cod')}
@@ -347,8 +358,8 @@ const CheckoutPage: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-50 shadow-[0_-4px_30px_rgba(0,0,0,0.08)]">
         <button
           onClick={handlePlaceOrder}
-          disabled={isProcessing || !selectedAddress || (!allowCodForCart && !allowOnlineForCart)}
-          className="w-full bg-accent text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50"
+          disabled={isProcessing || !selectedAddress}
+          className="w-full bg-accent text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:bg-gray-400 disabled:shadow-none"
         >
           {isProcessing
             ? 'Initializing Secure Session...'
