@@ -92,33 +92,7 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. RECENTLY VIEWED */}
-      {recentlyViewedProducts.length > 0 && selectedCatName === 'All' && (
-        <section className="mt-4 px-4">
-            <h3 className="text-xs font-black text-gray-900 uppercase italic tracking-widest mb-3 flex items-center gap-2">
-               <span className="w-1.5 h-1.5 bg-accent rounded-full"></span>
-               Pick up where you left off
-            </h3>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                {recentlyViewedProducts.map(p => (
-                    <div 
-                        key={p.id} 
-                        onClick={() => navigate(`/product/${p.id}`)}
-                        className="w-28 flex-shrink-0 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm active:scale-95 transition-transform"
-                    >
-                        <div className="aspect-square bg-gray-50">
-                            <img src={p.images[0]} className="w-full h-full object-contain" alt="" />
-                        </div>
-                        <div className="p-2">
-                            <p className="text-[10px] font-black text-gray-900 truncate">₹{p.price}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </section>
-      )}
-
-      {/* 4. PRODUCT FEED */}
+      {/* 3. PRODUCT FEED */}
       <section className="p-2 pt-6">
         <div className="flex items-center justify-between px-2 mb-4">
             <h2 className="text-sm font-black text-gray-900 uppercase italic tracking-tighter">
@@ -146,53 +120,71 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. ADSENSE RICH CONTENT SECTION (MANDATORY FOR APPROVAL) */}
-      <article className="mt-12 px-6 py-12 bg-white border-t border-gray-100 prose prose-sm max-w-none">
-        <header className="mb-10 text-center">
-            <h1 className="text-3xl font-black text-gray-900 italic uppercase tracking-tighter mb-4">VexoKart: Redefining the Digital Commerce Experience in India</h1>
-            <p className="text-gray-500 font-medium text-lg leading-relaxed max-w-3xl mx-auto">Discover a smarter way to shop online with VexoKart—India's premier authorized multi-vendor marketplace built on the pillars of trust, speed, and quality.</p>
+      {/* 4. ADSENSE COMPLIANCE CONTENT SECTION */}
+      <article className="mt-16 bg-white border-t border-gray-100 p-8 md:p-16 max-w-7xl mx-auto rounded-[3rem] shadow-premium">
+        <header className="mb-12 text-center">
+            <h1 className="text-3xl md:text-5xl font-black text-gray-900 italic uppercase tracking-tighter mb-4">VexoKart: Redefining the Digital Commerce Experience</h1>
+            <p className="text-gray-500 font-medium text-lg leading-relaxed max-w-3xl mx-auto">Discover the ultimate multi-vendor marketplace built on trust, quality, and lightning-fast logistics. Shop smart, shop online with the India's fastest growing retail node.</p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-gray-600 leading-relaxed">
-            <section>
-                <h2 className="text-xl font-bold text-gray-800 uppercase tracking-widest text-xs mb-4 border-l-4 border-accent pl-4">The VexoKart Vision: Shop Online, Shop Smart</h2>
-                <p>In an era where digital marketplaces are becoming increasingly crowded, VexoKart stands out by prioritizing the "Smart Shopping" philosophy. We believe that e-commerce should be more than just a transaction; it should be a seamless integration of technology and lifestyle. Our platform is designed from the ground up to empower both local Indian manufacturers and global distributors, providing them with a secure digital storefront to reach millions of discerning customers across the subcontinent.</p>
-                <p className="mt-4">Our tagline, "Shop Online, Shop Smart," isn't just a marketing slogan—it's our operational blueprint. By leveraging advanced logistics protocols and real-time inventory management, we ensure that every product you see on our catalog is verified for authenticity and ready for immediate dispatch.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-16 text-gray-600 leading-relaxed text-sm md:text-base">
+            <section className="space-y-6">
+                <h2 className="text-xl font-bold text-gray-900 border-l-4 border-accent pl-4 uppercase tracking-widest italic">What is VexoKart?</h2>
+                <p>VexoKart is a state-of-the-art multi-vendor e-commerce platform designed to bridge the gap between high-quality Indian manufacturers and discerning global consumers. Our mission is simple: to provide a curated, secure, and hyper-efficient shopping environment where authenticity is guaranteed and every transaction is backed by the VexoShield Protection protocol.</p>
+                <p>Unlike traditional marketplaces that prioritize volume over quality, VexoKart employs a rigorous 7-tier verification process for every vendor. This ensures that the products reaching your doorstep aren't just items, but verified lifestyle assets that meet international standards of durability and aesthetics.</p>
             </section>
 
-            <section>
-                <h2 className="text-xl font-bold text-gray-800 uppercase tracking-widest text-xs mb-4 border-l-4 border-accent pl-4">How Our Multi-Vendor Marketplace Operates</h2>
-                <p>VexoKart operates as a high-performance bridge between specialized vendors and consumers. Unlike traditional retail models, our marketplace utilizes a decentralized fulfillment node system. When you place an order, our Intelligent Routing Protocol identifies the closest authorized merchant holding the stock. This ensures that your package travels the shortest possible distance, reducing carbon footprint and drastically cutting down delivery times.</p>
-                <ul className="mt-4 space-y-2 list-none p-0">
-                    <li className="flex items-start gap-2"><span className="text-accent font-black">✔</span> <strong>Merchant Verification:</strong> Every vendor undergoes a rigorous 7-step identity and supply chain audit.</li>
-                    <li className="flex items-start gap-2"><span className="text-accent font-black">✔</span> <strong>Catalog Integrity:</strong> We use automated vision tools to ensure product descriptions match the physical inventory.</li>
-                    <li className="flex items-start gap-2"><span className="text-accent font-black">✔</span> <strong>Secure Settlements:</strong> Payments are processed via PCI-DSS compliant gateways like Razorpay.</li>
-                </ul>
+            <section className="space-y-6">
+                <h2 className="text-xl font-bold text-gray-900 border-l-4 border-accent pl-4 uppercase tracking-widest italic">How Our Platform Works</h2>
+                <p>VexoKart utilizes a decentralized fulfillment architecture. When you browse our catalog, you are seeing live inventory from dozens of authorized partner nodes across India. Our Intelligent Routing Algorithm (IRA) automatically calculates the most efficient shipping path from the vendor's warehouse to your specific geo-location.</p>
+                <div className="bg-surface p-6 rounded-3xl border border-gray-100 italic space-y-4">
+                    <p className="font-bold text-accent">The Shopping Journey:</p>
+                    <ul className="list-decimal pl-5 space-y-2 text-xs">
+                        <li><strong>Discovery:</strong> Use our AI-powered search to find products across Categories like Fashion, Tech, and Lifestyle.</li>
+                        <li><strong>Validation:</strong> Read verified customer reviews and inspect high-resolution gallery images.</li>
+                        <li><strong>Checkout:</strong> Settle your bill via our PCI-DSS compliant digital gateways or select Cash on Delivery.</li>
+                        <li><strong>Fulfillment:</strong> Track your consignment in real-time as it moves through our courier network.</li>
+                    </ul>
+                </div>
             </section>
 
-            <section>
-                <h2 className="text-xl font-bold text-gray-800 uppercase tracking-widest text-xs mb-4 border-l-4 border-accent pl-4">A Commitment to Quality Assurance and Consumer Trust</h2>
-                <p>Consumer trust is the currency of the digital age. At VexoKart, we maintain this trust through our VexoShield program. This comprehensive quality assurance framework involves random stock inspections and a strict "Anti-Counterfeit" policy. If a product fails to meet our stringent standards, it is immediately archived, and the vendor is flagged for internal review. This relentless pursuit of excellence ensures that when you see the "Verified Partner" badge on a Product Card, you are buying with absolute confidence.</p>
+            <section className="space-y-6">
+                <h2 className="text-xl font-bold text-gray-900 border-l-4 border-accent pl-4 uppercase tracking-widest italic">A Commitment to Product Integrity</h2>
+                <p>We understand that trust is the currency of the internet. That's why "Shop Smart" isn't just a tagline—it's our operational blueprint. Every product listing on VexoKart must include detailed specifications, fabric/material breakdowns, and original photography. Our team of quality auditors performs random physical inspections at vendor hubs to ensure that what you see online is exactly what you receive in your package.</p>
+                <p>Furthermore, our robust feedback loop allows the community to flag discrepancies. Any vendor falling below our 4.0-star threshold is automatically placed under "Audit Review," ensuring that the VexoKart catalog remains a gold standard for digital retail.</p>
             </section>
 
-            <section>
-                <h2 className="text-xl font-bold text-gray-800 uppercase tracking-widest text-xs mb-4 border-l-4 border-accent pl-4">Secure Logistics and Pan-India Delivery</h2>
-                <p>Navigating the complex geography of India requires a robust logistics backbone. VexoKart partners with leading national courier networks to provide door-to-door fulfillment even in Tier-3 cities and rural districts. Every consignment is assigned a unique Digital Manifest and a tracking token, allowing you to monitor your package's journey from the warehouse shelf to your doorstep in real-time. Furthermore, our Cash on Delivery (COD) and Easy Returns policies provide a safety net for new users exploring the platform.</p>
+            <section className="space-y-6">
+                <h2 className="text-xl font-bold text-gray-900 border-l-4 border-accent pl-4 uppercase tracking-widest italic">Security and User Protection</h2>
+                <p>Your data security is our highest priority. VexoKart employs end-to-end 256-bit SSL encryption for all data transmissions. We never store your full card details; instead, we partner with industry leaders like Razorpay to facilitate secure, tokenized transactions. Whether you're paying via UPI, Credit Card, or Netbanking, your financial identity remains shielded from external threats.</p>
+                <p>Our dedicated customer support desk operates 24/7 to resolve inquiries regarding order manifests, return processing, and technical troubleshooting. At VexoKart, we don't just sell products; we build long-term relationships through transparency and reliability.</p>
             </section>
         </div>
 
-        <section className="mt-16 bg-surface p-10 rounded-3xl border border-gray-100 text-center">
-            <h3 className="text-2xl font-black text-gray-900 italic uppercase tracking-tighter mb-6">Explore Our Informational Resources</h3>
-            <div className="flex flex-wrap justify-center gap-6">
-                <Link to="/about-us" className="bg-white px-8 py-3 rounded-xl shadow-sm border border-gray-200 text-xs font-black uppercase text-gray-700 hover:text-accent transition-colors">Our History</Link>
-                <Link to="/blog/safe-shopping" className="bg-white px-8 py-3 rounded-xl shadow-sm border border-gray-200 text-xs font-black uppercase text-gray-700 hover:text-accent transition-colors">Shopping Safely</Link>
-                <Link to="/blog/quality-guide" className="bg-white px-8 py-3 rounded-xl shadow-sm border border-gray-200 text-xs font-black uppercase text-gray-700 hover:text-accent transition-colors">Quality Control</Link>
-                <Link to="/contact-us" className="bg-white px-8 py-3 rounded-xl shadow-sm border border-gray-200 text-xs font-black uppercase text-gray-700 hover:text-accent transition-colors">Support Desk</Link>
+        <section className="mt-20 border-t border-gray-100 pt-16">
+            <h2 className="text-center text-2xl font-black text-gray-900 uppercase italic mb-10 tracking-tight">Informational Resources</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Link to="/blog/safe-shopping" className="group bg-surface p-6 rounded-3xl border border-gray-100 hover:border-accent transition-all">
+                    <h3 className="font-bold text-gray-900 group-hover:text-accent mb-2 uppercase text-xs">Safe Shopping Guide</h3>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">Learn how to protect your digital identity while shopping online.</p>
+                </Link>
+                <Link to="/blog/quality-guide" className="group bg-surface p-6 rounded-3xl border border-gray-100 hover:border-accent transition-all">
+                    <h3 className="font-bold text-gray-900 group-hover:text-accent mb-2 uppercase text-xs">Choosing Quality</h3>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">A deep dive into identifying authentic materials and verified vendors.</p>
+                </Link>
+                <Link to="/blog/ecommerce-india" className="group bg-surface p-6 rounded-3xl border border-gray-100 hover:border-accent transition-all">
+                    <h3 className="font-bold text-gray-900 group-hover:text-accent mb-2 uppercase text-xs">Digital India Growth</h3>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">Why e-commerce is the backbone of the modern Indian economy.</p>
+                </Link>
+                <Link to="/about-us" className="group bg-surface p-6 rounded-3xl border border-gray-100 hover:border-accent transition-all">
+                    <h3 className="font-bold text-gray-900 group-hover:text-accent mb-2 uppercase text-xs">The Vexo Story</h3>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">Our mission to empower every small business in the subcontinent.</p>
+                </Link>
             </div>
         </section>
 
-        <footer className="mt-16 text-center opacity-40">
-            <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-gray-400">VexoKart Marketplace Protocol • SEO Content Manifest v1.2</p>
+        <footer className="mt-20 text-center opacity-40">
+            <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-gray-400">VexoKart Authorized Marketplace Manifesto • Manifest v2.4</p>
         </footer>
       </article>
 
