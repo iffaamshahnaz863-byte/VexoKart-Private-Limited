@@ -18,7 +18,8 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const getReviewsByProduct = async (productId: number): Promise<Review[]> => {
     try {
-      const res = await fetch(`${BASE_API_URL}/product_reviews?product_id=eq.${productId}&order=created_at.desc`, {
+      // Use select join to fetch the reviewer's name dynamically from the users table
+      const res = await fetch(`${BASE_API_URL}/product_reviews?select=*,user:users(name)&product_id=eq.${productId}&order=created_at.desc`, {
         headers: API_HEADERS
       });
       if (!res.ok) return [];
@@ -49,9 +50,14 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setIsSubmitting(true);
     try {
       const payload = {
-        ...reviewData,
+        product_id: reviewData.product_id,
+        order_id: reviewData.order_id,
+        rating: reviewData.rating,
+        review_text: reviewData.review_text,
+        images: reviewData.images,
+        video_url: reviewData.video_url,
         user_id: user.id,
-        author: user.name,
+        // Removed 'author' column as it doesn't exist in the schema
         is_verified: true,
         created_at: new Date().toISOString()
       };

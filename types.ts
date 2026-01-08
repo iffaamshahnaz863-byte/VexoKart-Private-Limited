@@ -3,7 +3,6 @@ export interface Review {
   product_id: number;
   user_id: number;
   order_id: string;
-  author: string;
   rating: number;
   review_text?: string;
   images: string[];
@@ -11,6 +10,10 @@ export interface Review {
   is_verified: boolean;
   created_at: string;
   vendor_reply?: string;
+  // Dynamic relation from users table
+  user?: {
+    name: string;
+  };
 }
 
 export type ProductStatus = 'approved' | 'disabled' | 'archived' | 'live' | 'pending' | 'rejected';
