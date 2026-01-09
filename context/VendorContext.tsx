@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Vendor } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -19,7 +20,8 @@ interface VendorContextType {
 
 export const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
-const VENDOR_COLUMNS = 'id,user_id,store_name,status';
+// Removed 'wallet_balance' and 'pending_balance' as columns do not exist in DB
+const VENDOR_COLUMNS = 'id,user_id,store_name,status,owner_name,email,phone,profile_image';
 
 export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -32,7 +34,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?select=${VENDOR_COLUMNS}`, { 
+      const res = await fetch(`${BASE_API_URL}/vendors?select=*`, { 
         headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
       });
       
@@ -54,16 +56,15 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const fetchCurrentVendor = async (userId: string, force = false) => {
     if (!userId) return;
     
-    if (currentVendor && String(currentVendor.user_id) === String(userId) && !force) {
-      return;
+    // Always show loading state if we don't have data, or if forced
+    if (!currentVendor || force) {
+        setIsVendorLoading(true);
     }
-    
-    setIsVendorLoading(true);
     setVendorError(null);
     
     try {
       const res = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${userId}&select=${VENDOR_COLUMNS}`, {
-        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
+        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
       });
       
       const data = await res.json();
@@ -73,8 +74,11 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       if (Array.isArray(data) && data.length > 0) {
         const profile = data[0];
-        setCurrentVendor(profile);
-        sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(profile));
+        // Only update state if there's a difference to prevent unnecessary re-renders
+        if (JSON.stringify(profile) !== JSON.stringify(currentVendor)) {
+            setCurrentVendor(profile);
+            sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(profile));
+        }
       } else {
         setCurrentVendor(null);
         setVendorError("Vendor profile not found. Access denied.");
@@ -88,6 +92,42 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  // Realtime-ish Polling for Status Updates
+  useEffect(() => {
+    let intervalId: any;
+
+    if (currentVendor) {
+        const pollStatus = async () => {
+            try {
+                const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${currentVendor.id}&select=${VENDOR_COLUMNS}`, {
+                    headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        const fresh = data[0];
+                        if (JSON.stringify(fresh) !== JSON.stringify(currentVendor)) {
+                            console.debug("[VendorSync] Cloud update received");
+                            setCurrentVendor(fresh);
+                            sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(fresh));
+                        }
+                    }
+                }
+            } catch (e) {
+                // Silent failure on poll
+            }
+        };
+
+        // Poll more frequently if pending (to catch approval fast), less if approved
+        const interval = currentVendor.status === 'pending' ? 4000 : 15000;
+        intervalId = setInterval(pollStatus, interval);
+    }
+
+    return () => {
+        if (intervalId) clearInterval(intervalId);
+    };
+  }, [currentVendor]);
+
   useEffect(() => {
     fetchVendors();
   }, []);
@@ -96,6 +136,8 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const safeUpdates: any = {};
     if (updates.store_name) safeUpdates.store_name = updates.store_name;
     if (updates.status) safeUpdates.status = updates.status;
+    if (updates.profile_image) safeUpdates.profile_image = updates.profile_image;
+    if (updates.phone) safeUpdates.phone = updates.phone;
 
     try {
       const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
@@ -109,11 +151,15 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         throw new Error(err.message || 'Update failed');
       }
       
-      if (currentVendor && currentVendor.id === id) {
-        const updated = { ...currentVendor, ...updates };
-        setCurrentVendor(updated);
-        sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(updated));
+      const updatedData = await res.json();
+      if (Array.isArray(updatedData) && updatedData.length > 0) {
+          const updatedVendor = updatedData[0];
+          if (currentVendor && currentVendor.id === id) {
+            setCurrentVendor(updatedVendor);
+            sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(updatedVendor));
+          }
       }
+      
       await fetchVendors();
     } catch (err: any) {
       console.error("[VendorSync] Update Error:", err.message);
@@ -126,7 +172,11 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const payload = {
         user_id: data.user_id,
         store_name: data.store_name,
-        status: data.status || 'pending'
+        status: data.status || 'pending',
+        owner_name: data.owner_name,
+        email: data.email,
+        phone: data.phone,
+        profile_image: data.profile_image
       };
 
       const res = await fetch(`${BASE_API_URL}/vendors`, {
@@ -147,10 +197,14 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const updateVendorStatus = async (id: number, status: Vendor['status'], reason?: string) => {
     try {
+      const payload: any = { status };
+      // Note: 'rejection_reason' column is missing in DB, so we skip sending it to avoid errors.
+      // if (reason) payload.rejection_reason = reason;
+
       const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
         method: 'PATCH',
         headers: API_HEADERS,
-        body: JSON.stringify({ status })
+        body: JSON.stringify(payload)
       });
       if (!res.ok) {
           const err = await res.json().catch(() => ({}));

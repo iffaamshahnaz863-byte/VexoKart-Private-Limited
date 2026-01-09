@@ -1,9 +1,10 @@
 
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useVendors } from '../../context/VendorContext.tsx';
 import VendorStatusPage from './VendorStatusPage.tsx';
+import Toast from '../../components/Toast.tsx';
 
 interface VendorLayoutProps {
   children: ReactNode;
@@ -14,12 +15,31 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   const { currentVendor, isVendorLoading, vendorError, fetchCurrentVendor } = useVendors();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showToast, setShowToast] = useState(false);
+  
+  // Track previous status to detect changes
+  const prevStatusRef = useRef<string | undefined>(undefined);
   
   useEffect(() => {
     if (user?.id) {
-      fetchCurrentVendor(user.id.toString());
+      // Force fetch to ensure fresh status from DB on mount
+      fetchCurrentVendor(user.id.toString(), true);
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (currentVendor) {
+        // Detect Pending -> Approved transition
+        if (prevStatusRef.current === 'pending' && currentVendor.status === 'approved') {
+            setShowToast(true);
+        }
+        
+        // Auto-logout if blocked (suspended) logic if desired, or let StatusPage handle it.
+        // We will let StatusPage handle it to show the "Suspended" message instead of a confusing logout.
+        
+        prevStatusRef.current = currentVendor.status;
+    }
+  }, [currentVendor]);
 
   const handleLogout = () => {
     sessionStorage.removeItem('vxk_vendor_cache');
@@ -80,11 +100,18 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
   if (!currentVendor) return null;
 
   if (currentVendor.status !== 'approved') {
-    return <VendorStatusPage vendor={currentVendor} />;
+    return (
+        <>
+            <VendorStatusPage vendor={currentVendor} />
+            <Toast isVisible={showToast} message="Your account has been approved 🎉" onClose={() => setShowToast(false)} />
+        </>
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24 lg:pb-0 animate-in fade-in duration-300">
+      <Toast isVisible={showToast} message="Your account has been approved 🎉" onClose={() => setShowToast(false)} />
+      
       {/* Desktop Sidebar (Optional, keep for desktop users) */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-border p-6 flex-col fixed h-full z-30">
         <div className="flex flex-col items-center text-center px-2 mb-10">
