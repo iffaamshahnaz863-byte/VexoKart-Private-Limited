@@ -1,6 +1,5 @@
 import React from 'react';
 import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 
 const BuyingGuidePage: React.FC = () => {
     return (
@@ -41,7 +40,6 @@ const BuyingGuidePage: React.FC = () => {
                     </footer>
                 </div>
             </article>
-            <Footer />
         </div>
     );
 };

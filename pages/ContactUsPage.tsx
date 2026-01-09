@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import GlassmorphicCard from '../components/GlassmorphicCard';
-import Footer from '../components/Footer';
 
 const ContactUsPage: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -135,7 +134,6 @@ const ContactUsPage: React.FC = () => {
 
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

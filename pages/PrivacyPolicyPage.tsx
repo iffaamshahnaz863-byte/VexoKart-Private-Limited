@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
 
 const PrivacyPolicyPage: React.FC = () => {
   useEffect(() => {
@@ -73,7 +72,6 @@ const PrivacyPolicyPage: React.FC = () => {
           </section>
         </div>
       </article>
-      <Footer />
     </div>
   );
 };

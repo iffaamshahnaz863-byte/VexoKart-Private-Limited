@@ -1,6 +1,5 @@
 import React from 'react';
 import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 
 const ProductQualityPage: React.FC = () => {
     return (
@@ -47,7 +46,6 @@ const ProductQualityPage: React.FC = () => {
                     </footer>
                 </div>
             </article>
-            <Footer />
         </div>
     );
 };

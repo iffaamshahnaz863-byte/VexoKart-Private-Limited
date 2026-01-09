@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { Link } from 'react-router-dom';
 
@@ -64,7 +63,6 @@ const HelpPage: React.FC = () => {
             </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

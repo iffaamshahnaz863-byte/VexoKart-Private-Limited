@@ -1,6 +1,5 @@
 import React from 'react';
 import Header from '../../components/Header';
-import Footer from '../../components/Footer';
 
 const EcommerceIndiaPage: React.FC = () => {
     return (
@@ -45,7 +44,6 @@ const EcommerceIndiaPage: React.FC = () => {
                     </footer>
                 </div>
             </article>
-            <Footer />
         </div>
     );
 };
