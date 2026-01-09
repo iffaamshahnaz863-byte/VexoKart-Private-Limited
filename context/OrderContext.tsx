@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -127,6 +128,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
             ...o,
             id: o.id.toString(),
             total: Number(o.total_amount || o.total || 0),
+            discount_amount: Number(o.discount_amount || 0),
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
@@ -184,6 +186,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendor_id: vendorIdValue,
       items: orderData.items,
       total_amount: Number(orderData.total),
+      discount_amount: Number(orderData.discount_amount || 0), // Store UPI discount
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
       status: "Placed" as OrderStatus,

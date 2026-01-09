@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Product, Review, Category } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
@@ -42,23 +43,26 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
           // Schema Adaptation:
-          // cash_on_delivery column DOES NOT exist.
-          // payment_modes column DOES NOT exist.
-          // product_type column DOES NOT exist.
-          // specifications column DOES NOT exist.
-          // variants column DOES NOT exist.
-          // We default these flags as we cannot persist them currently.
+          // We calculate the UPI discount here to ensure consistency across the entire app.
+          // Rule: 5% Discount, Max ₹100 per item.
+          const basePrice = Number(item.price || 0);
+          const calculatedDiscount = Math.min(Math.floor(basePrice * 0.05), 100);
+          const upiDiscount = calculatedDiscount > 0 ? calculatedDiscount : 0;
           
           return {
             ...item,
             id: Number(item.id),
-            price: Number(item.price || 0),
+            price: basePrice,
             original_price: Number(item.original_price || item.price || 0),
             category: item.category_data?.name || 'General',
             category_id: Number(item.category_id),
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
             
+            // Computed Fields
+            upi_discount: upiDiscount,
+            upi_price: basePrice - upiDiscount,
+
             // Defaults since persistence is unavailable
             product_type: 'simple',
             is_cod_enabled: true, 
@@ -96,6 +100,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       category_data, 
       specifications,
       variants,
+      upi_price,
+      upi_discount,
       ...payloadData 
     } = productData;
     
@@ -120,6 +126,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     delete (finalPayload as any).product_type;
     delete (finalPayload as any).specifications;
     delete (finalPayload as any).variants; // Remove variants column payload
+    delete (finalPayload as any).upi_price;
+    delete (finalPayload as any).upi_discount;
 
     try {
       const res = await fetch(`${BASE_API_URL}/products`, {
@@ -152,6 +160,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       category_data, 
       specifications,
       variants,
+      upi_price,
+      upi_discount,
       ...payloadData 
     } = product as any;
 
@@ -174,6 +184,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     delete (finalPayload as any).product_type;
     delete (finalPayload as any).specifications;
     delete (finalPayload as any).variants; // Remove variants column payload
+    delete (finalPayload as any).upi_price;
+    delete (finalPayload as any).upi_discount;
 
     try {
       const res = await fetch(`${BASE_API_URL}/products?id=eq.${product.id}`, {

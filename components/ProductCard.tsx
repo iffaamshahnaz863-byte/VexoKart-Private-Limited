@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Product } from '../types.ts';
@@ -29,7 +30,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const mrp = Number(product.original_price || sellingPrice);
   const discount = Math.round(((mrp - sellingPrice) / mrp) * 100);
   
-  const upiPrice = Math.floor(sellingPrice * 0.98);
+  // Real UPI logic sourced from ProductContext
+  const upiPrice = product.upi_price;
+  const upiSavings = product.upi_discount;
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f6f6f6/A0A0A0?text=VexoKart';
@@ -79,13 +82,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 )}
             </div>
 
-            {/* Price Stability Feature */}
-            <div className="mt-1 flex items-center gap-1">
-               <div className="bg-[#E7F7F0] text-[#34BE82] text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-                 <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>
-                 ₹{upiPrice} with UPI
-               </div>
-            </div>
+            {/* Dynamic UPI Price Feature */}
+            {upiSavings > 0 && (
+              <div className="mt-1 flex items-center gap-1">
+                 <div className="bg-[#E7F7F0] text-[#34BE82] text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#C2EAD5]">
+                   <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>
+                   ₹{upiPrice} with UPI
+                 </div>
+              </div>
+            )}
 
             <div className="mt-1.5 flex items-center justify-between">
                <span className="text-[9px] font-bold text-gray-400 uppercase">Free Delivery</span>

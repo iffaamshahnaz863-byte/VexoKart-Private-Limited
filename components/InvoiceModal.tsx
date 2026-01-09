@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Order } from '../types';
 import { generateInvoicePDF } from '../utils/pdfGenerator.ts';
@@ -11,9 +12,18 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   
-  const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const gstAmount = Number((subtotal * 0.18).toFixed(2));
-  const finalTotal = Number((subtotal + gstAmount).toFixed(2));
+  const itemsTotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const discount = order.discount_amount || 0;
+  
+  // Logic: 
+  // Base Price -> (Items Total - Discount) = Taxable Value -> Taxable * 18% = GST -> Total
+  // To keep it simple and match the total stored:
+  // We assume the itemsTotal includes GST in the display price, but let's reverse calculate for the invoice format.
+  // The 'finalPayable' stored in DB is inclusive of GST.
+  
+  const finalTotal = order.total_amount;
+  const taxableValue = finalTotal / 1.18;
+  const gstAmount = finalTotal - taxableValue;
 
   const isCOD = order.payment_mode === 'Cash on Delivery';
   const paymentStatusText = isCOD ? 'Payment Pending (COD)' : 'Paid';
@@ -181,12 +191,21 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
                         <div className="w-full max-w-xs space-y-3">
                              <div className="flex justify-between text-xs">
                                 <span className="text-gray-400 font-black uppercase">Subtotal</span>
-                                <span className="font-bold">₹{subtotal.toLocaleString()}</span>
+                                <span className="font-bold">₹{itemsTotal.toLocaleString()}</span>
                              </div>
+                             
+                             {discount > 0 && (
+                                <div className="flex justify-between text-xs text-green-600">
+                                    <span className="font-black uppercase">UPI Discount</span>
+                                    <span className="font-bold">- ₹{discount.toLocaleString()}</span>
+                                </div>
+                             )}
+
                              <div className="flex justify-between text-xs">
-                                <span className="text-gray-400 font-black uppercase">GST (18%)</span>
+                                <span className="text-gray-400 font-black uppercase">GST (Included)</span>
                                 <span className="font-bold">₹{gstAmount.toLocaleString()}</span>
                              </div>
+                             
                              <div className="pt-3 border-t-2 border-gray-900 flex justify-between items-end">
                                 <span className="text-[10px] font-black uppercase text-gray-900 italic">Settlement Total</span>
                                 <span className="text-2xl font-black text-gray-900 italic tracking-tighter">₹{finalTotal.toLocaleString()}</span>

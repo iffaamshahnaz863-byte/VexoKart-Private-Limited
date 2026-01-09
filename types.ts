@@ -1,3 +1,4 @@
+
 export interface Review {
   id: number;
   product_id: number;
@@ -50,6 +51,10 @@ export interface Product {
   created_at: string;
   return_policy?: string;
   variants?: ProductVariant[];
+  
+  // Real UPI Discount Fields (Computed)
+  upi_price: number;
+  upi_discount: number;
 }
 
 export interface Category {
@@ -95,6 +100,7 @@ export interface Order {
     items: OrderItem[];
     total: number; 
     total_amount: number; 
+    discount_amount?: number; // UPI/Online Discount Applied
     payment_mode: 'Online Payment' | 'Cash on Delivery';
     payment_status: PaymentStatus;
     shipping_address: Address;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
@@ -21,36 +22,40 @@ const CheckoutPage: React.FC = () => {
   const { vendors, refreshVendors } = useVendors();
   const navigate = useNavigate();
 
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
 
-  /* 🟢 REVERTED SIMPLE LOGIC: TRUST THE PRODUCT FLAGS */
-  
+  /* 
+   * DYNAMIC BILLING LOGIC
+   * Recalculates total based on real product.upi_discount data 
+   * strictly when Online (UPI/Card) payment is selected.
+   */
+  const upiDiscountTotal = useMemo(() => {
+    return cartItems.reduce((acc, item) => acc + (item.upi_discount * item.quantity), 0);
+  }, [cartItems]);
+
+  const subtotal = paymentMethod === 'online' ? (cartTotal - upiDiscountTotal) : cartTotal;
+  const gstAmount = Number((subtotal * GST_RATE).toFixed(2));
+  const finalPayable = Number((subtotal + gstAmount).toFixed(2));
+  const discountApplied = paymentMethod === 'online' ? upiDiscountTotal : 0;
+
   const allowCodForCart = useMemo(() => {
-    // If ANY item explicitly disables COD, the whole cart is restricted.
-    // Otherwise (undefined or true), it is allowed.
     return !cartItems.some(item => item.is_cod_enabled === false);
   }, [cartItems]);
 
   const allowOnlineForCart = useMemo(() => {
-    // If ANY item explicitly disables Online, the whole cart is restricted.
-    // Otherwise, allowed.
     return !cartItems.some(item => item.is_online_enabled === false);
   }, [cartItems]);
 
   // Auto-switch payment method if current selection is invalid
   useEffect(() => {
     if (paymentMethod === 'cod' && !allowCodForCart) {
-      setPaymentMethod('card');
-    } else if (paymentMethod === 'card' && !allowOnlineForCart && allowCodForCart) {
+      setPaymentMethod('online');
+    } else if (paymentMethod === 'online' && !allowOnlineForCart && allowCodForCart) {
       setPaymentMethod('cod');
     }
   }, [allowCodForCart, allowOnlineForCart, paymentMethod]);
-
-  /* ✅ Precise Calculations */
-  const gstAmount = Number((cartTotal * GST_RATE).toFixed(2));
-  const finalPayable = Number((cartTotal + gstAmount).toFixed(2));
 
   useEffect(() => {
     if (user?.addresses?.length) {
@@ -100,9 +105,10 @@ const CheckoutPage: React.FC = () => {
 
         const orderIdString = await addOrder({
           items: orderItems,
-          subtotal: cartTotal,
+          subtotal: subtotal,
           gst_amount: gstAmount,
           total: finalPayable,
+          discount_amount: 0, // No discount on COD
           shippingAddress: selectedAddress,
           payment_method: 'Cash on Delivery',
         });
@@ -139,9 +145,10 @@ const CheckoutPage: React.FC = () => {
         handler: async (response: any) => {
           const orderIdString = await addOrder({
             items: orderItems,
-            subtotal: cartTotal,
+            subtotal: subtotal,
             gst_amount: gstAmount,
             total: finalPayable,
+            discount_amount: discountApplied, // Store the UPI discount in DB
             shippingAddress: selectedAddress,
             payment_method: 'Online Payment',
             payment_id: response.razorpay_payment_id
@@ -267,19 +274,19 @@ const CheckoutPage: React.FC = () => {
           )}
         </GlassmorphicCard>
 
-        {/* Payment Logic - Reverted to Simple Conditional Rendering */}
+        {/* Payment Logic */}
         <GlassmorphicCard className="p-6 bg-white border-none shadow-premium">
           <h2 className="text-[10px] font-black uppercase mb-4 text-text-muted tracking-[0.2em] italic">
             Settlement Method
           </h2>
 
           <div className="space-y-3">
-            {/* ONLINE PAYMENT */}
+            {/* ONLINE PAYMENT - SHOWS DISCOUNT */}
             {allowOnlineForCart ? (
                 <div
-                    onClick={() => setPaymentMethod('card')}
+                    onClick={() => setPaymentMethod('online')}
                     className={`p-5 rounded-2xl border-2 cursor-pointer flex items-center justify-between transition-all ${
-                        paymentMethod === 'card'
+                        paymentMethod === 'online'
                         ? 'border-accent bg-accent/5 shadow-sm'
                         : 'border-border hover:border-accent/20'
                     }`}
@@ -288,9 +295,14 @@ const CheckoutPage: React.FC = () => {
                         <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                         </div>
-                        <span className="font-black text-xs uppercase italic">Digital Pay (UPI/Cards)</span>
+                        <div>
+                            <span className="font-black text-xs uppercase italic block">UPI / Cards</span>
+                            {upiDiscountTotal > 0 && (
+                                <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 rounded uppercase tracking-tighter">Extra ₹{upiDiscountTotal} OFF</span>
+                            )}
+                        </div>
                     </div>
-                    {paymentMethod === 'card' && <div className="w-4 h-4 bg-accent rounded-full border-2 border-white shadow-sm"></div>}
+                    {paymentMethod === 'online' && <div className="w-4 h-4 bg-accent rounded-full border-2 border-white shadow-sm"></div>}
                 </div>
             ) : (
                 <div className="p-5 rounded-2xl border border-gray-100 bg-gray-50 flex items-center justify-between opacity-60">
@@ -298,7 +310,7 @@ const CheckoutPage: React.FC = () => {
                 </div>
             )}
 
-            {/* CASH ON DELIVERY */}
+            {/* CASH ON DELIVERY - NO DISCOUNT */}
             {allowCodForCart ? (
                 <div
                     onClick={() => setPaymentMethod('cod')}
@@ -338,6 +350,17 @@ const CheckoutPage: React.FC = () => {
               <span>Bag Subtotal</span>
               <span className="text-gray-900">₹{cartTotal.toLocaleString()}</span>
             </div>
+            
+            {discountApplied > 0 && (
+                <div className="flex justify-between font-black text-green-600 uppercase tracking-tight bg-green-50 px-2 py-1 rounded">
+                    <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        UPI / Online Savings
+                    </span>
+                    <span>- ₹{discountApplied.toLocaleString()}</span>
+                </div>
+            )}
+
             <div className="flex justify-between font-bold text-gray-500 uppercase">
               <span>Tax (GST 18%)</span>
               <span className="text-gray-900">₹{gstAmount.toLocaleString()}</span>
