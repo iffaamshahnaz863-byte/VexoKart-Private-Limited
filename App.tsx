@@ -18,6 +18,7 @@ import NotificationsPage from './pages/NotificationsPage.tsx';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
 import AboutUsPage from './pages/AboutUsPage.tsx';
 import ContactUsPage from './pages/ContactUsPage.tsx';
+import HelpPage from './pages/HelpPage.tsx'; // Import HelpPage
 import SafeShoppingPage from './pages/blog/SafeShoppingPage.tsx';
 import ProductQualityPage from './pages/blog/ProductQualityPage.tsx';
 import EcommerceIndiaPage from './pages/blog/EcommerceIndiaPage.tsx';
@@ -136,6 +137,7 @@ const AppContent: React.FC = () => {
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/contact-us" element={<ContactUsPage />} />
+          <Route path="/help" element={<HelpPage />} /> {/* New Route */}
           <Route path="/blog/safe-shopping" element={<SafeShoppingPage />} />
           <Route path="/blog/quality-guide" element={<ProductQualityPage />} />
           <Route path="/blog/ecommerce-india" element={<EcommerceIndiaPage />} />

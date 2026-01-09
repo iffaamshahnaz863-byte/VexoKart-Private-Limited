@@ -15,7 +15,7 @@ const Footer: React.FC = () => {
             </div>
             <h2 className="text-2xl font-black italic text-text-main tracking-tighter uppercase">Vexo<span className="text-accent">Kart</span></h2>
           </div>
-          <p className="text-sm text-text-secondary font-medium leading-relaxed max-w-xs uppercase tracking-tighter italic">Authorized multi-vendor marketplace dedicated to premium lifestyle products and smart consumer solutions across India.</p>
+          <p className="text-sm text-text-secondary font-medium leading-relaxed max-w-xs uppercase tracking-tighter italic">Vexo Kart Private Limited: India's authorized multi-vendor marketplace dedicated to premium quality and secure fulfillment.</p>
           <div className="flex gap-4">
              <div className="w-8 h-8 bg-white border border-border rounded-lg flex items-center justify-center text-gray-400 hover:text-accent cursor-pointer transition-colors shadow-sm">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg>
@@ -30,10 +30,10 @@ const Footer: React.FC = () => {
         <div className="space-y-6">
           <h3 className="text-xs font-black uppercase tracking-[0.2em] text-text-main italic border-b border-border pb-2">Transparency Hub</h3>
           <ul className="space-y-3">
-            <li><Link to="/about-us" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Who We Are</Link></li>
-            <li><Link to="/contact-us" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Reach Us</Link></li>
-            <li><Link to="/privacy-policy" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Data Protocol</Link></li>
-            <li><Link to="/about-us" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Brand Mission</Link></li>
+            <li><Link to="/about-us" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Our Story</Link></li>
+            <li><Link to="/contact-us" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Contact Support</Link></li>
+            <li><Link to="/help" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Help Center (FAQ)</Link></li>
+            <li><Link to="/privacy-policy" className="text-xs font-bold text-text-secondary hover:text-accent uppercase tracking-tighter transition-colors">Privacy Policy</Link></li>
           </ul>
         </div>
 
@@ -52,12 +52,12 @@ const Footer: React.FC = () => {
         <div className="space-y-6">
            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-text-main italic border-b border-border pb-2">Verified Trust</h3>
            <div className="flex flex-wrap gap-2 mb-4">
-              <div className="bg-white px-3 py-1.5 border border-border rounded-lg text-[8px] font-black text-text-main shadow-sm uppercase italic">Authorized Node</div>
-              <div className="bg-white px-3 py-1.5 border border-border rounded-lg text-[8px] font-black text-text-main shadow-sm uppercase italic">Secure SSL</div>
-              <div className="bg-white px-3 py-1.5 border border-border rounded-lg text-[8px] font-black text-text-main shadow-sm uppercase italic">AdSense Approved</div>
+              <div className="bg-white px-3 py-1.5 border border-border rounded-lg text-[8px] font-black text-text-main shadow-sm uppercase italic">Registered Entity</div>
+              <div className="bg-white px-3 py-1.5 border border-border rounded-lg text-[8px] font-black text-text-main shadow-sm uppercase italic">SSL Secured</div>
+              <div className="bg-white px-3 py-1.5 border border-border rounded-lg text-[8px] font-black text-text-main shadow-sm uppercase italic">AdSense Partner</div>
            </div>
-           <p className="text-[10px] text-text-muted font-bold tracking-tight leading-relaxed italic">VexoKart Marketplace utilizes Google AdSense and third-party advertising partners to maintain high-quality service free-access.</p>
-           <p className="text-[9px] text-text-muted font-black tracking-widest mt-4">© 2024 VexoKart Fulfillment Protocol. All Rights Reserved.</p>
+           <p className="text-[10px] text-text-muted font-bold tracking-tight leading-relaxed italic">This site uses cookies for analytics and personalized content (Google AdSense). By using this site, you agree to our Privacy Policy.</p>
+           <p className="text-[9px] text-text-muted font-black tracking-widest mt-4">© 2024 Vexo Kart Private Limited. All Rights Reserved.</p>
         </div>
       </div>
     </footer>
