@@ -48,7 +48,6 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
     return new Promise<void>((resolve, reject) => {
       if (!navigator.geolocation) {
         const msg = 'Geolocation is not supported by your browser';
-        console.error(msg);
         alert(msg);
         reject(new Error(msg));
         return;
@@ -80,7 +79,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
           let errorMessage = "Location check failed.";
           switch(error.code) {
               case error.PERMISSION_DENIED:
-                  errorMessage = "Location permission denied. Please enable it in settings.";
+                  errorMessage = "Location permission denied. Please enter manually.";
                   break;
               case error.POSITION_UNAVAILABLE:
                   errorMessage = "Location information is unavailable.";
@@ -91,7 +90,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
               default:
                   errorMessage = error.message || "Unknown location error";
           }
-          console.error("Location Error:", errorMessage);
+          // Removed console.error to prevent clutter
           setHasPermission(false);
           reject(new Error(errorMessage));
         }

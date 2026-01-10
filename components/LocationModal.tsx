@@ -22,8 +22,14 @@ const LocationModal: React.FC<LocationModalProps> = ({ onClose, onSuccess }) => 
         await requestLocation();
         onSuccess();
     } catch (e: any) {
-        // Display the specific error message from the context
-        setError(e.message || 'Could not fetch location. Please try manually.');
+        const msg = e.message || 'Could not fetch location.';
+        setError(msg);
+        // If permission is denied, automatically fallback to manual entry UX
+        if (msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('unavailable')) {
+            setTimeout(() => {
+                setView('manual');
+            }, 1000);
+        }
     } finally {
         setIsLoading(false);
     }
@@ -57,7 +63,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ onClose, onSuccess }) => 
                 To ensure 10-minute delivery, we need to check if "Daily Needs" is available in your area.
             </p>
 
-            {error && <p className="text-red-500 text-xs font-bold mb-4 bg-red-50 px-3 py-1 rounded-lg">{error}</p>}
+            {error && <p className="text-red-500 text-xs font-bold mb-4 bg-red-50 px-3 py-1.5 rounded-lg animate-pulse">{error}</p>}
 
             {view === 'prompt' ? (
                 <div className="w-full space-y-3">
@@ -83,7 +89,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ onClose, onSuccess }) => 
                     </button>
                 </div>
             ) : (
-                <form onSubmit={handleManual} className="w-full space-y-4">
+                <form onSubmit={handleManual} className="w-full space-y-4 animate-in slide-in-from-bottom-2">
                     <div>
                         <input 
                             type="tel" 
@@ -103,7 +109,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ onClose, onSuccess }) => 
                     </button>
                     <button 
                         type="button"
-                        onClick={() => setView('prompt')}
+                        onClick={() => { setView('prompt'); setError(''); }}
                         className="text-gray-400 text-[10px] font-bold uppercase tracking-widest hover:text-gray-600"
                     >
                         Back
