@@ -27,7 +27,10 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const activePincodes = serviceAreas.filter(a => a.is_active).map(a => a.pincode);
+  // Normalize pincodes to strings for strict comparison
+  const activePincodes = serviceAreas
+    .filter(a => a.is_active)
+    .map(a => String(a.pincode).trim());
 
   const refreshServiceAreas = async () => {
     setIsLoading(true);

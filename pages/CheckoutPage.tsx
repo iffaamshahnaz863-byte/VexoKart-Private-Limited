@@ -5,6 +5,7 @@ import { useCart } from '../hooks/useCart';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useVendors } from '../context/VendorContext';
+import { useServiceAreas } from '../context/ServiceAreaContext';
 import GlassmorphicCard from '../components/GlassmorphicCard';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { Address, OrderItem } from '../types';
@@ -20,6 +21,7 @@ const CheckoutPage: React.FC = () => {
   const { user } = useAuth();
   const { addOrder } = useOrders();
   const { vendors, refreshVendors } = useVendors();
+  const { activePincodes } = useServiceAreas(); // Import service areas for validation
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
@@ -40,11 +42,14 @@ const CheckoutPage: React.FC = () => {
   const finalPayable = Number((subtotal + gstAmount).toFixed(2));
   const discountApplied = paymentMethod === 'online' ? upiDiscountTotal : 0;
 
+  // Determine allowed payment methods based on cart contents
   const allowCodForCart = useMemo(() => {
+    // True if NO item explicitly disables COD. Default to true if flag is missing.
     return !cartItems.some(item => item.is_cod_enabled === false);
   }, [cartItems]);
 
   const allowOnlineForCart = useMemo(() => {
+    // True if NO item explicitly disables Online. Default to true if flag is missing.
     return !cartItems.some(item => item.is_online_enabled === false);
   }, [cartItems]);
 
@@ -76,6 +81,19 @@ const CheckoutPage: React.FC = () => {
       alert('Invalid order amount');
       return;
     }
+
+    // --- DAILY NEEDS SERVICEABILITY CHECK ---
+    const dailyNeedsItems = cartItems.filter(i => i.product_type === 'daily_needs');
+    if (dailyNeedsItems.length > 0) {
+        const deliveryPincode = String(selectedAddress.zip).trim();
+        // Check strict match against active admin-enabled areas
+        const isAllowed = activePincodes.includes(deliveryPincode);
+        if (!isAllowed) {
+            alert(`Unserviceable Area: We cannot deliver Daily Needs items to pincode ${deliveryPincode}. Please change address or remove these items.`);
+            return;
+        }
+    }
+    // ----------------------------------------
 
     setIsProcessing(true);
 
@@ -127,6 +145,12 @@ const CheckoutPage: React.FC = () => {
       }
 
       /* 🟢 ONLINE PAYMENT FLOW */
+      if (!allowOnlineForCart) {
+          alert("Online Payment is not available for one or more items in your cart.");
+          setIsProcessing(false);
+          return;
+      }
+
       if (!(window as any).Razorpay) {
         alert('Payment gateway not loaded. Please check your connection.');
         setIsProcessing(false);
@@ -281,7 +305,7 @@ const CheckoutPage: React.FC = () => {
           </h2>
 
           <div className="space-y-3">
-            {/* ONLINE PAYMENT - SHOWS DISCOUNT */}
+            {/* ONLINE PAYMENT */}
             {allowOnlineForCart ? (
                 <div
                     onClick={() => setPaymentMethod('online')}
@@ -310,7 +334,7 @@ const CheckoutPage: React.FC = () => {
                 </div>
             )}
 
-            {/* CASH ON DELIVERY - NO DISCOUNT */}
+            {/* CASH ON DELIVERY */}
             {allowCodForCart ? (
                 <div
                     onClick={() => setPaymentMethod('cod')}
@@ -331,10 +355,10 @@ const CheckoutPage: React.FC = () => {
             ) : (
                 <div className="p-5 rounded-2xl border border-red-50 bg-red-50/30 flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                         <span className="font-black text-[10px] text-red-500 uppercase italic">COD Restricted for items</span>
+                         <span className="font-black text-[10px] text-red-500 uppercase italic">COD Restricted</span>
                          <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     </div>
-                    <p className="text-[8px] text-red-400 font-bold uppercase tracking-widest italic leading-tight">Vendor has disabled COD for this product manifest.</p>
+                    <p className="text-[8px] text-red-400 font-bold uppercase tracking-widest italic leading-tight">Vendor has disabled COD for this product.</p>
                 </div>
             )}
           </div>
@@ -381,11 +405,13 @@ const CheckoutPage: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 z-50 shadow-[0_-4px_30px_rgba(0,0,0,0.08)]">
         <button
           onClick={handlePlaceOrder}
-          disabled={isProcessing || !selectedAddress}
+          disabled={isProcessing || !selectedAddress || (!allowCodForCart && !allowOnlineForCart)}
           className="w-full bg-accent text-white py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:bg-gray-400 disabled:shadow-none"
         >
           {isProcessing
             ? 'Initializing Secure Session...'
+            : (!allowCodForCart && !allowOnlineForCart)
+            ? 'No Payment Methods Available'
             : paymentMethod === 'cod'
             ? `Confirm Order — ₹${finalPayable}`
             : `Secure Pay ₹${finalPayable}`}

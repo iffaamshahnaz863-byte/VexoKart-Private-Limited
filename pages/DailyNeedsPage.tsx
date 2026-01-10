@@ -35,7 +35,7 @@ const DailyNeedsPage: React.FC = () => {
   // Categories
   const categories = ['All', 'Vegetables', 'Fruits', 'Dairy', 'Bakery', 'Beverages'];
 
-  // FILTER LOGIC: Show ONLY 'daily_needs' products here
+  // FILTER LOGIC: Strict check for 'daily_needs'
   const filteredProducts = products.filter(p => {
       const isDailyNeeds = p.product_type === 'daily_needs';
       const isLive = p.status === 'approved' || p.status === 'live';
