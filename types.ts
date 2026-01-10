@@ -56,6 +56,20 @@ export interface Product {
   // Real UPI Discount Fields (Computed)
   upi_price: number;
   upi_discount: number;
+
+  // Daily Needs Specific
+  service_pincodes?: string[]; // List of pincodes this product is available in
+}
+
+export interface ServiceArea {
+  id: number;
+  country: string;
+  state: string;
+  city: string;
+  area_name: string;
+  pincode: string;
+  is_active: boolean;
+  created_at?: string;
 }
 
 export interface Category {

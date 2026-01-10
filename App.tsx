@@ -42,6 +42,7 @@ import { BannerProvider } from './context/BannerContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
 import { ReviewProvider } from './context/ReviewContext.tsx';
 import { LocationProvider } from './context/LocationContext.tsx'; // NEW
+import { ServiceAreaProvider } from './context/ServiceAreaContext.tsx'; // NEW
 import VendorSignupPage from './pages/VendorSignupPage.tsx';
 import AdminLayout from './pages/admin/AdminLayout.tsx';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage.tsx';
@@ -58,6 +59,7 @@ import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage.tsx';
 import AdminPayoutsPage from './pages/admin/AdminPayoutsPage.tsx';
 import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage.tsx';
+import AdminServiceAreasPage from './pages/admin/AdminServiceAreasPage.tsx';
 import VendorLayout from './pages/vendor/VendorLayout.tsx';
 import VendorDashboardPage from './pages/vendor/VendorDashboardPage.tsx';
 import VendorProductsPage from './pages/vendor/VendorProductsPage.tsx';
@@ -177,6 +179,7 @@ const AppContent: React.FC = () => {
             <Route path="vendors" element={<AdminVendorsPage />} />
             <Route path="codes" element={<AdminCodesPage />} />
             <Route path="notifications" element={<AdminNotificationsPage />} />
+            <Route path="service-areas" element={<AdminServiceAreasPage />} />
           </Route>
            <Route path="/vendor" element={<VendorRoute />}>
             <Route index element={<VendorDashboardPage />} />
@@ -203,25 +206,27 @@ const App: React.FC = () => {
       <VendorProvider>
         <NotificationProvider>
           <AuthProvider>
-            <ProductProvider>
-              <ReviewProvider>
-                <CategoryProvider>
-                  <BannerProvider>
-                    <CartProvider>
-                      <OrderProvider>
-                        <RecentlyViewedProvider>
-                          <LocationProvider>
-                            <HashRouter>
-                              <AppContent />
-                            </HashRouter>
-                          </LocationProvider>
-                        </RecentlyViewedProvider>
-                      </OrderProvider>
-                    </CartProvider>
-                  </BannerProvider>
-                </CategoryProvider>
-              </ReviewProvider>
-            </ProductProvider>
+            <ServiceAreaProvider>
+              <ProductProvider>
+                <ReviewProvider>
+                  <CategoryProvider>
+                    <BannerProvider>
+                      <CartProvider>
+                        <OrderProvider>
+                          <RecentlyViewedProvider>
+                            <LocationProvider>
+                              <HashRouter>
+                                <AppContent />
+                              </HashRouter>
+                            </LocationProvider>
+                          </RecentlyViewedProvider>
+                        </OrderProvider>
+                      </CartProvider>
+                    </BannerProvider>
+                  </CategoryProvider>
+                </ReviewProvider>
+              </ProductProvider>
+            </ServiceAreaProvider>
           </AuthProvider>
         </NotificationProvider>
       </VendorProvider>

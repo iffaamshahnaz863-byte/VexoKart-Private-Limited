@@ -5,6 +5,7 @@ import { useProducts } from '../../hooks/useProducts';
 import { useCategories } from '../../hooks/useCategories';
 import { Product, ProductVariant } from '../../types';
 import { useVendors } from '../../context/VendorContext';
+import { useServiceAreas } from '../../context/ServiceAreaContext';
 import Toast from '../../components/Toast';
 import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 import ImageCropperModal from '../../components/ImageCropperModal';
@@ -15,6 +16,7 @@ const VendorProductFormPage: React.FC = () => {
   const { getProduct, addProduct, updateProduct } = useProducts();
   const { categories } = useCategories();
   const { currentVendor } = useVendors();
+  const { serviceAreas } = useServiceAreas(); // Get Admin Approved Areas
 
   const isEditing = id !== undefined;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,7 +36,8 @@ const VendorProductFormPage: React.FC = () => {
     product_type: 'normal', // Default to Normal Ecommerce
     is_cod_enabled: true,
     is_online_enabled: true,
-    variants: [] as ProductVariant[]
+    variants: [] as ProductVariant[],
+    service_pincodes: [] as string[]
   });
 
   const [enableSize, setEnableSize] = useState(false);
@@ -46,6 +49,8 @@ const VendorProductFormPage: React.FC = () => {
   const [cropQueue, setCropQueue] = useState<string[]>([]);
   const [currentCropIndex, setCurrentCropIndex] = useState(0);
   const [isAddingToVariant, setIsAddingToVariant] = useState(false);
+
+  const activeServiceAreas = serviceAreas.filter(a => a.is_active);
 
   const inputClasses = "w-full mt-1 bg-surface text-text-main border border-border rounded-2xl p-4 transition focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 disabled:opacity-50 text-sm font-medium";
 
@@ -62,7 +67,8 @@ const VendorProductFormPage: React.FC = () => {
             product_type: p.product_type || 'normal',
             // HYDRATE STRICTLY FROM SOURCE
             is_cod_enabled: p.is_cod_enabled === true,
-            is_online_enabled: p.is_online_enabled === true
+            is_online_enabled: p.is_online_enabled === true,
+            service_pincodes: p.service_pincodes || []
         });
         setHighlightsText((p.highlights || []).join('\n'));
         setEnableSize(p.variants?.some(v => v.type === 'size') || false);
@@ -91,6 +97,18 @@ const VendorProductFormPage: React.FC = () => {
   const togglePayment = (name: 'is_cod_enabled' | 'is_online_enabled') => {
     setFormData((prev: any) => ({ ...prev, [name]: !prev[name] }));
   };
+
+  const toggleServicePincode = (pincode: string) => {
+      const current = formData.service_pincodes || [];
+      const updated = current.includes(pincode) 
+        ? current.filter((p: string) => p !== pincode)
+        : [...current, pincode];
+      setFormData((prev: any) => ({ ...prev, service_pincodes: updated }));
+  };
+
+  const selectAllServiceAreas = () => {
+      setFormData((prev: any) => ({ ...prev, service_pincodes: activeServiceAreas.map(a => a.pincode) }));
+  }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, forVariant = false) => {
     if (e.target.files) {
@@ -142,6 +160,12 @@ const VendorProductFormPage: React.FC = () => {
     if (!currentVendor) { alert("Session mismatch. Please relogin."); return; }
     if (formData.images.length === 0) { alert("Add at least one product image."); return; }
     
+    // Daily Needs Validation
+    if (formData.product_type === 'daily_needs' && (!formData.service_pincodes || formData.service_pincodes.length === 0)) {
+        alert("Daily Needs products must have at least one approved service area selected.");
+        return;
+    }
+
     if (!formData.is_cod_enabled && !formData.is_online_enabled) { 
         if(!confirm("You have disabled BOTH payment methods. Customers will not be able to checkout. Continue?")) return;
     }
@@ -168,7 +192,9 @@ const VendorProductFormPage: React.FC = () => {
             is_cod_enabled: formData.is_cod_enabled === true,
             is_online_enabled: formData.is_online_enabled === true,
             // Explicitly set the vertical from the form
-            product_type: formData.product_type 
+            product_type: formData.product_type,
+            // Only save pincodes if Daily Needs
+            service_pincodes: formData.product_type === 'daily_needs' ? formData.service_pincodes : []
         };
 
         if (isEditing) {
@@ -232,8 +258,33 @@ const VendorProductFormPage: React.FC = () => {
                 </button>
             </div>
             {formData.product_type === 'daily_needs' && (
-                <div className="bg-[#E7F7F0] p-4 rounded-2xl border border-[#C2EAD5] text-[#00B259] text-xs font-medium">
-                    Note: Daily Needs products require valid location mapping. Ensure your warehouse is set up for 10-min delivery.
+                <div className="bg-[#E7F7F0] p-4 rounded-2xl border border-[#C2EAD5]">
+                    <div className="flex justify-between items-center mb-3">
+                        <p className="text-[#00B259] text-xs font-bold uppercase tracking-widest">Select Admin-Approved Service Areas</p>
+                        <button type="button" onClick={selectAllServiceAreas} className="text-[#00B259] text-[9px] font-black underline uppercase">Select All</button>
+                    </div>
+                    {activeServiceAreas.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                            {activeServiceAreas.map(area => {
+                                const isSelected = (formData.service_pincodes || []).includes(area.pincode);
+                                return (
+                                    <div 
+                                        key={area.id}
+                                        onClick={() => toggleServicePincode(area.pincode)}
+                                        className={`p-3 rounded-xl border cursor-pointer transition-all ${isSelected ? 'bg-[#00B259] border-[#00B259] text-white shadow-md' : 'bg-white border-green-200 text-gray-500 hover:bg-green-50'}`}
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-black">{area.pincode}</span>
+                                            {isSelected && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                        </div>
+                                        <p className={`text-[9px] font-bold uppercase truncate ${isSelected ? 'text-green-100' : 'text-gray-400'}`}>{area.area_name}, {area.city}</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p className="text-red-500 text-xs font-bold italic">No active service areas found. Contact Admin.</p>
+                    )}
                 </div>
             )}
         </div>

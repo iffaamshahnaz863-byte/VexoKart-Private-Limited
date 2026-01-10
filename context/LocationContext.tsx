@@ -1,5 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { useServiceAreas } from './ServiceAreaContext';
 
 interface LocationContextType {
   hasPermission: boolean;
@@ -14,10 +15,8 @@ interface LocationContextType {
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
-// Mock Serviceable Pincodes (Simulating Backend Logic)
-const SERVICEABLE_PREFIXES = ['11', '12', '40', '56']; // Delhi, Gurgaon, Mumbai, Bangalore prefixes
-
 export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { activePincodes, isLoading: isAreasLoading } = useServiceAreas();
   const [hasPermission, setHasPermission] = useState(false);
   const [isServiceable, setIsServiceable] = useState(false);
   const [currentPincode, setCurrentPincode] = useState<string | null>(null);
@@ -27,16 +26,35 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     const saved = sessionStorage.getItem('vxk_daily_location');
     if (saved) {
-        const { pincode, area, serviceable } = JSON.parse(saved);
-        setCurrentPincode(pincode);
-        setAddressArea(area);
-        setIsServiceable(serviceable);
-        setHasPermission(true);
+        const { pincode, area } = JSON.parse(saved);
+        if (pincode) {
+            setCurrentPincode(pincode);
+            setAddressArea(area);
+            setHasPermission(true);
+        }
     }
   }, []);
 
+  // Re-validate when active pincodes change or user pincode changes
+  useEffect(() => {
+    if (currentPincode && activePincodes.length > 0) {
+        const isValid = validatePincode(currentPincode);
+        setIsServiceable(isValid);
+        // Update session storage with new valid status
+        const saved = sessionStorage.getItem('vxk_daily_location');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            sessionStorage.setItem('vxk_daily_location', JSON.stringify({ ...parsed, serviceable: isValid }));
+        }
+    } else if (isAreasLoading) {
+        // Assume serviceable while loading if we have a pincode, to prevent flash
+        if(currentPincode) setIsServiceable(true); 
+    }
+  }, [currentPincode, activePincodes, isAreasLoading]);
+
   const validatePincode = (pincode: string) => {
-    return SERVICEABLE_PREFIXES.some(prefix => pincode.startsWith(prefix));
+    if (activePincodes.length === 0) return false; // Fail safe
+    return activePincodes.includes(pincode);
   };
 
   const checkLocationPermission = async (): Promise<boolean> => {
@@ -55,22 +73,20 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          // In a real app, Reverse Geocode lat/lng here using Google Maps API
-          // MOCKING SUCCESS for Demo
-          const mockPincode = '122001'; 
-          const mockArea = 'DLF Phase 4, Gurgaon';
-          
-          const serviceable = validatePincode(mockPincode);
+          // MOCKING SUCCESS for Demo - In real app, reverse geocode lat/lng
+          // For demo purposes, we will pick the first active pincode if available, or a default
+          const mockPincode = activePincodes.length > 0 ? activePincodes[0] : '122001'; 
+          const mockArea = 'Detected GPS Location';
           
           setHasPermission(true);
           setCurrentPincode(mockPincode);
           setAddressArea(mockArea);
-          setIsServiceable(serviceable);
+          // Validation happens in useEffect
           
           sessionStorage.setItem('vxk_daily_location', JSON.stringify({
               pincode: mockPincode,
               area: mockArea,
-              serviceable
+              serviceable: true // Optimistic
           }));
           
           resolve();
@@ -90,7 +106,6 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
               default:
                   errorMessage = error.message || "Unknown location error";
           }
-          // Removed console.error to prevent clutter
           setHasPermission(false);
           reject(new Error(errorMessage));
         }
@@ -99,16 +114,15 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const setManualLocation = (pincode: string, area: string) => {
-      const serviceable = validatePincode(pincode);
       setHasPermission(true);
       setCurrentPincode(pincode);
       setAddressArea(area);
-      setIsServiceable(serviceable);
+      // Validation happens in useEffect
       
       sessionStorage.setItem('vxk_daily_location', JSON.stringify({
           pincode,
           area,
-          serviceable
+          serviceable: false // Wait for effect
       }));
   };
 
