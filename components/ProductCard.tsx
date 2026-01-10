@@ -30,12 +30,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const mrp = Number(product.original_price || sellingPrice);
   const discount = Math.round(((mrp - sellingPrice) / mrp) * 100);
   
-  // Real UPI logic sourced from ProductContext
   const upiPrice = product.upi_price;
   const upiSavings = product.upi_discount;
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/f6f6f6/A0A0A0?text=VexoKart';
+    (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/FFFFFF/A0A0A0?text=VexoKart';
   };
 
   return (
@@ -43,14 +42,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <Toast message="Added to Cart" isVisible={showAddedToast} onClose={() => setShowAddedToast(false)} />
       <div className="bg-white overflow-hidden border border-gray-100 group relative flex flex-col h-full active:scale-[0.98] transition-all rounded-xl shadow-sm hover:shadow-md">
         <Link to={`/product/${product.id}`} className="flex-grow flex flex-col">
-          {/* Meesho Style: Fixed 1:1 Aspect Ratio Image Wrapper */}
-          <div className="relative w-full aspect-square bg-[#f6f6f6] overflow-hidden rounded-t-xl flex items-center justify-center">
+          {/* Changed object-cover to object-contain with white background to prevent stretching */}
+          <div className="relative w-full aspect-square bg-white overflow-hidden rounded-t-xl flex items-center justify-center p-2">
             <img
-              src={product.images[0] || 'https://placehold.co/400x400/f6f6f6/A0A0A0?text=VexoKart'}
+              src={product.images[0] || 'https://placehold.co/400x400/FFFFFF/A0A0A0?text=VexoKart'}
               alt={product.name}
               loading="lazy"
               onError={handleImageError}
-              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
+              className="w-full h-full object-contain object-center group-hover:scale-105 transition-transform duration-500 ease-out"
             />
             
             <button 
@@ -82,7 +81,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 )}
             </div>
 
-            {/* Dynamic UPI Price Feature */}
             {upiSavings > 0 && (
               <div className="mt-1 flex items-center gap-1">
                  <div className="bg-[#E7F7F0] text-[#34BE82] text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#C2EAD5]">

@@ -1,6 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import HomePage from './pages/HomePage.tsx';
+import LandingPage from './pages/LandingPage.tsx'; // New Landing Page
+import DailyNeedsPage from './pages/DailyNeedsPage.tsx'; // New Daily Needs Page
 import ProductsPage from './pages/ProductsPage.tsx';
 import ProductDetailPage from './pages/ProductDetailPage.tsx';
 import CartPage from './pages/CartPage.tsx';
@@ -18,7 +21,7 @@ import NotificationsPage from './pages/NotificationsPage.tsx';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
 import AboutUsPage from './pages/AboutUsPage.tsx';
 import ContactUsPage from './pages/ContactUsPage.tsx';
-import HelpPage from './pages/HelpPage.tsx'; // Import HelpPage
+import HelpPage from './pages/HelpPage.tsx';
 import SafeShoppingPage from './pages/blog/SafeShoppingPage.tsx';
 import ProductQualityPage from './pages/blog/ProductQualityPage.tsx';
 import EcommerceIndiaPage from './pages/blog/EcommerceIndiaPage.tsx';
@@ -117,8 +120,9 @@ const AppContent: React.FC = () => {
   const isVendorPage = location.pathname.startsWith('/vendor');
   const isLogisticsPage = location.pathname.startsWith('/scan');
   
-  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout', '/order-success'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
-  const showFooter = !isInitializing && !isAdminPage && !isVendorPage && !isLogisticsPage && !isAuthPage;
+  // Update BottomNav visibility: Hide on Landing Page ('/') and Daily Needs ('/daily') as they have their own flows
+  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout', '/order-success', '/', '/daily'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/product/');
+  const showFooter = !isInitializing && !isAdminPage && !isVendorPage && !isLogisticsPage && !isAuthPage && !['/', '/daily'].includes(location.pathname);
 
   if (isInitializing) {
     return <SplashScreen onFinish={() => setIsInitializing(false)} />;
@@ -128,7 +132,9 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-background text-text-secondary font-sans animate-in fade-in duration-700 flex flex-col">
       <main className={`flex-grow ${showBottomNav ? "pb-20" : ""}`}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<LandingPage />} /> {/* New Entry Point */}
+          <Route path="/home" element={<HomePage />} /> {/* Moved original Home */}
+          <Route path="/daily" element={<DailyNeedsPage />} /> {/* New Flow */}
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
@@ -137,7 +143,7 @@ const AppContent: React.FC = () => {
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/contact-us" element={<ContactUsPage />} />
-          <Route path="/help" element={<HelpPage />} /> {/* New Route */}
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/blog/safe-shopping" element={<SafeShoppingPage />} />
           <Route path="/blog/quality-guide" element={<ProductQualityPage />} />
           <Route path="/blog/ecommerce-india" element={<EcommerceIndiaPage />} />

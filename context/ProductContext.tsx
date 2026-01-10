@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { Product, Review, Category } from '../types';
+import { Product } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
 
 interface ProductContextType {
@@ -42,12 +42,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (Array.isArray(data)) {
         const mappedProducts: Product[] = data.map((item: any) => {
-          // Schema Adaptation:
-          // We calculate the UPI discount here to ensure consistency across the entire app.
-          // Rule: 5% Discount, Max ₹100 per item.
           const basePrice = Number(item.price || 0);
-          const calculatedDiscount = Math.min(Math.floor(basePrice * 0.05), 100);
-          const upiDiscount = calculatedDiscount > 0 ? calculatedDiscount : 0;
+          
+          // Use 'upi_discount_amount' from DB if exists, else calculate default
+          const upiDiscount = item.upi_discount_amount 
+            ? Number(item.upi_discount_amount) 
+            : Math.min(Math.floor(basePrice * 0.05), 100);
           
           return {
             ...item,
@@ -59,18 +59,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             vendor_id: String(item.vendor_id),
             status: item.status || 'approved',
             
-            // Computed Fields
+            // Map Database 'allow_cod' / 'allow_online' to UI flags 'is_cod_enabled' / 'is_online_enabled'
+            is_cod_enabled: item.allow_cod !== false, // Default true if null/undefined
+            is_online_enabled: item.allow_online !== false, // Default true if null/undefined
+            
+            product_type: item.product_type || 'simple',
+            
             upi_discount: upiDiscount,
             upi_price: basePrice - upiDiscount,
 
-            // Defaults since persistence is unavailable
-            product_type: 'simple',
-            is_cod_enabled: true, 
-            is_online_enabled: true,
-            
-            variants: [], // Column missing in DB
+            variants: item.variants || [], 
             highlights: item.highlights || [],
-            specifications: {} 
+            specifications: item.specifications || {} 
           };
         });
         setProducts(mappedProducts);
@@ -89,43 +89,37 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getProduct = (id: number) => products.find(p => p.id === id);
 
   const addProduct = async (productData: any) => {
-    // Extract UI flags & Virtual fields to exclude from payload
+    // Separate UI flags from DB payload
     const { 
       is_cod_enabled,
       is_online_enabled,
       payment_modes, 
       cash_on_delivery,
-      product_type,
       category, 
       category_data, 
-      specifications,
-      variants,
       upi_price,
       upi_discount,
       ...payloadData 
     } = productData;
     
-    // NOTE: We cannot save extended config because columns do not exist in the schema.
-    
     const finalPayload = {
       ...payloadData,
-      
       vendor_id: Number(productData.vendor_id),
       category_id: Number(productData.category_id),
       images: Array.isArray(productData.images) ? productData.images : [],
       created_at: new Date().toISOString(),
-      status: productData.status || 'approved'
+      status: productData.status || 'approved',
+      
+      // Save flags to correct DB columns
+      allow_cod: is_cod_enabled,
+      allow_online: is_online_enabled,
+      product_type: productData.product_type || 'simple'
     };
 
-    // Strict Cleanup: Ensure no invalid columns are sent
-    delete (finalPayload as any).id; // Auto-generated
-    delete (finalPayload as any).payment_modes;
-    delete (finalPayload as any).cash_on_delivery;
+    // Cleanup extra virtual fields
+    delete (finalPayload as any).id;
     delete (finalPayload as any).category;
     delete (finalPayload as any).category_data;
-    delete (finalPayload as any).product_type;
-    delete (finalPayload as any).specifications;
-    delete (finalPayload as any).variants; // Remove variants column payload
     delete (finalPayload as any).upi_price;
     delete (finalPayload as any).upi_discount;
 
@@ -149,17 +143,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProduct = async (product: Product) => {
-    // Extract UI flags & Virtual fields to exclude from payload
     const { 
       is_cod_enabled,
       is_online_enabled,
       payment_modes,
       cash_on_delivery,
-      product_type,
       category, 
       category_data, 
-      specifications,
-      variants,
       upi_price,
       upi_discount,
       ...payloadData 
@@ -167,23 +157,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const finalPayload = {
       ...payloadData,
-      
       vendor_id: Number(payloadData.vendor_id),
-      category_id: Number(payloadData.category_id)
+      category_id: Number(payloadData.category_id),
+      
+      // Map UI flags back to DB columns
+      allow_cod: is_cod_enabled,
+      allow_online: is_online_enabled
     };
 
-    // Strict Cleanup
-    delete (finalPayload as any).id; // Cannot update identity column
-    delete (finalPayload as any).created_at; // Should not update creation timestamp
-    delete (finalPayload as any).payment_modes;
-    delete (finalPayload as any).cash_on_delivery;
-    delete (finalPayload as any).is_cod_enabled;
-    delete (finalPayload as any).is_online_enabled;
+    delete (finalPayload as any).id;
+    delete (finalPayload as any).created_at;
     delete (finalPayload as any).category;
     delete (finalPayload as any).category_data;
-    delete (finalPayload as any).product_type;
-    delete (finalPayload as any).specifications;
-    delete (finalPayload as any).variants; // Remove variants column payload
     delete (finalPayload as any).upi_price;
     delete (finalPayload as any).upi_discount;
 

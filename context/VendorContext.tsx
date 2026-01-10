@@ -20,7 +20,7 @@ interface VendorContextType {
 
 export const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
-// Removed 'wallet_balance' and 'pending_balance' as columns do not exist in DB
+// FIXED: Removed 'rejection_reason', 'wallet_balance', 'store_address', 'pending_balance' to match DB schema
 const VENDOR_COLUMNS = 'id,user_id,store_name,status,owner_name,email,phone,profile_image';
 
 export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -56,7 +56,6 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const fetchCurrentVendor = async (userId: string, force = false) => {
     if (!userId) return;
     
-    // Always show loading state if we don't have data, or if forced
     if (!currentVendor || force) {
         setIsVendorLoading(true);
     }
@@ -74,7 +73,6 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       if (Array.isArray(data) && data.length > 0) {
         const profile = data[0];
-        // Only update state if there's a difference to prevent unnecessary re-renders
         if (JSON.stringify(profile) !== JSON.stringify(currentVendor)) {
             setCurrentVendor(profile);
             sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(profile));
@@ -92,10 +90,8 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // Realtime-ish Polling for Status Updates
   useEffect(() => {
     let intervalId: any;
-
     if (currentVendor) {
         const pollStatus = async () => {
             try {
@@ -107,7 +103,6 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     if (Array.isArray(data) && data.length > 0) {
                         const fresh = data[0];
                         if (JSON.stringify(fresh) !== JSON.stringify(currentVendor)) {
-                            console.debug("[VendorSync] Cloud update received");
                             setCurrentVendor(fresh);
                             sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(fresh));
                         }
@@ -117,15 +112,10 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 // Silent failure on poll
             }
         };
-
-        // Poll more frequently if pending (to catch approval fast), less if approved
         const interval = currentVendor.status === 'pending' ? 4000 : 15000;
         intervalId = setInterval(pollStatus, interval);
     }
-
-    return () => {
-        if (intervalId) clearInterval(intervalId);
-    };
+    return () => { if (intervalId) clearInterval(intervalId); };
   }, [currentVendor]);
 
   useEffect(() => {
@@ -159,7 +149,6 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(updatedVendor));
           }
       }
-      
       await fetchVendors();
     } catch (err: any) {
       console.error("[VendorSync] Update Error:", err.message);
@@ -198,9 +187,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const updateVendorStatus = async (id: number, status: Vendor['status'], reason?: string) => {
     try {
       const payload: any = { status };
-      // Note: 'rejection_reason' column is missing in DB, so we skip sending it to avoid errors.
-      // if (reason) payload.rejection_reason = reason;
-
+      // 'rejection_reason' column is missing in DB, skipping to avoid error
       const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
         method: 'PATCH',
         headers: API_HEADERS,
@@ -216,10 +203,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  const getVendorByEmailDirect = async (email: string): Promise<Vendor | null> => {
-     return null;
-  };
-
+  const getVendorByEmailDirect = async (email: string): Promise<Vendor | null> => null;
   const getVendorByUserId = (uid: string) => vendors.find(v => String(v.user_id) === String(uid));
   const getVendorById = (id: string) => vendors.find(v => String(v.id) === String(id));
 
