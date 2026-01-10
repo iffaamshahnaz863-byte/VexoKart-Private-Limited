@@ -17,11 +17,13 @@ const LocationModal: React.FC<LocationModalProps> = ({ onClose, onSuccess }) => 
 
   const handleGPS = async () => {
     setIsLoading(true);
+    setError('');
     try {
         await requestLocation();
         onSuccess();
-    } catch (e) {
-        setError('Could not fetch location. Please try manually.');
+    } catch (e: any) {
+        // Display the specific error message from the context
+        setError(e.message || 'Could not fetch location. Please try manually.');
     } finally {
         setIsLoading(false);
     }
