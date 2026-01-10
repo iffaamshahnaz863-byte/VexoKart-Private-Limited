@@ -41,6 +41,7 @@ import { AdminCodeProvider } from './context/AdminCodeContext.tsx';
 import { BannerProvider } from './context/BannerContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
 import { ReviewProvider } from './context/ReviewContext.tsx';
+import { LocationProvider } from './context/LocationContext.tsx'; // NEW
 import VendorSignupPage from './pages/VendorSignupPage.tsx';
 import AdminLayout from './pages/admin/AdminLayout.tsx';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage.tsx';
@@ -209,9 +210,11 @@ const App: React.FC = () => {
                     <CartProvider>
                       <OrderProvider>
                         <RecentlyViewedProvider>
-                          <HashRouter>
-                            <AppContent />
-                          </HashRouter>
+                          <LocationProvider>
+                            <HashRouter>
+                              <AppContent />
+                            </HashRouter>
+                          </LocationProvider>
                         </RecentlyViewedProvider>
                       </OrderProvider>
                     </CartProvider>

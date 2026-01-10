@@ -38,9 +38,10 @@ export interface Product {
   category?: string; // Virtual field for UI
   status: ProductStatus;
   payment_modes: string[]; // Persistence layer for payment booleans
-  product_type: 'simple' | 'variant';
-  is_cod_enabled: boolean; // New strict naming
-  is_online_enabled: boolean; // New strict naming
+  // product_type now represents the vertical (Normal vs Daily Needs)
+  product_type: 'normal' | 'daily_needs' | 'simple' | 'variant'; 
+  is_cod_enabled: boolean; 
+  is_online_enabled: boolean; 
   cash_on_delivery?: boolean;
   specifications?: Record<string, string>;
   stock: number;

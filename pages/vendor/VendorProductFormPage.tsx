@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -30,7 +31,7 @@ const VendorProductFormPage: React.FC = () => {
     description: '',
     highlights: [],
     stock: 10,
-    product_type: 'simple',
+    product_type: 'normal', // Default to Normal Ecommerce
     is_cod_enabled: true,
     is_online_enabled: true,
     variants: [] as ProductVariant[]
@@ -58,7 +59,7 @@ const VendorProductFormPage: React.FC = () => {
             ...p, 
             category_id: p.category_id.toString(),
             variants: Array.isArray(p.variants) ? p.variants : [],
-            product_type: p.product_type || 'simple',
+            product_type: p.product_type || 'normal',
             // HYDRATE STRICTLY FROM SOURCE
             is_cod_enabled: p.is_cod_enabled === true,
             is_online_enabled: p.is_online_enabled === true
@@ -141,7 +142,6 @@ const VendorProductFormPage: React.FC = () => {
     if (!currentVendor) { alert("Session mismatch. Please relogin."); return; }
     if (formData.images.length === 0) { alert("Add at least one product image."); return; }
     
-    // Warning if both disabled, but allow update to proceed as per requirement "dono disabled hain -> block checkout" implies this state is valid DB state
     if (!formData.is_cod_enabled && !formData.is_online_enabled) { 
         if(!confirm("You have disabled BOTH payment methods. Customers will not be able to checkout. Continue?")) return;
     }
@@ -150,8 +150,10 @@ const VendorProductFormPage: React.FC = () => {
     try {
         const finalHighlights = highlightsText.split('\n').map(s => s.trim()).filter(Boolean);
         
-        let finalVariants = [];
-        if (formData.product_type === 'variant') {
+        let finalVariants: ProductVariant[] = [];
+        // Determine simple vs variant logic based on UI toggles, but store in variants array.
+        // We do NOT rely on product_type for this anymore, as product_type is used for vertical.
+        if (enableSize || enableColor) {
             finalVariants = formData.variants.filter((v: ProductVariant) => 
                 (v.type === 'size' && enableSize) || (v.type === 'color' && enableColor)
             );
@@ -163,9 +165,10 @@ const VendorProductFormPage: React.FC = () => {
             variants: finalVariants,
             vendor_id: String(currentVendor.id), 
             status: 'approved',
-            // PRESERVE EXACT BOOLEANS
             is_cod_enabled: formData.is_cod_enabled === true,
-            is_online_enabled: formData.is_online_enabled === true
+            is_online_enabled: formData.is_online_enabled === true,
+            // Explicitly set the vertical from the form
+            product_type: formData.product_type 
         };
 
         if (isEditing) {
@@ -206,6 +209,35 @@ const VendorProductFormPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 px-1">
+        
+        {/* VERTICAL SELECTION - NEW */}
+        <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Marketplace Vertical</h2>
+            <div className="grid grid-cols-2 gap-3">
+                <button 
+                    type="button"
+                    onClick={() => setFormData((p:any) => ({...p, product_type: 'normal'}))}
+                    className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'normal' ? 'border-[#FF8A00] bg-[#FF8A00]/5 text-[#FF8A00]' : 'border-gray-100 text-gray-400'}`}
+                >
+                    <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                    <span className="text-[10px] font-black uppercase">Normal Shopping</span>
+                </button>
+                <button 
+                    type="button"
+                    onClick={() => setFormData((p:any) => ({...p, product_type: 'daily_needs'}))}
+                    className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'daily_needs' ? 'border-[#00B259] bg-[#00B259]/5 text-[#00B259]' : 'border-gray-100 text-gray-400'}`}
+                >
+                    <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span className="text-[10px] font-black uppercase">Daily Needs (Quick)</span>
+                </button>
+            </div>
+            {formData.product_type === 'daily_needs' && (
+                <div className="bg-[#E7F7F0] p-4 rounded-2xl border border-[#C2EAD5] text-[#00B259] text-xs font-medium">
+                    Note: Daily Needs products require valid location mapping. Ensure your warehouse is set up for 10-min delivery.
+                </div>
+            )}
+        </div>
+
         {/* Core Identity */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-5">
             <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Listing Intelligence</h2>
@@ -239,68 +271,48 @@ const VendorProductFormPage: React.FC = () => {
 
         {/* Dynamic Architecting (Variants) */}
         <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Product Architecture</h2>
-            <div className="grid grid-cols-2 gap-3">
-                <button 
-                    type="button"
-                    onClick={() => setFormData((p:any) => ({...p, product_type: 'simple'}))}
-                    className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'simple' ? 'border-accent bg-accent/5 text-accent' : 'border-gray-100 text-gray-400'}`}
-                >
-                    <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                    <span className="text-[10px] font-black uppercase">Standard</span>
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => setFormData((p:any) => ({...p, product_type: 'variant'}))}
-                    className={`py-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.product_type === 'variant' ? 'border-accent bg-accent/5 text-accent' : 'border-gray-100 text-gray-400'}`}
-                >
-                    <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                    <span className="text-[10px] font-black uppercase">Multi-Variant</span>
-                </button>
-            </div>
-
-            {formData.product_type === 'variant' && (
-                <div className="pt-4 space-y-6 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                            <input type="checkbox" checked={enableSize} onChange={(e) => setEnableSize(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
-                            <span className="text-[10px] font-black uppercase text-gray-600">Sizes</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                            <input type="checkbox" checked={enableColor} onChange={(e) => setEnableColor(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
-                            <span className="text-[10px] font-black uppercase text-gray-600">Colors</span>
-                        </label>
-                    </div>
-
-                    {(enableSize || enableColor) && (
-                        <div className="space-y-4">
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={newVarName} 
-                                    onChange={(e) => setNewVarName(e.target.value)}
-                                    placeholder={enableSize ? "Size Code" : "Color Label"}
-                                    className="flex-grow bg-surface border border-gray-100 rounded-xl p-3 text-xs font-bold uppercase"
-                                />
-                                <button 
-                                    type="button" 
-                                    onClick={() => addVariant(enableSize ? 'size' : 'color')}
-                                    className="bg-gray-900 text-white px-4 rounded-xl text-[9px] font-black uppercase"
-                                >Inject</button>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {formData.variants.map((v: ProductVariant, idx: number) => (
-                                    <div key={idx} className="bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full flex items-center gap-2">
-                                        <span className="text-[8px] font-black uppercase text-gray-400">{v.type}:</span>
-                                        <span className="text-[10px] font-black uppercase text-gray-900">{v.value}</span>
-                                        <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 hover:text-red-600 font-bold">&times;</button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+            <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic border-b border-gray-50 pb-2">Product Configuration</h2>
+            
+            <div className="pt-2 space-y-6">
+                <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" checked={enableSize} onChange={(e) => setEnableSize(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
+                        <span className="text-[10px] font-black uppercase text-gray-600">Has Sizes</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" checked={enableColor} onChange={(e) => setEnableColor(e.target.checked)} className="w-5 h-5 rounded text-[#F43397] focus:ring-[#F43397] border-gray-200" />
+                        <span className="text-[10px] font-black uppercase text-gray-600">Has Colors</span>
+                    </label>
                 </div>
-            )}
+
+                {(enableSize || enableColor) && (
+                    <div className="space-y-4">
+                        <div className="flex gap-2">
+                            <input 
+                                type="text" 
+                                value={newVarName} 
+                                onChange={(e) => setNewVarName(e.target.value)}
+                                placeholder={enableSize ? "Size Code" : "Color Label"}
+                                className="flex-grow bg-surface border border-gray-100 rounded-xl p-3 text-xs font-bold uppercase"
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => addVariant(enableSize ? 'size' : 'color')}
+                                className="bg-gray-900 text-white px-4 rounded-xl text-[9px] font-black uppercase"
+                            >Inject</button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {formData.variants.map((v: ProductVariant, idx: number) => (
+                                <div key={idx} className="bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full flex items-center gap-2">
+                                    <span className="text-[8px] font-black uppercase text-gray-400">{v.type}:</span>
+                                    <span className="text-[10px] font-black uppercase text-gray-900">{v.value}</span>
+                                    <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 hover:text-red-600 font-bold">&times;</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
 
         {/* Media Control */}

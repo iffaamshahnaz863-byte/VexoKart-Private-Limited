@@ -1,12 +1,36 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocationService } from '../context/LocationContext';
+import LocationModal from '../components/LocationModal';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission, isServiceable } = useLocationService();
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  const handleDailyNeedsClick = () => {
+    if (hasPermission && isServiceable) {
+        navigate('/daily');
+    } else {
+        setShowLocationModal(true);
+    }
+  };
+
+  const handleLocationSuccess = () => {
+      setShowLocationModal(false);
+      navigate('/daily');
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      {showLocationModal && (
+          <LocationModal 
+            onClose={() => setShowLocationModal(false)} 
+            onSuccess={handleLocationSuccess} 
+          />
+      )}
+
       <div className="p-6 pt-12">
         <h1 className="text-4xl font-black text-gray-900 italic uppercase tracking-tighter">
           Vexo<span className="text-[#FF8A00]">Kart</span>
@@ -36,7 +60,7 @@ const LandingPage: React.FC = () => {
 
         {/* Daily Needs Option */}
         <div 
-          onClick={() => navigate('/daily')}
+          onClick={handleDailyNeedsClick}
           className="relative overflow-hidden rounded-[2.5rem] h-64 bg-[#E7F7F0] border border-[#C2EAD5] cursor-pointer active:scale-95 transition-all shadow-sm group"
         >
           <div className="absolute top-6 left-6 z-10">
