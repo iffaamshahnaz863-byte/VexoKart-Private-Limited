@@ -18,10 +18,10 @@ const VendorLoginPage: React.FC = () => {
     setError('');
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       // Auth context will handle user state, we just redirect based on role in useEffect
     } catch (err: any) {
-      setError('Invalid credentials or unauthorized access');
+      setError(err.message || 'Invalid credentials or unauthorized access');
     } finally {
       setIsSubmitting(false);
     }

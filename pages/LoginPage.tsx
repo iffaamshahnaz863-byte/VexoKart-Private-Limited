@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
@@ -9,8 +9,14 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+        navigate('/home', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,10 +29,11 @@ const LoginPage: React.FC = () => {
     setError('');
     
     try {
-        await login(email, password);
+        await login(email.trim(), password);
         navigate('/home', { replace: true });
     } catch (err: any) {
         console.error(err);
+        // Display exact error message from Supabase for clarity
         setError(err.message || "Invalid credentials");
     } finally {
         setIsSubmitting(false);

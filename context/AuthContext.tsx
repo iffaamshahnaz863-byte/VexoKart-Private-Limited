@@ -24,6 +24,7 @@ interface AuthContextType {
   deleteUser: (email: string) => Promise<void>;
   addUser: (userData: any) => Promise<void>;
   signupAsVendor: (name: string, email: string, pass: string, storeName: string, code: string) => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,14 +32,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const sanitizeUser = (u: any): User => ({
   ...u,
   id: u.id ? String(u.id) : '',
+  auth_id: u.auth_id,
   addresses: Array.isArray(u.addresses) ? u.addresses : [],
   wishlist: Array.isArray(u.wishlist) ? u.wishlist : [],
   recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : [],
-  role: u.role || 'user'
+  role: u.role || 'user',
+  has_seen_onboarding: u.has_seen_onboarding === true
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize from localStorage to prevent flash of null user
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem('vexokart-user');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -47,23 +59,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Fetch all profiles (for Admin usage)
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase.from('profiles').select('*');
+      // Changed 'profiles' to 'users' based on schema
+      const { data, error } = await supabase.from('users').select('*');
       if (error) throw error;
       if (Array.isArray(data)) {
         setAllUsers(data.map(sanitizeUser));
       }
     } catch (error) {
-      console.error("Error fetching profiles:", error);
+      console.error("Error fetching users:", error);
     }
   };
 
-  const fetchProfile = async (userId: string, email: string) => {
+  const fetchProfile = async (authUserId: string) => {
     try {
+      // Robust lookup: querying 'users' table via 'auth_id' column which stores the UUID
+      // This avoids type mismatch errors if 'id' column is integer
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('auth_id', authUserId)
+        .maybeSingle();
 
       if (data) {
         const appUser = sanitizeUser(data);
@@ -73,8 +88,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (appUser.role === 'admin') fetchUsers();
         fetchInbox(appUser);
       } else {
-        // Fallback or critical error if profile missing for auth user
-        console.warn("Profile missing for authenticated user");
+        console.warn("User profile not found for Auth ID:", authUserId);
+        // Optional: Attempt recovery if user exists in auth but not in table
+        // This might happen if signup failed halfway
       }
     } catch (err) {
       console.error("Profile sync error:", err);
@@ -82,49 +98,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
-    // 1. Check active session
-    const checkSession = async () => {
-      setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchProfile(session.user.id, session.user.email!);
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    };
-    checkSession();
+    let mounted = true;
 
-    // 2. Listen for auth changes
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          if (mounted) await fetchProfile(session.user.id);
+        } else {
+          if (mounted) {
+            setUser(null);
+            localStorage.removeItem('vexokart-user');
+          }
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        setIsLoading(true);
-        await fetchProfile(session.user.id, session.user.email!);
-        setIsLoading(false);
+        await fetchProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem('vexokart-user');
+        setAllUsers([]);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, pass: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password: pass,
     });
     if (error) throw error;
     if (data.user) {
-        // notifyLogin handled via effect or we can trigger here
-        // Profile fetch handled by onAuthStateChange
+       await fetchProfile(data.user.id);
     }
   };
 
   const signup = async (name: string, email: string, pass: string) => {
     const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password: pass,
         options: {
             data: { name }
@@ -133,24 +159,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw error;
 
     if (data.user) {
-        // Create Profile immediately
-        const newProfile = {
-            id: data.user.id,
-            email: email,
+        // Create Profile in 'users' table
+        // We do NOT send 'id' if it's an integer primary key. We send 'auth_id'.
+        const newProfilePayload = {
+            auth_id: data.user.id,
+            email: email.trim(),
             name: name,
             role: 'user',
             created_at: new Date().toISOString(),
             addresses: [],
             wishlist: [],
-            recentlyViewed: []
+            recentlyViewed: [],
+            has_seen_onboarding: false
         };
         
-        const { error: profileError } = await supabase.from('profiles').insert([newProfile]);
-        if (profileError) {
-            console.error("Error creating profile:", profileError);
-            // If profile creation fails, we might want to alert, but auth is successful.
+        const { error: insertError } = await supabase.from('users').insert([newProfilePayload]);
+        
+        if (!insertError) {
+            // Fetch back the full user object (to get the generated ID)
+            await fetchProfile(data.user.id);
         } else {
-            setUser(sanitizeUser(newProfile));
+            console.error("Error creating profile:", JSON.stringify(insertError));
+            // Check if profile already exists (race condition or trigger)
+            if (insertError.code === '23505') { // Unique violation
+                 await fetchProfile(data.user.id);
+            } else {
+                 throw new Error(`Profile creation failed: ${insertError.message}`);
+            }
         }
     }
   };
@@ -166,7 +201,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('vexokart-user', JSON.stringify(userData));
   };
 
-  // --- Profile Management Helpers ---
+  const completeOnboarding = async () => {
+    if (!user) return;
+    try {
+        // Update DB
+        const { error } = await supabase
+            .from('users')
+            .update({ has_seen_onboarding: true })
+            .eq('id', user.id); // Use ID here, assuming user.id is valid for updates
+        
+        if (!error) {
+            const updated = { ...user, has_seen_onboarding: true };
+            updateUserSession(updated);
+        }
+    } catch (e) {
+        console.error("Failed to update onboarding status", e);
+    }
+  };
+
+  // --- Profile Management Helpers (Updated table name to 'users') ---
 
   const addAddress = async (address: Omit<Address, 'id'>) => {
     if (!user) return;
@@ -175,7 +228,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const updatedAddresses = [...user.addresses, newAddress];
         
         const { error } = await supabase
-            .from('profiles')
+            .from('users')
             .update({ addresses: updatedAddresses })
             .eq('id', user.id);
 
@@ -188,7 +241,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
         const updatedAddresses = user.addresses.map(a => a.id === address.id ? address : a);
         const { error } = await supabase
-            .from('profiles')
+            .from('users')
             .update({ addresses: updatedAddresses })
             .eq('id', user.id);
 
@@ -201,7 +254,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
         const updatedAddresses = user.addresses.filter(a => a.id !== addressId);
         const { error } = await supabase
-            .from('profiles')
+            .from('users')
             .update({ addresses: updatedAddresses })
             .eq('id', user.id);
 
@@ -215,7 +268,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
         const updated = [...user.wishlist, productId];
         const { error } = await supabase
-            .from('profiles')
+            .from('users')
             .update({ wishlist: updated })
             .eq('id', user.id);
 
@@ -228,7 +281,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
         const updated = user.wishlist.filter(id => id !== productId);
         const { error } = await supabase
-            .from('profiles')
+            .from('users')
             .update({ wishlist: updated })
             .eq('id', user.id);
 
@@ -241,45 +294,57 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const deleteUser = async (email: string) => {
-      // Admin only: Logic would likely involve edge functions for Auth deletion
       console.warn("User deletion requires admin privileges via backend.");
   };
 
   const addUser = async (userData: any) => {
-      // Legacy / Admin add user
       await signup(userData.name, userData.email, userData.pass || '123456');
   };
 
   const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password: pass,
         options: { data: { name } }
       });
       if (error) throw error;
 
       if (data.user) {
-          const newProfile = {
-              id: data.user.id,
-              email,
+          const newProfilePayload = {
+              auth_id: data.user.id,
+              email: email.trim(),
               name,
               role: 'vendor',
               created_at: new Date().toISOString(),
               addresses: [],
-              wishlist: []
+              wishlist: [],
+              has_seen_onboarding: false
           };
           
-          await supabase.from('profiles').insert([newProfile]);
-          await supabase.from('vendors').insert([{
-              user_id: data.user.id,
-              store_name: storeName,
-              owner_name: name,
-              email: email,
-              status: 'pending',
-              phone: ''
-          }]);
+          // Insert profile into 'users' table
+          const { error: profileError } = await supabase.from('users').insert([newProfilePayload]);
           
-          setUser(sanitizeUser(newProfile));
+          if (!profileError) {
+              // Now insert into vendors table. Note: vendors table likely needs numeric ID from users table
+              // We need to fetch the created user first to get the ID
+              const { data: userData } = await supabase.from('users').select('id').eq('auth_id', data.user.id).single();
+              
+              if (userData) {
+                  await supabase.from('vendors').insert([{
+                      user_id: userData.id, // Linking via numeric ID
+                      store_name: storeName,
+                      owner_name: name,
+                      email: email.trim(),
+                      status: 'pending',
+                      phone: ''
+                  }]);
+              }
+              
+              await fetchProfile(data.user.id);
+          } else {
+              console.error("Vendor profile creation failed:", profileError);
+              throw new Error("Failed to create vendor profile.");
+          }
       }
   };
 
@@ -288,7 +353,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       user, users: allUsers, isLoading, isAuthenticated: !!user, 
       login, signup, logout, addUser, addAddress, updateAddress, 
       deleteAddress, deleteUser, addToWishlist, removeFromWishlist, 
-      isInWishlist, updateUserSession, fetchUsers, signupAsVendor
+      isInWishlist, updateUserSession, fetchUsers, signupAsVendor,
+      completeOnboarding
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import GlassmorphicCard from '../components/GlassmorphicCard';
@@ -7,9 +7,15 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 
 const ProfilePage: React.FC = () => {
-  const { user, logout, updateUserSession } = useAuth();
+  const { user, logout, updateUserSession, isLoading } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+        navigate('/login', { replace: true });
+    }
+  }, [user, isLoading, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -22,22 +28,29 @@ const ProfilePage: React.FC = () => {
     updateUserSession(updated);
   };
 
+  if (isLoading) {
+      return (
+          <div className="min-h-screen flex items-center justify-center bg-surface">
+              <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+          </div>
+      );
+  }
+
+  if (!user) return null;
+
   const menuItems = [
     { name: 'Order History', link: '/orders', icon: 'M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5' },
     { name: 'In-App Inbox', link: '/notifications', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', count: unreadCount },
     { name: 'My Favorites', link: '/wishlist', icon: 'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z' },
     { name: 'Shipping Addresses', link: '/addresses', icon: 'M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M21 10.5c0 7.142-7.5 11.25-9 11.25S3 17.642 3 10.5a9 9 0 1118 0z' },
   ];
-
-  if (!user) return null;
   
-  const isGuest = !user.email;
   const panelLink = user.role === 'admin' ? { link: '/admin', text: 'Admin Hub' } : user.role === 'vendor' ? { link: '/vendor', text: 'Vendor Console' } : null;
 
   return (
     <div className="bg-surface min-h-screen pb-20">
       <Header title="My Account" />
-      <div className="p-4 space-y-6 max-w-2xl mx-auto">
+      <div className="p-4 space-y-6 max-w-2xl mx-auto animate-in fade-in duration-300">
         <div className="bg-white p-6 rounded-3xl shadow-premium border border-border flex items-center space-x-5">
           <div className="relative">
             <img src={`https://ui-avatars.com/api/?name=${user.name}&background=FF8A00&color=fff`} alt="User Avatar" className="w-20 h-20 rounded-2xl border-2 border-white shadow-lg" />
@@ -45,10 +58,10 @@ const ProfilePage: React.FC = () => {
           </div>
           <div className="flex-grow">
             <h2 className="text-xl font-black text-text-main tracking-tight uppercase italic">{user.name}</h2>
-            <p className="text-text-muted text-xs font-semibold">{isGuest ? 'Guest Session' : user.email}</p>
+            <p className="text-text-muted text-xs font-semibold">{user.email}</p>
             <div className="flex gap-2 mt-2">
                <span className="text-[8px] font-black uppercase tracking-widest bg-accent/10 text-accent px-2 py-0.5 rounded-full border border-accent/20">
-                 {isGuest ? 'Visitor' : 'Premier Member'}
+                 Member
                </span>
                {user.role !== 'user' && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{user.role}</span>}
             </div>
@@ -102,21 +115,9 @@ const ProfilePage: React.FC = () => {
             </div>
         </GlassmorphicCard>
 
-        {isGuest ? (
-            <div className="text-center p-4">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Browsing as Guest</p>
-            </div>
-        ) : (
-            <button onClick={handleLogout} className="w-full bg-red-50 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-2xl border border-red-100 hover:bg-red-500 hover:text-white transition-all active:scale-95">
-              Secure Logout
-            </button>
-        )}
-        
-        <div className="mt-4 text-center">
-             <Link to="/vendor/login" className="text-accent text-[10px] font-black uppercase tracking-widest border-b border-accent/20 pb-0.5 hover:border-accent">
-                Vendor / Partner Login
-             </Link>
-        </div>
+        <button onClick={handleLogout} className="w-full bg-red-50 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-2xl border border-red-100 hover:bg-red-500 hover:text-white transition-all active:scale-95">
+          Secure Logout
+        </button>
       </div>
     </div>
   );

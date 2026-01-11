@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import HomePage from './pages/HomePage.tsx';
 import LandingPage from './pages/LandingPage.tsx'; 
 import DailyNeedsPage from './pages/DailyNeedsPage.tsx'; 
@@ -55,6 +55,8 @@ import VendorProfilePage from './pages/vendor/VendorProfilePage.tsx';
 import CourierScanPage from './pages/CourierScanPage.tsx';
 import VendorLoginPage from './pages/vendor/VendorLoginPage.tsx';
 import VendorSignupPage from './pages/VendorSignupPage.tsx';
+import OnboardingPage from './pages/OnboardingPage.tsx';
+import WelcomePage from './pages/WelcomePage.tsx';
 
 // Admin Imports
 import AdminLayout from './pages/admin/AdminLayout.tsx';
@@ -92,13 +94,37 @@ const VendorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const AppContent: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
   
-  // Logic to hide BottomNav on checkout/admin pages
-  const hideNavRoutes = ['/checkout', '/order-success', '/vendor/login', '/vendor/signup', '/scan'];
+  // Logic to hide BottomNav
+  const hideNavRoutes = ['/checkout', '/order-success', '/vendor/login', '/vendor/signup', '/scan', '/onboarding', '/welcome', '/login', '/signup'];
   const isHideNav = hideNavRoutes.includes(location.pathname) || location.pathname.startsWith('/admin') || location.pathname.startsWith('/vendor');
   
   const showBottomNav = !isInitializing && !isHideNav && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/cancel-order/') && !location.pathname.startsWith('/product/');
+
+  useEffect(() => {
+    if (!isInitializing && !isLoading) {
+      const path = location.pathname;
+      const isPublicAuthRoute = ['/login', '/signup', '/onboarding', '/welcome'].includes(path);
+      const isScanRoute = path.startsWith('/scan');
+
+      // 1. Check Logged In User Onboarding Status
+      if (isAuthenticated && user) {
+        if (user.has_seen_onboarding === false && path !== '/onboarding') {
+          // If user hasn't seen onboarding in DB, force show it
+          navigate('/onboarding', { replace: true });
+        }
+      } 
+      // 2. Check Device Onboarding Status (Logged Out)
+      else if (!isAuthenticated && !isScanRoute) {
+        const hasSeenOnboardingDevice = localStorage.getItem('vxk_device_onboarding');
+        if (!hasSeenOnboardingDevice && path !== '/onboarding') {
+           navigate('/onboarding', { replace: true });
+        }
+      }
+    }
+  }, [isInitializing, isLoading, isAuthenticated, user, navigate, location.pathname]);
 
   if (isInitializing) return <SplashScreen onFinish={() => setIsInitializing(false)} />;
 
@@ -116,7 +142,7 @@ const AppContent: React.FC = () => {
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
           
-          {/* User Routes (Now Guest Accessible) */}
+          {/* User Routes */}
           <Route path="/orders" element={<MyOrdersPage />} />
           <Route path="/order/:id" element={<OrderDetailPage />} />
           <Route path="/cancel-order/:id" element={<CancelOrderPage />} /> 
@@ -129,11 +155,11 @@ const AppContent: React.FC = () => {
           <Route path="/addresses/edit/:id" element={<AddressFormPage />} />
           <Route path="/wishlist" element={<WishlistPage />} />
           
-          {/* Redirects for Auth Routes */}
+          {/* Auth & Onboarding */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/onboarding" element={<Navigate to="/" replace />} />
-          <Route path="/welcome" element={<Navigate to="/" replace />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
 
           {/* Info Pages */}
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />

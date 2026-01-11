@@ -138,6 +138,7 @@ export interface Address {
 
 export interface User {
   id: string;
+  auth_id?: string; // New: For linking to auth.users if primary ID is different
   name: string;
   email: string;
   phone: string;
@@ -148,6 +149,7 @@ export interface User {
   recentlyViewed: number[];
   created_at: string;
   sms_enabled?: boolean;
+  has_seen_onboarding?: boolean; // New: Track onboarding status
 }
 
 export interface Vendor {

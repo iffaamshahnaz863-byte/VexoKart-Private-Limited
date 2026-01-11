@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const slides = [
   {
@@ -32,13 +33,20 @@ const slides = [
 const OnboardingPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
+  const { user, completeOnboarding } = useAuth();
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentSlide < slides.length - 1) {
       setCurrentSlide(prev => prev + 1);
     } else {
-      localStorage.setItem('vxk_seen_onboarding', 'true');
-      navigate('/welcome');
+      // Logic: If logged in, update DB. If not, update LocalStorage.
+      if (user) {
+          await completeOnboarding();
+          navigate('/home', { replace: true });
+      } else {
+          localStorage.setItem('vxk_device_onboarding', 'true');
+          navigate('/welcome', { replace: true });
+      }
     }
   };
 
@@ -90,7 +98,7 @@ const OnboardingPage: React.FC = () => {
           onClick={handleNext}
           className="w-full bg-white text-black py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-sm shadow-2xl active:scale-95 transition-all hover:bg-gray-50"
         >
-          {slides[currentSlide].btnText}
+          {currentSlide === slides.length - 1 ? 'Start Shopping' : slides[currentSlide].btnText}
         </button>
       </div>
     </div>
