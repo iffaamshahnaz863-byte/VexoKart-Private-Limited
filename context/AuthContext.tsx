@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
-import { VendorContext } from './VendorContext.tsx';
+import { supabase } from '../supabase.ts';
 import { useNotifications } from './NotificationContext.tsx';
 import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
@@ -10,22 +10,20 @@ interface AuthContextType {
   users: User[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, pass: string) => Promise<void>; // Vendor/Admin Login
-  signup: (name: string, email: string, phone: string, pass: string) => Promise<void>;
-  signupAsVendor: (name: string, email: string, pass: string, storeName: string, code: string) => Promise<void>;
-  sendOtp: (phone: string) => Promise<boolean>; // New
-  verifyOtp: (phone: string, otp: string) => Promise<void>; // New
-  logout: () => void;
-  addUser: (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>;
+  signup: (name: string, email: string, pass: string) => Promise<void>;
+  logout: () => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
   updateAddress: (address: Address) => Promise<void>;
   deleteAddress: (addressId: string) => Promise<void>;
-  deleteUser: (email: string) => Promise<void>;
   addToWishlist: (productId: number) => Promise<void>;
   removeFromWishlist: (productId: number) => Promise<void>;
   isInWishlist: (productId: number) => boolean;
   updateUserSession: (userData: User) => void;
   fetchUsers: () => Promise<void>;
+  deleteUser: (email: string) => Promise<void>;
+  addUser: (userData: any) => Promise<void>;
+  signupAsVendor: (name: string, email: string, pass: string, storeName: string, code: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,7 +33,8 @@ const sanitizeUser = (u: any): User => ({
   id: u.id ? String(u.id) : '',
   addresses: Array.isArray(u.addresses) ? u.addresses : [],
   wishlist: Array.isArray(u.wishlist) ? u.wishlist : [],
-  recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : []
+  recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : [],
+  role: u.role || 'user'
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -43,349 +42,253 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const vendorContext = useContext(VendorContext);
   const { notifyLogin, fetchInbox } = useNotifications();
 
+  // Fetch all profiles (for Admin usage)
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${BASE_API_URL}/users?select=*`, { 
-        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
-      });
-      if (!response.ok) return;
-      const data = await response.json();
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) throw error;
       if (Array.isArray(data)) {
         setAllUsers(data.map(sanitizeUser));
       }
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("Error fetching profiles:", error);
+    }
+  };
+
+  const fetchProfile = async (userId: string, email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (data) {
+        const appUser = sanitizeUser(data);
+        setUser(appUser);
+        localStorage.setItem('vexokart-user', JSON.stringify(appUser));
+        
+        if (appUser.role === 'admin') fetchUsers();
+        fetchInbox(appUser);
+      } else {
+        // Fallback or critical error if profile missing for auth user
+        console.warn("Profile missing for authenticated user");
+      }
+    } catch (err) {
+      console.error("Profile sync error:", err);
     }
   };
 
   useEffect(() => {
-    const init = async () => {
+    // 1. Check active session
+    const checkSession = async () => {
       setIsLoading(true);
-      await fetchUsers();
-      
-      const sessionUser = localStorage.getItem('vexokart-user');
-      if (sessionUser) {
-        try {
-          const parsed = JSON.parse(sessionUser);
-          const res = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(parsed.email)}&select=*`, { headers: API_HEADERS });
-          if (res.ok) {
-              const userData = await res.json();
-              if (Array.isArray(userData) && userData.length > 0) {
-                const foundUser = sanitizeUser(userData[0]);
-                setUser(foundUser);
-                await fetchInbox(foundUser);
-              }
-          }
-        } catch (e) {
-          console.error("Session restoration failed:", e);
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await fetchProfile(session.user.id, session.user.email!);
+      } else {
+        setUser(null);
       }
       setIsLoading(false);
     };
-    init();
+    checkSession();
+
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setIsLoading(true);
+        await fetchProfile(session.user.id, session.user.email!);
+        setIsLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('vexokart-user');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const updateUserSession = (userData: User) => {
-    const safeUser = sanitizeUser(userData);
-    setUser(safeUser);
-    localStorage.setItem('vexokart-user', JSON.stringify(safeUser));
-  };
-
-  // Standard Email/Pass Login (Vendors/Admins)
   const login = async (email: string, pass: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPass = pass.trim();
-    
-    try {
-      const query = `email=ilike.${encodeURIComponent(cleanEmail)}&select=*`;
-      const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
-      
-      if (!res.ok) throw new Error("Authentication service connection error.");
-      
-      const data = await res.json();
-      
-      if (Array.isArray(data) && data.length > 0) {
-        const dbUser = data[0];
-        
-        if (dbUser.password === cleanPass) {
-          const loggedUser = sanitizeUser(dbUser);
-          updateUserSession(loggedUser);
-          await notifyLogin(loggedUser);
-          await fetchInbox(loggedUser);
-          return;
-        } else {
-          throw new Error('Incorrect password. Please try again.');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
+    if (error) throw error;
+    if (data.user) {
+        // notifyLogin handled via effect or we can trigger here
+        // Profile fetch handled by onAuthStateChange
+    }
+  };
+
+  const signup = async (name: string, email: string, pass: string) => {
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password: pass,
+        options: {
+            data: { name }
         }
-      }
-      
-      throw new Error('No account found with this email.');
-    } catch (err: any) {
-      console.error("Login Error:", err);
-      throw new Error(err.message || 'Identity verification failed.');
-    }
-  };
+    });
+    if (error) throw error;
 
-  // Mobile OTP Send (Simulation)
-  const sendOtp = async (phone: string): Promise<boolean> => {
-    // In a real app, integrate with Fast2SMS or Firebase Auth here.
-    // For now, we simulate a successful send.
-    console.log(`Sending OTP to ${phone}`);
-    return new Promise(resolve => setTimeout(() => resolve(true), 1000));
-  };
-
-  // Mobile OTP Verify (User Login)
-  const verifyOtp = async (phone: string, otp: string) => {
-    if (otp !== '1234') { // Hardcoded for demo
-        throw new Error('Invalid OTP. Please use 1234.');
-    }
-
-    try {
-        // Check if user exists with this phone
-        const res = await fetch(`${BASE_API_URL}/users?phone=eq.${encodeURIComponent(phone)}&select=*`, { headers: API_HEADERS });
-        const data = await res.json();
-
-        if (Array.isArray(data) && data.length > 0) {
-            // Existing User
-            const dbUser = data[0];
-            const loggedUser = sanitizeUser(dbUser);
-            updateUserSession(loggedUser);
-            await fetchInbox(loggedUser);
-        } else {
-            // New User Registration (Auto-Signup)
-            const newUser = {
-                name: 'Vexo User',
-                email: `user_${phone}@vexokart.com`, // Placeholder email
-                phone: phone,
-                password: 'mobile_login_secure', // Dummy pass
-                role: 'user',
-                addresses: [],
-                wishlist: [],
-                recentlyViewed: [],
-                created_at: new Date().toISOString()
-            };
-
-            const createRes = await fetch(`${BASE_API_URL}/users`, {
-                method: 'POST',
-                headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-                body: JSON.stringify(newUser)
-            });
-
-            if (!createRes.ok) throw new Error('Registration failed');
-            const createdData = await createRes.json();
-            const createdUser = sanitizeUser(createdData[0]);
-            updateUserSession(createdUser);
-        }
-    } catch (err: any) {
-        throw new Error(err.message || 'Verification failed');
-    }
-  };
-
-  const signup = async (name: string, email: string, phone: string, pass: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    try {
-        const checkRes = await fetch(`${BASE_API_URL}/users?email=ilike.${encodeURIComponent(cleanEmail)}&select=email`, { headers: API_HEADERS });
-        const existing = await checkRes.json().catch(() => []);
-        if (Array.isArray(existing) && existing.length > 0) throw new Error('This email is already registered.');
-
-        const newUser = {
-          name: name.trim(), 
-          email: cleanEmail, 
-          phone: phone.trim(), 
-          password: pass.trim(), 
-          role: 'user',
-          addresses: [], 
-          wishlist: [], 
-          recentlyViewed: [], 
-          created_at: new Date().toISOString()
+    if (data.user) {
+        // Create Profile immediately
+        const newProfile = {
+            id: data.user.id,
+            email: email,
+            name: name,
+            role: 'user',
+            created_at: new Date().toISOString(),
+            addresses: [],
+            wishlist: [],
+            recentlyViewed: []
         };
-
-        const res = await fetch(`${BASE_API_URL}/users`, {
-          method: 'POST',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify(newUser)
-        });
         
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody.message || 'Account creation rejected by server.');
+        const { error: profileError } = await supabase.from('profiles').insert([newProfile]);
+        if (profileError) {
+            console.error("Error creating profile:", profileError);
+            // If profile creation fails, we might want to alert, but auth is successful.
+        } else {
+            setUser(sanitizeUser(newProfile));
         }
-        
-        await fetchUsers();
-    } catch (err: any) {
-        console.error("Signup Error:", err);
-        throw new Error(err.message || "Connection failed during registration.");
     }
   };
 
-  const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
-     throw new Error("Direct vendor signup is managed via admin panel.");
-  };
-
-  const logout = () => {
-    localStorage.removeItem('vexokart-user');
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
+    localStorage.removeItem('vexokart-user');
   };
 
-  const addUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => {
-    try {
-        const newUser = {
-          name: userData.name.trim(),
-          email: userData.email.trim().toLowerCase(),
-          phone: userData.phone.trim(),
-          password: userData.pass.trim(),
-          role: userData.role,
-          addresses: [],
-          wishlist: [],
-          recentlyViewed: [],
-          created_at: new Date().toISOString()
-        };
-
-        const res = await fetch(`${BASE_API_URL}/users`, {
-          method: 'POST',
-          headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-          body: JSON.stringify(newUser)
-        });
-
-        if (!res.ok) throw new Error('Identity creation failed');
-        
-        const createdUsers = await res.json();
-        const createdUser = sanitizeUser(createdUsers[0]);
-
-        if (userData.role === 'vendor' && vendorContext) {
-            await vendorContext.addVendorRecord({
-                user_id: createdUser.id.toString(),
-                store_name: userData.storeName || `${userData.name}'s Store`,
-                owner_name: userData.name,
-                email: userData.email.toLowerCase(),
-                phone: userData.phone,
-                profile_image: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.storeName || userData.name)}&background=FF8A00&color=fff`,
-                status: 'pending'
-            });
-            await vendorContext.refreshVendors();
-        }
-
-        await fetchUsers();
-    } catch (err: any) {
-        console.error("AddUser Error:", err);
-        throw err;
-    }
+  const updateUserSession = (userData: User) => {
+    setUser(userData);
+    localStorage.setItem('vexokart-user', JSON.stringify(userData));
   };
+
+  // --- Profile Management Helpers ---
 
   const addAddress = async (address: Omit<Address, 'id'>) => {
     if (!user) return;
     try {
         const newAddress = { ...address, id: Date.now().toString() };
-        const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
-        const updatedAddresses = [...currentAddresses, newAddress];
+        const updatedAddresses = [...user.addresses, newAddress];
         
-        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-          method: 'PATCH',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ addresses: updatedAddresses })
-        });
-        setUser({ ...user, addresses: updatedAddresses });
-    } catch (e) {
-        console.error("Address update failed:", e);
-    }
+        const { error } = await supabase
+            .from('profiles')
+            .update({ addresses: updatedAddresses })
+            .eq('id', user.id);
+
+        if (!error) updateUserSession({ ...user, addresses: updatedAddresses });
+    } catch(e) { console.error(e); }
   };
 
   const updateAddress = async (address: Address) => {
     if (!user) return;
     try {
-        const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
-        const updatedAddresses = currentAddresses.map(a => a.id === address.id ? address : a);
-        
-        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-          method: 'PATCH',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ addresses: updatedAddresses })
-        });
-        setUser({ ...user, addresses: updatedAddresses });
-    } catch (e) {
-        console.error("Address update failed:", e);
-    }
+        const updatedAddresses = user.addresses.map(a => a.id === address.id ? address : a);
+        const { error } = await supabase
+            .from('profiles')
+            .update({ addresses: updatedAddresses })
+            .eq('id', user.id);
+
+        if (!error) updateUserSession({ ...user, addresses: updatedAddresses });
+    } catch(e) { console.error(e); }
   };
 
   const deleteAddress = async (addressId: string) => {
     if (!user) return;
     try {
-        const currentAddresses = Array.isArray(user.addresses) ? user.addresses : [];
-        const updatedAddresses = currentAddresses.filter(a => a.id !== addressId);
-        
-        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-          method: 'PATCH',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ addresses: updatedAddresses })
-        });
-        setUser({ ...user, addresses: updatedAddresses });
-    } catch (e) {
-        console.error("Address deletion failed:", e);
-    }
-  };
+        const updatedAddresses = user.addresses.filter(a => a.id !== addressId);
+        const { error } = await supabase
+            .from('profiles')
+            .update({ addresses: updatedAddresses })
+            .eq('id', user.id);
 
-  const deleteUser = async (email: string) => {
-    if (email === 'admin@vexokart.com') return;
-    try {
-        await fetch(`${BASE_API_URL}/users?email=eq.${encodeURIComponent(email)}`, { 
-            method: 'DELETE', 
-            headers: { ...API_HEADERS, 'Prefer': 'return=minimal' } 
-        });
-        await fetchUsers();
-    } catch (e) {
-        console.error("User deletion failed:", e);
-    }
+        if (!error) updateUserSession({ ...user, addresses: updatedAddresses });
+    } catch(e) { console.error(e); }
   };
 
   const addToWishlist = async (productId: number) => {
     if (!user) return;
-    const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
-    if (currentWishlist.includes(productId)) return;
-    
+    if (user.wishlist.includes(productId)) return;
     try {
-        const updated = [...currentWishlist, productId];
-        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-          method: 'PATCH',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ wishlist: updated })
-        });
-        setUser({ ...user, wishlist: updated });
-    } catch (e) {
-        console.error("Wishlist sync failed:", e);
-    }
+        const updated = [...user.wishlist, productId];
+        const { error } = await supabase
+            .from('profiles')
+            .update({ wishlist: updated })
+            .eq('id', user.id);
+
+        if (!error) updateUserSession({ ...user, wishlist: updated });
+    } catch(e) { console.error(e); }
   };
 
   const removeFromWishlist = async (productId: number) => {
     if (!user) return;
     try {
-        const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
-        const updated = currentWishlist.filter(id => id !== productId);
-        
-        await fetch(`${BASE_API_URL}/users?id=eq.${user.id}`, {
-          method: 'PATCH',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ wishlist: updated })
-        });
-        setUser({ ...user, wishlist: updated });
-    } catch (e) {
-        console.error("Wishlist sync failed:", e);
-    }
+        const updated = user.wishlist.filter(id => id !== productId);
+        const { error } = await supabase
+            .from('profiles')
+            .update({ wishlist: updated })
+            .eq('id', user.id);
+
+        if (!error) updateUserSession({ ...user, wishlist: updated });
+    } catch(e) { console.error(e); }
   };
 
   const isInWishlist = (productId: number) => {
-    if (!user) return false;
-    const currentWishlist = Array.isArray(user.wishlist) ? user.wishlist : [];
-    return currentWishlist.includes(productId);
+    return user ? user.wishlist.includes(productId) : false;
+  };
+
+  const deleteUser = async (email: string) => {
+      // Admin only: Logic would likely involve edge functions for Auth deletion
+      console.warn("User deletion requires admin privileges via backend.");
+  };
+
+  const addUser = async (userData: any) => {
+      // Legacy / Admin add user
+      await signup(userData.name, userData.email, userData.pass || '123456');
+  };
+
+  const signupAsVendor = async (name: string, email: string, pass: string, storeName: string, code: string) => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: pass,
+        options: { data: { name } }
+      });
+      if (error) throw error;
+
+      if (data.user) {
+          const newProfile = {
+              id: data.user.id,
+              email,
+              name,
+              role: 'vendor',
+              created_at: new Date().toISOString(),
+              addresses: [],
+              wishlist: []
+          };
+          
+          await supabase.from('profiles').insert([newProfile]);
+          await supabase.from('vendors').insert([{
+              user_id: data.user.id,
+              store_name: storeName,
+              owner_name: name,
+              email: email,
+              status: 'pending',
+              phone: ''
+          }]);
+          
+          setUser(sanitizeUser(newProfile));
+      }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, users: allUsers, isLoading, isAuthenticated: !!user, 
-      login, signup, signupAsVendor, sendOtp, verifyOtp, logout, addUser, addAddress, updateAddress, 
+      login, signup, logout, addUser, addAddress, updateAddress, 
       deleteAddress, deleteUser, addToWishlist, removeFromWishlist, 
-      isInWishlist, updateUserSession, fetchUsers 
+      isInWishlist, updateUserSession, fetchUsers, signupAsVendor
     }}>
       {children}
     </AuthContext.Provider>

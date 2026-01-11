@@ -2,27 +2,32 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import GlassmorphicCard from '../components/GlassmorphicCard';
+import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 
 const LoginPage: React.FC = () => {
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const { sendOtp } = useAuth();
 
-  const handleContinue = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 10) {
-        alert("Please enter a valid 10-digit mobile number");
+    if (!email || !password) {
+        setError("Please fill in all fields");
         return;
     }
     
     setIsSubmitting(true);
+    setError('');
+    
     try {
-        await sendOtp(phone);
-        navigate('/otp', { state: { phone } });
-    } catch (err) {
-        alert("Failed to send OTP");
+        await login(email, password);
+        navigate('/home', { replace: true });
+    } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Invalid credentials");
     } finally {
         setIsSubmitting(false);
     }
@@ -31,58 +36,73 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col p-6 pt-12 animate-in fade-in duration-300">
       
-      {/* Illustration */}
-      <div className="flex justify-center mb-8">
-        <div className="w-full max-w-[280px] h-64 bg-surface rounded-[3rem] relative overflow-hidden flex items-end justify-center border border-gray-100">
-            <img 
-                src="https://img.freepik.com/free-vector/shopping-cart-concept-illustration_114360-1207.jpg?w=740&t=st=1686000000~exp=1686000600~hmac=xyz" 
-                className="w-full h-full object-cover opacity-80 mix-blend-multiply" 
-                alt="Shopping"
-            />
-            <div className="absolute top-6 right-6 bg-[#00B259] text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-lg transform rotate-12">
-                Fast Delivery
-            </div>
-        </div>
+      <div className="mb-8">
+        <button onClick={() => navigate('/home')} className="mb-4 inline-flex items-center gap-2 text-text-muted text-xs font-bold uppercase tracking-widest hover:text-text-main transition-colors">
+            <ChevronLeftIcon className="w-4 h-4" />
+            Back to Browse
+        </button>
+        <h2 className="text-3xl font-black text-text-main italic uppercase tracking-tight mb-2">Welcome Back</h2>
+        <p className="text-text-muted text-sm font-medium">Log in to continue shopping</p>
       </div>
 
-      <div className="flex-1">
-        <h2 className="text-2xl font-black text-text-main italic uppercase tracking-tight mb-1">Get Started</h2>
-        <p className="text-text-muted text-xs font-bold uppercase tracking-widest mb-8">Login or Signup to continue</p>
+      <div className="flex-1 max-w-md mx-auto w-full">
+        {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-bold flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                {error}
+            </div>
+        )}
 
-        <form onSubmit={handleContinue} className="space-y-6">
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 flex items-center transition-all focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10">
-                <div className="pl-4 pr-3 border-r border-gray-200">
-                    <span className="font-bold text-gray-500">+91</span>
+        <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Email Address</label>
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 transition-all focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/5">
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        className="w-full bg-transparent p-3 text-sm font-bold text-text-main placeholder-gray-300 outline-none"
+                    />
                 </div>
-                <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                    maxLength={10}
-                    placeholder="Mobile Number"
-                    className="w-full bg-transparent p-3 text-lg font-bold text-text-main placeholder-gray-300 outline-none"
-                    autoFocus
-                />
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Password</label>
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 transition-all focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/5">
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-transparent p-3 text-sm font-bold text-text-main placeholder-gray-300 outline-none"
+                    />
+                </div>
             </div>
 
             <button
                 type="submit"
-                disabled={isSubmitting || phone.length < 10}
-                className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none"
+                disabled={isSubmitting}
+                className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none mt-4"
             >
-                {isSubmitting ? 'Sending OTP...' : 'Continue'}
+                {isSubmitting ? 'Verifying...' : 'Secure Login'}
             </button>
         </form>
 
-        <p className="text-[9px] text-center text-gray-400 mt-6 leading-relaxed max-w-xs mx-auto">
-            By continuing, you agree to our <span className="font-bold text-gray-600 underline">Terms of Use</span> & <span className="font-bold text-gray-600 underline">Privacy Policy</span>
-        </p>
-      </div>
-
-      <div className="mt-8 text-center">
-         <Link to="/vendor/login" className="text-accent text-[10px] font-black uppercase tracking-widest border-b border-accent/20 pb-0.5 hover:border-accent">
-            Vendor / Partner Login
-         </Link>
+        <div className="mt-8 text-center">
+            <p className="text-gray-400 text-xs font-bold">
+                Don't have an account?{' '}
+                <Link to="/signup" className="text-accent hover:underline decoration-2 underline-offset-4">
+                    Create One
+                </Link>
+            </p>
+        </div>
+        
+        <div className="mt-12 border-t border-gray-100 pt-6 text-center">
+             <Link to="/vendor/login" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
+                Vendor / Admin Portal
+             </Link>
+        </div>
       </div>
     </div>
   );

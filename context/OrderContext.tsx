@@ -53,6 +53,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
 
+    // FIX: Skip fetch for guest users (ID starts with 'guest-') to avoid DB type errors
+    if (user.id.toString().startsWith('guest-')) {
+        setOrders([]);
+        setIsLoading(false);
+        return;
+    }
+
     try {
       setIsLoading(true);
       // Simplified join syntax for better compatibility
@@ -97,7 +104,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         } else {
             const fallbackErr = await fallbackRes.json().catch(() => ({ message: fallbackRes.statusText }));
             console.error("[OrderContext] Fallback fetch failed:", fallbackErr.message);
-            throw new Error(`Order fetch failed: ${fallbackErr.message}`);
+            // Don't throw here to avoid crashing the UI loop, just log
+            setOrders([]); 
+            return;
         }
       }
 
@@ -105,6 +114,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       processOrders(data);
     } catch (e: any) {
       console.error("[OrderContext] Fatal Sync Error:", e.message);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +153,10 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (user) {
         refreshOrders();
-        fetchInbox(user);
+        // Only fetch inbox if it's a real user, guests usually don't have DB notifications
+        if (!user.id.toString().startsWith('guest-')) {
+            fetchInbox(user);
+        }
     } else {
         setOrders([]);
         setIsLoading(false);
@@ -181,8 +194,11 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
+    // Handle User ID: Send null if guest to prevent BigInt error
+    const userIdValue = user.id.toString().startsWith('guest-') ? null : user.id;
+
     const payload: any = {
-      user_id: user.id,
+      user_id: userIdValue,
       vendor_id: vendorIdValue,
       items: orderData.items,
       total_amount: Number(orderData.total),
@@ -216,30 +232,35 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     const result = await res.json();
     const orderId = result[0].id.toString();
 
-    try {
-        await createAppNotification({
-            user_id: user.id,
-            role: 'user',
-            title: 'Order Confirmed',
-            message: 'Your order has been placed successfully.',
-            type: 'order_status'
-        });
-
-        if (vendorIdValue) {
+    // Only attempt notifications if we have a valid user ID, otherwise client-side only
+    if (userIdValue) {
+        try {
             await createAppNotification({
-                vendor_id: vendorIdValue,
-                role: 'vendor',
-                title: 'New Order Received',
-                message: `You have received a new order (#${orderId.slice(-6)}). Please pack it.`,
-                type: 'order_alert'
+                user_id: userIdValue,
+                role: 'user',
+                title: 'Order Confirmed',
+                message: 'Your order has been placed successfully.',
+                type: 'order_status'
             });
+
+            if (vendorIdValue) {
+                await createAppNotification({
+                    vendor_id: vendorIdValue,
+                    role: 'vendor',
+                    title: 'New Order Received',
+                    message: `You have received a new order (#${orderId.slice(-6)}). Please pack it.`,
+                    type: 'order_alert'
+                });
+            }
+        } catch (notifErr) {
+            console.warn("Background notification trigger failed", notifErr);
         }
-    } catch (notifErr) {
-        console.warn("Background notification trigger failed", notifErr);
     }
 
     refreshOrders();
-    fetchInbox(user);
+    // Only refresh inbox if valid user
+    if (userIdValue && user) fetchInbox(user);
+    
     return orderId;
   };
 
@@ -266,39 +287,42 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (res.ok) {
+        // Notifications only for non-guest users usually, but logic exists inside createAppNotification
         try {
-            if (status === 'Packed') {
-                await createAppNotification({
-                    user_id: order.user_id,
-                    role: 'user',
-                    title: 'Order Packed',
-                    message: 'Your order has been packed and will be shipped soon.',
-                    type: 'order_status'
-                });
-            } else if (status === 'Shipped') {
-                await createAppNotification({
-                    user_id: order.user_id,
-                    role: 'user',
-                    title: 'Order Shipped',
-                    message: 'Your order is on the way. Tracking updates will be available soon.',
-                    type: 'order_status'
-                });
-            } else if (status === 'Delivered') {
-                await createAppNotification({
-                    user_id: order.user_id,
-                    role: 'user',
-                    title: 'Order Delivered',
-                    message: 'Your order has been delivered successfully. Please rate the product.',
-                    type: 'order_status'
-                });
-                if (order.vendor_id) {
+            if (order.user_id && !order.user_id.toString().startsWith('guest-')) {
+                if (status === 'Packed') {
                     await createAppNotification({
-                        vendor_id: order.vendor_id,
-                        role: 'vendor',
-                        title: 'Payment Credited',
-                        message: `Order #${orderId.slice(-6)} has been delivered. Amount has been added to your wallet.`,
-                        type: 'wallet_update'
+                        user_id: order.user_id,
+                        role: 'user',
+                        title: 'Order Packed',
+                        message: 'Your order has been packed and will be shipped soon.',
+                        type: 'order_status'
                     });
+                } else if (status === 'Shipped') {
+                    await createAppNotification({
+                        user_id: order.user_id,
+                        role: 'user',
+                        title: 'Order Shipped',
+                        message: 'Your order is on the way. Tracking updates will be available soon.',
+                        type: 'order_status'
+                    });
+                } else if (status === 'Delivered') {
+                    await createAppNotification({
+                        user_id: order.user_id,
+                        role: 'user',
+                        title: 'Order Delivered',
+                        message: 'Your order has been delivered successfully. Please rate the product.',
+                        type: 'order_status'
+                    });
+                    if (order.vendor_id) {
+                        await createAppNotification({
+                            vendor_id: order.vendor_id,
+                            role: 'vendor',
+                            title: 'Payment Credited',
+                            message: `Order #${orderId.slice(-6)} has been delivered. Amount has been added to your wallet.`,
+                            type: 'wallet_update'
+                        });
+                    }
                 }
             }
         } catch (notifErr) {
@@ -306,7 +330,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         }
         
         await refreshOrders();
-        if (user) await fetchInbox(user);
+        if (user && !user.id.toString().startsWith('guest-')) await fetchInbox(user);
     }
   };
 

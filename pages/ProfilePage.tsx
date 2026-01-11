@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
@@ -12,7 +13,7 @@ const ProfilePage: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const toggleSMS = () => {
@@ -26,11 +27,11 @@ const ProfilePage: React.FC = () => {
     { name: 'In-App Inbox', link: '/notifications', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', count: unreadCount },
     { name: 'My Favorites', link: '/wishlist', icon: 'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z' },
     { name: 'Shipping Addresses', link: '/addresses', icon: 'M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M21 10.5c0 7.142-7.5 11.25-9 11.25S3 17.642 3 10.5a9 9 0 1118 0z' },
-    { name: 'Account Settings', link: '#', icon: 'M10.343 3.94c.09-.542.56-1.025 1.11-1.226l.542-.202c.636-.236 1.353.076 1.583.706l.328 1.002a.86.86 0 001.32.397l.83-.564c.6-.403 1.39.098 1.583.73l.288.948a.86.86 0 001.192.51l.942-.29c.65-.202 1.33.284 1.33.943v.568c0 .659-.68 1.145-1.33.943l-.942-.29a.86.86 0 00-1.192.51l-.288.948c-.193.632-.983 1.133-1.583.73l-.83-.564a.86.86 0 00-1.32.397l-.328 1.002c-.23.63-.947.942-1.583.706l-.542-.202c-.55-.201-1.02-.684-1.11-1.226l-.26-1.53c-.09-.542.23-1.055.77-1.226l1.036-.328c.54-.17.94-.66 1.03-1.202l.26-1.53z' }
   ];
 
   if (!user) return null;
   
+  const isGuest = !user.email;
   const panelLink = user.role === 'admin' ? { link: '/admin', text: 'Admin Hub' } : user.role === 'vendor' ? { link: '/vendor', text: 'Vendor Console' } : null;
 
   return (
@@ -44,9 +45,11 @@ const ProfilePage: React.FC = () => {
           </div>
           <div className="flex-grow">
             <h2 className="text-xl font-black text-text-main tracking-tight uppercase italic">{user.name}</h2>
-            <p className="text-text-muted text-xs font-semibold">{user.email}</p>
+            <p className="text-text-muted text-xs font-semibold">{isGuest ? 'Guest Session' : user.email}</p>
             <div className="flex gap-2 mt-2">
-               <span className="text-[8px] font-black uppercase tracking-widest bg-accent/10 text-accent px-2 py-0.5 rounded-full border border-accent/20">Premier Member</span>
+               <span className="text-[8px] font-black uppercase tracking-widest bg-accent/10 text-accent px-2 py-0.5 rounded-full border border-accent/20">
+                 {isGuest ? 'Visitor' : 'Premier Member'}
+               </span>
                {user.role !== 'user' && <span className="text-[8px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100">{user.role}</span>}
             </div>
           </div>
@@ -85,7 +88,6 @@ const ProfilePage: React.FC = () => {
           ))}
         </div>
 
-        {/* Requirement 8: SMS Consent Setting */}
         <GlassmorphicCard className="p-6">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4">Notification Preferences</h3>
             <div className="flex items-center justify-between">
@@ -100,9 +102,21 @@ const ProfilePage: React.FC = () => {
             </div>
         </GlassmorphicCard>
 
-        <button onClick={handleLogout} className="w-full bg-red-50 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-2xl border border-red-100 hover:bg-red-500 hover:text-white transition-all active:scale-95">
-          Secure Logout
-        </button>
+        {isGuest ? (
+            <div className="text-center p-4">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Browsing as Guest</p>
+            </div>
+        ) : (
+            <button onClick={handleLogout} className="w-full bg-red-50 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-2xl border border-red-100 hover:bg-red-500 hover:text-white transition-all active:scale-95">
+              Secure Logout
+            </button>
+        )}
+        
+        <div className="mt-4 text-center">
+             <Link to="/vendor/login" className="text-accent text-[10px] font-black uppercase tracking-widest border-b border-accent/20 pb-0.5 hover:border-accent">
+                Vendor / Partner Login
+             </Link>
+        </div>
       </div>
     </div>
   );
