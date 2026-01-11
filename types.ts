@@ -114,18 +114,15 @@ export interface Order {
     payment_mode: 'Online Payment' | 'Cash on Delivery';
     payment_status: PaymentStatus;
     shippingAddress: Address; 
-    // Fix: Added shipping_address as optional alias for pdf generation logic
     shipping_address?: Address;
     status: OrderStatus;
     status_history: StatusHistory[]; 
     created_at: string;
     cancellation_reason?: string;
     qr_token?: string;
-    // Fix: Added awb_code and tracking_id for administrative logistics management
     awb_code?: string;
     tracking_id?: string;
     courier_name?: string;
-    // Fix: Added seller_name for invoice and manifest generation
     seller_name?: string;
 }
 
@@ -139,7 +136,6 @@ export interface Address {
     phone: string;
 }
 
-// Fix: Added User interface to support authentication and profile management
 export interface User {
   id: string;
   name: string;
@@ -154,7 +150,6 @@ export interface User {
   sms_enabled?: boolean;
 }
 
-// Fix: Added Vendor interface to support merchant management
 export interface Vendor {
   id: number;
   user_id: string;
@@ -171,7 +166,6 @@ export interface Vendor {
   pending_balance?: number;
 }
 
-// Fix: Added AdminCode interface for vendor registration security
 export interface AdminCode {
   id: string;
   code: string;
@@ -184,7 +178,6 @@ export interface AdminCode {
   usedBy?: string;
 }
 
-// Fix: Added Banner interface for promotional carousel management
 export interface Banner {
   id: number;
   image_url: string;
@@ -194,7 +187,6 @@ export interface Banner {
   created_at: string;
 }
 
-// Fix: Added Notification interfaces for settings and audit trails
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;

@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import HomePage from './pages/HomePage.tsx';
 import LandingPage from './pages/LandingPage.tsx'; 
 import DailyNeedsPage from './pages/DailyNeedsPage.tsx'; 
-import MenuPage from './pages/MenuPage.tsx'; // NEW
+import MenuPage from './pages/MenuPage.tsx'; 
 import ProductsPage from './pages/ProductsPage.tsx';
 import ProductDetailPage from './pages/ProductDetailPage.tsx';
 import CartPage from './pages/CartPage.tsx';
@@ -14,7 +14,7 @@ import LoginPage from './pages/LoginPage.tsx';
 import SignupPage from './pages/SignupPage.tsx';
 import MyOrdersPage from './pages/MyOrdersPage.tsx';
 import OrderDetailPage from './pages/OrderDetailPage.tsx';
-import CancelOrderPage from './pages/CancelOrderPage.tsx'; // NEW
+import CancelOrderPage from './pages/CancelOrderPage.tsx'; 
 import OrderSuccessPage from './pages/OrderSuccessPage.tsx';
 import ShippingAddressesPage from './pages/ShippingAddressesPage.tsx';
 import AddressFormPage from './pages/AddressFormPage.tsx';
@@ -55,8 +55,27 @@ import VendorWalletPage from './pages/vendor/VendorWalletPage.tsx';
 import VendorProfilePage from './pages/vendor/VendorProfilePage.tsx';
 import CourierScanPage from './pages/CourierScanPage.tsx';
 
+// Admin Imports
+import AdminLayout from './pages/admin/AdminLayout.tsx';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage.tsx';
+import AdminProductsPage from './pages/admin/AdminProductsPage.tsx';
+import AdminProductFormPage from './pages/admin/AdminProductFormPage.tsx';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage.tsx';
+import AdminUsersPage from './pages/admin/AdminUsersPage.tsx';
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage.tsx';
+import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage.tsx';
+import AdminServiceAreasPage from './pages/admin/AdminServiceAreasPage.tsx';
+import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
+import AdminPayoutsPage from './pages/admin/AdminPayoutsPage.tsx';
+import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage.tsx';
+import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage.tsx';
+import AdminApprovalsPage from './pages/admin/AdminApprovalsPage.tsx';
+import AdminBannersPage from './pages/admin/AdminBannersPage.tsx';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
+import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
+
 // Fix: Implemented ProtectedRoute component to secure routes requiring authentication
-const ProtectedRoute: React.FC<{ children: ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
@@ -66,11 +85,18 @@ const ProtectedRoute: React.FC<{ children: ReactNode }> = ({ children }) => {
 };
 
 // Fix: Implemented AdminRoute component to restrict access to administrative tools
-const AdminRoute: React.FC<{ children: ReactNode }> = ({ children }) => {
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div></div>;
   if (!isAuthenticated || user?.role !== 'admin') return <Navigate to="/login" replace />;
   return <>{children}</>;
+};
+
+const VendorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, isAuthenticated, isLoading } = useAuth();
+    if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div></div>;
+    if (!isAuthenticated || user?.role !== 'vendor') return <Navigate to="/login" replace />;
+    return <>{children}</>;
 };
 
 const AppContent: React.FC = () => {
@@ -91,7 +117,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/home" element={<HomePage />} />
-          <Route path="/menu" element={<MenuPage />} /> {/* NEW */}
+          <Route path="/menu" element={<MenuPage />} /> 
           <Route path="/daily" element={<DailyNeedsPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
@@ -100,11 +126,56 @@ const AppContent: React.FC = () => {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
           <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
-          <Route path="/cancel-order/:id" element={<ProtectedRoute><CancelOrderPage /></ProtectedRoute>} /> {/* NEW */}
+          <Route path="/cancel-order/:id" element={<ProtectedRoute><CancelOrderPage /></ProtectedRoute>} /> 
           <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/order-success" element={<OrderSuccessPage />} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          {/* ... Rest of routes */}
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+          <Route path="/addresses" element={<ProtectedRoute><ShippingAddressesPage /></ProtectedRoute>} />
+          <Route path="/addresses/new" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
+          <Route path="/addresses/edit/:id" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
+          <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/about-us" element={<AboutUsPage />} />
+          <Route path="/contact-us" element={<ContactUsPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/blog/safe-shopping" element={<SafeShoppingPage />} />
+          <Route path="/blog/quality-guide" element={<ProductQualityPage />} />
+          <Route path="/blog/ecommerce-india" element={<EcommerceIndiaPage />} />
+          <Route path="/blog/buying-guide" element={<BuyingGuidePage />} />
+          <Route path="/scan/:token" element={<CourierScanPage />} />
+          
+          <Route path="/admin" element={<AdminRoute><AdminLayout><Outlet /></AdminLayout></AdminRoute>}>
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="analytics" element={<AdminAnalyticsPage />} />
+            <Route path="service-areas" element={<AdminServiceAreasPage />} />
+            <Route path="vendors" element={<AdminVendorsPage />} />
+            <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="payouts" element={<AdminPayoutsPage />} />
+            <Route path="marketing" element={<AdminBannersPage />} />
+            <Route path="products" element={<AdminProductsPage />} />
+            <Route path="products/new" element={<AdminProductFormPage />} />
+            <Route path="products/edit/:id" element={<AdminProductFormPage />} />
+            <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="categories/new" element={<AdminCategoryFormPage />} />
+            <Route path="categories/edit/:id" element={<AdminCategoryFormPage />} />
+            <Route path="audit" element={<AdminAuditLogsPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="notifications" element={<AdminNotificationsPage />} />
+            <Route path="approvals" element={<AdminApprovalsPage />} />
+            <Route path="codes" element={<AdminCodesPage />} />
+          </Route>
+
+           <Route path="/vendor" element={<VendorRoute><VendorLayout><Outlet /></VendorLayout></VendorRoute>}>
+            <Route index element={<VendorDashboardPage />} />
+            <Route path="products" element={<VendorProductsPage />} />
+            <Route path="products/new" element={<VendorProductFormPage />} />
+            <Route path="products/edit/:id" element={<VendorProductFormPage />} />
+            <Route path="orders" element={<VendorOrdersPage />} />
+            <Route path="order/:id" element={<VendorOrderDetailPage />} />
+            <Route path="wallet" element={<VendorWalletPage />} />
+            <Route path="profile" element={<VendorProfilePage />} />
+          </Route>
         </Routes>
       </main>
       <ShippingLabelPreviewModal />
