@@ -1,109 +1,88 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import GlassmorphicCard from '../components/GlassmorphicCard';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GlassmorphicCard from '../components/GlassmorphicCard';
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const { sendOtp } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    if (phone.length < 10) {
+        alert("Please enter a valid 10-digit mobile number");
+        return;
+    }
+    
     setIsSubmitting(true);
     try {
-      await login(email, password);
-    } catch (err: any) {
-      setError('Invalid email or password');
+        await sendOtp(phone);
+        navigate('/otp', { state: { phone } });
+    } catch (err) {
+        alert("Failed to send OTP");
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
-  React.useEffect(() => {
-    if (user) {
-      // Role-based redirection logic
-      switch (user.role) {
-        case 'admin':
-          navigate('/admin');
-          break;
-        case 'vendor':
-          navigate('/vendor');
-          break;
-        default:
-          navigate('/profile');
-          break;
-      }
-    }
-  }, [user, navigate]);
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-gradient-to-b from-accent/10 to-transparent blur-3xl rounded-full"></div>
+    <div className="min-h-screen bg-white flex flex-col p-6 pt-12 animate-in fade-in duration-300">
       
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-10">
-            <div className="w-24 h-24 mx-auto bg-gradient-to-br from-[#0d0d14] to-[#1a1a2e] border border-white/10 rounded-3xl flex items-center justify-center shadow-2xl mb-4 transform -rotate-6">
-                <svg className="w-14 h-14 text-accent" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.707 15.293C4.077 15.923 4.523 17 5.414 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 17C7.89543 17 7 17.8954 7 19C7 20.1046 7.89543 21 9 21C10.1046 21 11 20.1046 11 19C11 17.8954 10.1046 17 9 17Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+      {/* Illustration */}
+      <div className="flex justify-center mb-8">
+        <div className="w-full max-w-[280px] h-64 bg-surface rounded-[3rem] relative overflow-hidden flex items-end justify-center border border-gray-100">
+            <img 
+                src="https://img.freepik.com/free-vector/shopping-cart-concept-illustration_114360-1207.jpg?w=740&t=st=1686000000~exp=1686000600~hmac=xyz" 
+                className="w-full h-full object-cover opacity-80 mix-blend-multiply" 
+                alt="Shopping"
+            />
+            <div className="absolute top-6 right-6 bg-[#00B259] text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-lg transform rotate-12">
+                Fast Delivery
             </div>
-            <h1 className="text-4xl font-black text-text-main italic">Vexo<span className="text-accent">Kart</span></h1>
-            <p className="text-text-muted text-xs uppercase tracking-widest mt-1 font-bold">Shop Online, Shop Smart</p>
         </div>
-        <GlassmorphicCard className="p-8 border-white/5">
-          <h2 className="text-2xl font-bold text-center text-text-main mb-6">Welcome Back</h2>
-          {error && <p className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl mb-6 font-bold">{error}</p>}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="text-xs font-black uppercase tracking-wider text-text-muted ml-1" htmlFor="email">Email Address</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isSubmitting}
-                className="w-full mt-2 bg-background/50 text-text-main placeholder-text-muted border border-white/5 focus:border-accent focus:ring-1 focus:ring-accent/20 rounded-xl p-3.5 transition-all"
-                placeholder="alex@example.com"
-              />
+      </div>
+
+      <div className="flex-1">
+        <h2 className="text-2xl font-black text-text-main italic uppercase tracking-tight mb-1">Get Started</h2>
+        <p className="text-text-muted text-xs font-bold uppercase tracking-widest mb-8">Login or Signup to continue</p>
+
+        <form onSubmit={handleContinue} className="space-y-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 flex items-center transition-all focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10">
+                <div className="pl-4 pr-3 border-r border-gray-200">
+                    <span className="font-bold text-gray-500">+91</span>
+                </div>
+                <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    maxLength={10}
+                    placeholder="Mobile Number"
+                    className="w-full bg-transparent p-3 text-lg font-bold text-text-main placeholder-gray-300 outline-none"
+                    autoFocus
+                />
             </div>
-            <div>
-              <label className="text-xs font-black uppercase tracking-wider text-text-muted ml-1" htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isSubmitting}
-                className="w-full mt-2 bg-background/50 text-text-main placeholder-text-muted border border-white/5 focus:border-accent focus:ring-1 focus:ring-accent/20 rounded-xl p-3.5 transition-all"
-                placeholder="••••••••"
-              />
-            </div>
+
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-accent to-accent-secondary text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-xl shadow-accent/20 transform hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 mt-4"
+                type="submit"
+                disabled={isSubmitting || phone.length < 10}
+                className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none"
             >
-              {isSubmitting ? 'Authenticating...' : 'Secure Login'}
+                {isSubmitting ? 'Sending OTP...' : 'Continue'}
             </button>
-          </form>
-          <div className="text-center text-sm text-text-muted mt-8 space-y-3">
-            <p>
-              New to VexoKart?{' '}
-              <Link to="/signup" className="font-bold text-accent hover:text-accent-secondary transition-colors underline underline-offset-4">
-                Create Account
-              </Link>
-            </p>
-          </div>
-        </GlassmorphicCard>
+        </form>
+
+        <p className="text-[9px] text-center text-gray-400 mt-6 leading-relaxed max-w-xs mx-auto">
+            By continuing, you agree to our <span className="font-bold text-gray-600 underline">Terms of Use</span> & <span className="font-bold text-gray-600 underline">Privacy Policy</span>
+        </p>
+      </div>
+
+      <div className="mt-8 text-center">
+         <Link to="/vendor/login" className="text-accent text-[10px] font-black uppercase tracking-widest border-b border-accent/20 pb-0.5 hover:border-accent">
+            Vendor / Partner Login
+         </Link>
       </div>
     </div>
   );

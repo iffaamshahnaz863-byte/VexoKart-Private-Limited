@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
 import { VendorContext } from './VendorContext.tsx';
@@ -9,9 +10,11 @@ interface AuthContextType {
   users: User[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>; // Vendor/Admin Login
   signup: (name: string, email: string, phone: string, pass: string) => Promise<void>;
   signupAsVendor: (name: string, email: string, pass: string, storeName: string, code: string) => Promise<void>;
+  sendOtp: (phone: string) => Promise<boolean>; // New
+  verifyOtp: (phone: string, otp: string) => Promise<void>; // New
   logout: () => void;
   addUser: (userData: { name: string; email: string; phone: string; pass: string; role: User['role']; storeName?: string }) => Promise<void>;
   addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
@@ -91,6 +94,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('vexokart-user', JSON.stringify(safeUser));
   };
 
+  // Standard Email/Pass Login (Vendors/Admins)
   const login = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPass = pass.trim();
@@ -99,9 +103,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const query = `email=ilike.${encodeURIComponent(cleanEmail)}&select=*`;
       const res = await fetch(`${BASE_API_URL}/users?${query}`, { headers: API_HEADERS });
       
-      if (!res.ok) {
-        throw new Error("Authentication service connection error.");
-      }
+      if (!res.ok) throw new Error("Authentication service connection error.");
       
       const data = await res.json();
       
@@ -119,10 +121,65 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
       
-      throw new Error('No account found with this email. Please sign up.');
+      throw new Error('No account found with this email.');
     } catch (err: any) {
       console.error("Login Error:", err);
       throw new Error(err.message || 'Identity verification failed.');
+    }
+  };
+
+  // Mobile OTP Send (Simulation)
+  const sendOtp = async (phone: string): Promise<boolean> => {
+    // In a real app, integrate with Fast2SMS or Firebase Auth here.
+    // For now, we simulate a successful send.
+    console.log(`Sending OTP to ${phone}`);
+    return new Promise(resolve => setTimeout(() => resolve(true), 1000));
+  };
+
+  // Mobile OTP Verify (User Login)
+  const verifyOtp = async (phone: string, otp: string) => {
+    if (otp !== '1234') { // Hardcoded for demo
+        throw new Error('Invalid OTP. Please use 1234.');
+    }
+
+    try {
+        // Check if user exists with this phone
+        const res = await fetch(`${BASE_API_URL}/users?phone=eq.${encodeURIComponent(phone)}&select=*`, { headers: API_HEADERS });
+        const data = await res.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+            // Existing User
+            const dbUser = data[0];
+            const loggedUser = sanitizeUser(dbUser);
+            updateUserSession(loggedUser);
+            await fetchInbox(loggedUser);
+        } else {
+            // New User Registration (Auto-Signup)
+            const newUser = {
+                name: 'Vexo User',
+                email: `user_${phone}@vexokart.com`, // Placeholder email
+                phone: phone,
+                password: 'mobile_login_secure', // Dummy pass
+                role: 'user',
+                addresses: [],
+                wishlist: [],
+                recentlyViewed: [],
+                created_at: new Date().toISOString()
+            };
+
+            const createRes = await fetch(`${BASE_API_URL}/users`, {
+                method: 'POST',
+                headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
+                body: JSON.stringify(newUser)
+            });
+
+            if (!createRes.ok) throw new Error('Registration failed');
+            const createdData = await createRes.json();
+            const createdUser = sanitizeUser(createdData[0]);
+            updateUserSession(createdUser);
+        }
+    } catch (err: any) {
+        throw new Error(err.message || 'Verification failed');
     }
   };
 
@@ -326,7 +383,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <AuthContext.Provider value={{ 
       user, users: allUsers, isLoading, isAuthenticated: !!user, 
-      login, signup, signupAsVendor, logout, addUser, addAddress, updateAddress, 
+      login, signup, signupAsVendor, sendOtp, verifyOtp, logout, addUser, addAddress, updateAddress, 
       deleteAddress, deleteUser, addToWishlist, removeFromWishlist, 
       isInWishlist, updateUserSession, fetchUsers 
     }}>

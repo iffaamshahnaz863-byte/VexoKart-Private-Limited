@@ -10,7 +10,11 @@ import ProductDetailPage from './pages/ProductDetailPage.tsx';
 import CartPage from './pages/CartPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
 import CheckoutPage from './pages/CheckoutPage.tsx';
-import LoginPage from './pages/LoginPage.tsx';
+import LoginPage from './pages/LoginPage.tsx'; // Now Mobile Login
+import VendorLoginPage from './pages/vendor/VendorLoginPage.tsx'; // New Vendor Login
+import OtpVerificationPage from './pages/OtpVerificationPage.tsx'; // New OTP
+import OnboardingPage from './pages/OnboardingPage.tsx'; // New Onboarding
+import WelcomePage from './pages/WelcomePage.tsx'; // New Welcome
 import SignupPage from './pages/SignupPage.tsx';
 import MyOrdersPage from './pages/MyOrdersPage.tsx';
 import OrderDetailPage from './pages/OrderDetailPage.tsx';
@@ -29,7 +33,6 @@ import ProductQualityPage from './pages/blog/ProductQualityPage.tsx';
 import EcommerceIndiaPage from './pages/blog/EcommerceIndiaPage.tsx';
 import BuyingGuidePage from './pages/blog/BuyingGuidePage.tsx';
 import BottomNav from './components/BottomNav.tsx';
-import Footer from './components/Footer.tsx';
 import SplashScreen from './components/SplashScreen.tsx';
 import ShippingLabelPreviewModal from './components/ShippingLabelPreviewModal.tsx';
 import { CartProvider } from './context/CartContext.tsx';
@@ -74,7 +77,6 @@ import AdminBannersPage from './pages/admin/AdminBannersPage.tsx';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
 import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
 
-// Fix: Implemented ProtectedRoute component to secure routes requiring authentication
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
@@ -84,30 +86,29 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-// Fix: Implemented AdminRoute component to restrict access to administrative tools
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div></div>;
-  if (!isAuthenticated || user?.role !== 'admin') return <Navigate to="/login" replace />;
+  if (!isAuthenticated || user?.role !== 'admin') return <Navigate to="/vendor/login" replace />;
   return <>{children}</>;
 };
 
 const VendorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, isAuthenticated, isLoading } = useAuth();
     if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div></div>;
-    if (!isAuthenticated || user?.role !== 'vendor') return <Navigate to="/login" replace />;
+    if (!isAuthenticated || user?.role !== 'vendor') return <Navigate to="/vendor/login" replace />;
     return <>{children}</>;
 };
 
 const AppContent: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const location = useLocation();
-  const isAuthPage = ['/login', '/signup', '/vendor/signup'].includes(location.pathname);
-  const isAdminPage = location.pathname.startsWith('/admin');
-  const isVendorPage = location.pathname.startsWith('/vendor');
-  const isLogisticsPage = location.pathname.startsWith('/scan');
   
-  const showBottomNav = !isInitializing && !isAuthPage && !isAdminPage && !isVendorPage && !isLogisticsPage && !['/checkout', '/order-success', '/', '/daily'].includes(location.pathname) && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/cancel-order/') && !location.pathname.startsWith('/product/');
+  // Logic to hide BottomNav on auth/onboarding/checkout pages
+  const hideNavRoutes = ['/login', '/otp', '/onboarding', '/welcome', '/vendor/login', '/signup', '/checkout', '/order-success'];
+  const isHideNav = hideNavRoutes.includes(location.pathname) || location.pathname.startsWith('/admin') || location.pathname.startsWith('/vendor') || location.pathname.startsWith('/scan');
+  
+  const showBottomNav = !isInitializing && !isHideNav && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/cancel-order/') && !location.pathname.startsWith('/product/');
 
   if (isInitializing) return <SplashScreen onFinish={() => setIsInitializing(false)} />;
 
@@ -115,15 +116,26 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-background text-text-secondary font-sans flex flex-col">
       <main className={`flex-grow ${showBottomNav ? "pb-20" : ""}`}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          {/* Onboarding Flow */}
+          <Route path="/" element={<Navigate to={localStorage.getItem('vxk_seen_onboarding') ? "/welcome" : "/onboarding"} replace />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
+          
+          {/* Auth */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/otp" element={<OtpVerificationPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/vendor/login" element={<VendorLoginPage />} />
+
+          {/* Main App */}
           <Route path="/home" element={<HomePage />} />
           <Route path="/menu" element={<MenuPage />} /> 
           <Route path="/daily" element={<DailyNeedsPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          
+          {/* Protected User Routes */}
           <Route path="/orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
           <Route path="/order/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
           <Route path="/cancel-order/:id" element={<ProtectedRoute><CancelOrderPage /></ProtectedRoute>} /> 
@@ -135,6 +147,8 @@ const AppContent: React.FC = () => {
           <Route path="/addresses/new" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
           <Route path="/addresses/edit/:id" element={<ProtectedRoute><AddressFormPage /></ProtectedRoute>} />
           <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+          
+          {/* Info Pages */}
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/contact-us" element={<ContactUsPage />} />
@@ -145,6 +159,7 @@ const AppContent: React.FC = () => {
           <Route path="/blog/buying-guide" element={<BuyingGuidePage />} />
           <Route path="/scan/:token" element={<CourierScanPage />} />
           
+          {/* Admin Panel */}
           <Route path="/admin" element={<AdminRoute><AdminLayout><Outlet /></AdminLayout></AdminRoute>}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="analytics" element={<AdminAnalyticsPage />} />
@@ -166,6 +181,7 @@ const AppContent: React.FC = () => {
             <Route path="codes" element={<AdminCodesPage />} />
           </Route>
 
+           {/* Vendor Panel */}
            <Route path="/vendor" element={<VendorRoute><VendorLayout><Outlet /></VendorLayout></VendorRoute>}>
             <Route index element={<VendorDashboardPage />} />
             <Route path="products" element={<VendorProductsPage />} />
