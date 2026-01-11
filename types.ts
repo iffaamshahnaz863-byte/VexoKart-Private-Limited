@@ -2,12 +2,12 @@
 export interface Review {
   id: number;
   product_id: number;
-  user_id: string; // UUID from Supabase Auth
-  order_id: number; // Integer ID
+  user_id: string;
+  order_id: number;
   rating: number;
   review_text?: string;
-  images: string[]; // text[]
-  video_url?: string; // Changed from videos[] to video_url to match DB schema
+  images: string[];
+  video_url?: string;
   is_verified: boolean;
   created_at: string;
   vendor_reply?: string;
@@ -35,30 +35,24 @@ export interface Product {
   discount_percent: number;
   images: string[];
   category_id: number;
-  category?: string; // Virtual field for UI
+  category?: string;
   status: ProductStatus;
-  payment_modes: string[]; // Persistence layer for payment booleans
-  // product_type now represents the vertical (Normal vs Daily Needs)
-  product_type: 'normal' | 'daily_needs' | 'simple' | 'variant'; 
+  product_type: 'normal' | 'daily_needs'; 
   is_cod_enabled: boolean; 
   is_online_enabled: boolean; 
-  cash_on_delivery?: boolean;
-  specifications?: Record<string, string>;
+  is_returnable: boolean;
+  express_delivery_enabled: boolean;
+  weight_info?: string;
   stock: number;
   highlights?: string[];
   rating: number;
   review_count: number;
   reviews: Review[];
   created_at: string;
-  return_policy?: string;
   variants?: ProductVariant[];
-  
-  // Real UPI Discount Fields (Computed)
   upi_price: number;
   upi_discount: number;
-
-  // Daily Needs Specific
-  service_pincodes?: string[]; // List of pincodes this product is available in
+  service_pincodes?: string[];
 }
 
 export interface ServiceArea {
@@ -83,6 +77,7 @@ export interface CartItem extends Product {
   quantity: number;
   selectedColor?: string;
   selectedSize?: string;
+  delivery_type?: 'standard' | 'express';
 }
 
 export interface OrderItem {
@@ -95,7 +90,7 @@ export interface OrderItem {
     vendor_name?: string;
     color?: string;
     size?: string;
-    sku?: string;
+    delivery_type?: 'standard' | 'express';
 }
 
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
@@ -110,80 +105,28 @@ export interface StatusHistory {
 
 export interface Order {
     id: string;
-    user_id: string; // UUID string
+    user_id: string;
     vendor_id?: string;
     items: OrderItem[];
     total: number; 
     total_amount: number; 
-    discount_amount?: number; // UPI/Online Discount Applied
+    discount_amount?: number;
     payment_mode: 'Online Payment' | 'Cash on Delivery';
     payment_status: PaymentStatus;
-    shipping_address: Address;
     shippingAddress: Address; 
+    // Fix: Added shipping_address as optional alias for pdf generation logic
+    shipping_address?: Address;
     status: OrderStatus;
-    statusHistory: StatusHistory[];
     status_history: StatusHistory[]; 
     created_at: string;
-    
-    shipment_id?: string;
-    awb_code?: string;
-    tracking_id?: string; 
-    label_url?: string;
-    courier_name?: string;
-    tracking_url?: string;
-    pickup_scheduled_date?: string;
-    
+    cancellation_reason?: string;
     qr_token?: string;
-    qrToken?: string; 
-    invoice_url?: string;
-    invoice_generated?: boolean;
+    // Fix: Added awb_code and tracking_id for administrative logistics management
+    awb_code?: string;
+    tracking_id?: string;
+    courier_name?: string;
+    // Fix: Added seller_name for invoice and manifest generation
     seller_name?: string;
-}
-
-export interface WalletTransaction {
-  id: string;
-  vendor_id: string;
-  order_id?: string;
-  amount: number;
-  type: 'credit' | 'debit' | 'withdrawal';
-  status: 'pending' | 'settled' | 'withdrawn' | 'failed';
-  note?: string;
-  created_at: string;
-}
-
-export interface Vendor {
-  id: number;
-  user_id: string;
-  store_name: string;
-  profile_image: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  email: string;
-  phone: string;
-  owner_name: string;
-  store_address?: string;
-  created_at: string;
-  rejection_reason?: string;
-  wallet_balance?: number;
-  pending_balance?: number;
-  bank_account?: {
-    account_holder: string;
-    account_number: string;
-    ifsc_code: string;
-    bank_name: string;
-  };
-  upi_id?: string;
-}
-
-export interface AppNotification {
-  id: number;
-  user_id?: string;
-  vendor_id?: number | string;
-  role: 'user' | 'vendor' | 'admin';
-  title: string;
-  message: string;
-  type: string;
-  is_read: boolean;
-  created_at: string;
 }
 
 export interface Address {
@@ -196,12 +139,14 @@ export interface Address {
     phone: string;
 }
 
+// Fix: Added User interface to support authentication and profile management
 export interface User {
-  id: string; // Changed to string for UUID
+  id: string;
   name: string;
   email: string;
   phone: string;
-  role: 'user' | 'admin' | 'vendor';
+  password?: string;
+  role: 'user' | 'vendor' | 'admin';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
@@ -209,6 +154,24 @@ export interface User {
   sms_enabled?: boolean;
 }
 
+// Fix: Added Vendor interface to support merchant management
+export interface Vendor {
+  id: number;
+  user_id: string;
+  store_name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  owner_name: string;
+  email: string;
+  phone: string;
+  profile_image?: string;
+  created_at?: string;
+  rejection_reason?: string;
+  wallet_balance?: number;
+  store_address?: string;
+  pending_balance?: number;
+}
+
+// Fix: Added AdminCode interface for vendor registration security
 export interface AdminCode {
   id: string;
   code: string;
@@ -221,6 +184,7 @@ export interface AdminCode {
   usedBy?: string;
 }
 
+// Fix: Added Banner interface for promotional carousel management
 export interface Banner {
   id: number;
   image_url: string;
@@ -230,6 +194,7 @@ export interface Banner {
   created_at: string;
 }
 
+// Fix: Added Notification interfaces for settings and audit trails
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -244,10 +209,22 @@ export interface NotificationSettings {
 }
 
 export interface NotificationLog {
-  id: number | string;
+  id: number;
   createdAt: string;
   channel: 'email' | 'sms';
   orderId: string;
   status: 'sent' | 'failed';
   response: string;
+}
+
+export interface AppNotification {
+  id: number;
+  user_id?: string;
+  vendor_id?: number;
+  role: 'user' | 'vendor' | 'admin';
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
 }
