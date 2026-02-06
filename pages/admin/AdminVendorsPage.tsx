@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useVendors } from '../../context/VendorContext';
 import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
+// Fix: Import newly defined Vendor type
 import { Vendor } from '../../types';
 import { SearchIcon } from '../../components/icons/SearchIcon';
 import Toast from '../../components/Toast';

@@ -6,6 +6,7 @@ import React, {
   ReactNode,
   useContext,
 } from "react";
+// Fix: Import newly added Vendor type
 import { Order, OrderStatus, Address, PaymentStatus, Vendor } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
 import { useNotifications } from "./NotificationContext.tsx";
@@ -68,7 +69,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
       if (user.role === "user") {
         // Use auth_id (UUID) to query orders, ensuring consistency with how reviews are linked.
-        filter += `&user_id=eq.${user.auth_id}`;
+        filter += `&user_id=eq.${user.auth_uid}`;
       } else if (user.role === "vendor") {
         const vRes = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${user.id}&select=id`, { headers: API_HEADERS });
         if (!vRes.ok) {
@@ -197,7 +198,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     // CRITICAL FIX: Use the auth_id (UUID) as the user_id foreign key.
     // This aligns with how reviews are stored and assumes orders.user_id is a UUID.
-    const userIdValue = user.auth_id ? user.auth_id : null;
+    const userIdValue = user.auth_uid ? user.auth_uid : null;
 
     const payload: any = {
       user_id: userIdValue,
@@ -292,6 +293,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         // Notifications only for non-guest users usually, but logic exists inside createAppNotification
         try {
             if (order.user_id && !order.user_id.toString().startsWith('guest-')) {
+// Fix: Use capitalized status values to match the OrderStatus type
                 if (status === 'Packed') {
                     await createAppNotification({
                         user_id: order.user_id,
@@ -300,6 +302,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                         message: 'Your order has been packed and will be shipped soon.',
                         type: 'order_status'
                     });
+// Fix: Use capitalized status values to match the OrderStatus type
                 } else if (status === 'Shipped') {
                     await createAppNotification({
                         user_id: order.user_id,
@@ -308,6 +311,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                         message: 'Your order is on the way. Tracking updates will be available soon.',
                         type: 'order_status'
                     });
+// Fix: Use capitalized status values to match the OrderStatus type
                 } else if (status === 'Delivered') {
                     await createAppNotification({
                         user_id: order.user_id,
@@ -337,6 +341,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const createShipment = async (orderId: string, vendorData: any) => {
+    // Fix: Use capitalized status to match OrderStatus type
     await updateOrderStatus(orderId, 'Confirmed', { note: 'Shipment manifest processing started.' });
   };
 

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Category } from '../types';
 
@@ -15,7 +16,8 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, isSelected = fals
     >
       <div className={`w-6 h-6 rounded-full overflow-hidden border ${isSelected ? 'border-white/50' : 'border-border'}`}>
         <img 
-          src={category.image || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Cat'} 
+          // Fix: Property 'image' does not exist on type 'Category'. Use 'image_url' instead.
+          src={category.image_url || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Cat'} 
           alt={category.name} 
           className="w-full h-full object-cover" 
         />

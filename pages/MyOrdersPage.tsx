@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
@@ -8,6 +9,7 @@ import { Order, OrderStatus } from '../types';
 
 const getStatusTheme = (status: OrderStatus) => {
     switch(status) {
+// Fix: Use capitalized status values to match the OrderStatus type
         case 'Delivered': return { text: 'Delivered', color: 'text-green-600', bg: 'bg-green-50', icon: '✓' };
         case 'Cancelled': return { text: 'Cancelled', color: 'text-red-600', bg: 'bg-red-50', icon: '✕' };
         case 'Placed': case 'Confirmed': case 'Packed': return { text: 'Processing', color: 'text-blue-600', bg: 'bg-blue-50', icon: '•' };

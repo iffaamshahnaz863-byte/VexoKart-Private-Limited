@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import GlassmorphicCard from '../components/GlassmorphicCard';
@@ -12,13 +13,12 @@ const ContactUsPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate form submission
     setSubmitted(true);
     setFormData({ name: '', email: '', message: '' });
     setTimeout(() => setSubmitted(false), 5000);
   };
 
-  const inputClasses = "w-full mt-2 bg-surface text-text-main border border-border focus:border-accent focus:ring-4 focus:ring-accent/5 rounded-2xl p-4 transition-all outline-none font-medium";
+  const inputClasses = "w-full mt-2 bg-surface text-text-main border border-border focus:border-primary focus:ring-4 focus:ring-primary/5 rounded-2xl p-4 transition-all outline-none font-medium";
 
   return (
     <div className="bg-surface min-h-screen">
@@ -28,27 +28,26 @@ const ContactUsPage: React.FC = () => {
           
           <div className="space-y-8">
             <div>
-              <h1 className="text-4xl font-black text-text-main italic uppercase tracking-tight leading-none">Customer<br/><span className="text-accent">Support</span></h1>
+              <h1 className="text-4xl font-black text-text-main italic uppercase tracking-tight leading-none">Customer<br/><span className="text-primary">Support</span></h1>
               <p className="text-text-secondary mt-4 font-medium leading-relaxed">
-                Vexo Kart Private Limited is dedicated to providing exemplary service. Our support team operates from our headquarters in India to assist you with order tracking, returns, and general inquiries.
+                DAR CYCLE HUB is dedicated to providing exemplary service. Our support team is available to assist you with product inquiries, order tracking, and service requests.
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-start gap-4 bg-white p-6 rounded-3xl border border-border shadow-sm">
-                <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent shrink-0">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-text-muted tracking-widest">Official Support Email</p>
-                  <p className="text-sm font-bold text-text-main">support@vexokart.com</p>
-                  <p className="text-xs text-text-secondary mt-1">Secondary: bictcomputereducation1@gmail.com</p>
-                  <p className="text-[10px] text-accent font-bold mt-2 uppercase tracking-wide">Response Time: Within 24 Business Hours</p>
+                  <p className="text-sm font-bold text-text-main">support@darcyclehub.com</p>
+                  <p className="text-[10px] text-primary font-bold mt-2 uppercase tracking-wide">Response Time: Within 24 Business Hours</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-4 bg-white p-6 rounded-3xl border border-border shadow-sm">
-                <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent shrink-0">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <div>
@@ -60,16 +59,15 @@ const ContactUsPage: React.FC = () => {
               </div>
 
               <div className="flex items-start gap-4 bg-white p-6 rounded-3xl border border-border shadow-sm">
-                <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent shrink-0">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-text-muted tracking-widest">Registered Office</p>
-                  <p className="text-sm font-bold text-text-main">Vexo Kart Private Limited</p>
+                  <p className="text-sm font-bold text-text-main">DAR CYCLE HUB</p>
                   <p className="text-xs text-text-secondary mt-1">
-                    BICT Computer Education Premises,<br/>
-                    Sector 4, Urban Estate,<br/>
-                    India - 122001
+                    Srinagar, Jammu & Kashmir,<br/>
+                    India
                   </p>
                 </div>
               </div>
@@ -82,8 +80,7 @@ const ContactUsPage: React.FC = () => {
                 <div className="w-20 h-20 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-500/20">
                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                 </div>
-                <h3 className="text-xl font-black italic uppercase text-text-main">Ticket Created</h3>
-                <p className="text-text-muted text-xs font-bold uppercase mt-2 tracking-widest">Reference ID: VX-{Math.floor(Math.random()*10000)}</p>
+                <h3 className="text-xl font-black italic uppercase text-text-main">Message Sent!</h3>
                 <p className="text-text-secondary text-sm mt-4">We have received your message. A support representative will contact you via email shortly.</p>
               </div>
             ) : (
@@ -125,7 +122,7 @@ const ContactUsPage: React.FC = () => {
                     className={`${inputClasses} resize-none`}
                   />
                 </div>
-                <button type="submit" className="w-full bg-accent text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl shadow-accent/20 active:scale-95 transition-all hover:bg-orange-600">
+                <button type="submit" className="w-full bg-primary text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all hover:bg-primary-dark">
                   Submit Inquiry
                 </button>
               </form>

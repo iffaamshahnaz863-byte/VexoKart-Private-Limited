@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useAdminCodes } from '../../context/AdminCodeContext';
+// Fix: Import newly defined AdminCode type
 import { AdminCode } from '../../types';
 import GenerateCodeModal from '../../components/admin/GenerateCodeModal';
 

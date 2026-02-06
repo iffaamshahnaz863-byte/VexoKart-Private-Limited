@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { OrderItem } from '../types';
 import { useReviews } from '../context/ReviewContext';
@@ -46,7 +47,8 @@ const RateProductModal: React.FC<RateProductModalProps> = ({ item, orderId, onCl
     e.preventDefault();
     try {
       await addReview({
-        product_id: item.id,
+        // Fix: Ensure product_id is a number
+        product_id: Number(item.id),
         order_id: Number(orderId), // Ensure it's a number for the DB
         rating,
         review_text: comment,

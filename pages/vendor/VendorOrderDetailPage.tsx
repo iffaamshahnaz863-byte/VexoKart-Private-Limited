@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../context/OrderContext';
@@ -70,14 +71,14 @@ const VendorOrderDetailPage: React.FC = () => {
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                             </div>
                             <div>
-                                <p className="text-sm font-black text-gray-900 uppercase italic leading-none">{order.shippingAddress?.fullName}</p>
-                                <p className="text-[10px] font-bold text-accent mt-1 tracking-tight">PH: {order.shippingAddress?.phone?.replace(/(\d{4})$/, '****')}</p>
+                                <p className="text-sm font-black text-gray-900 uppercase italic leading-none">{order.shipping_address?.fullName}</p>
+                                <p className="text-[10px] font-bold text-accent mt-1 tracking-tight">PH: {order.shipping_address?.phone?.replace(/(\d{4})$/, '****')}</p>
                             </div>
                         </div>
                         <div className="pt-3 border-t border-gray-50">
                             <p className="text-xs font-bold text-gray-600 uppercase leading-relaxed tracking-tighter">
-                                {order.shippingAddress?.street}<br/>
-                                {order.shippingAddress?.city}, {order.shippingAddress?.state} — {order.shippingAddress?.zip}
+                                {order.shipping_address?.street}<br/>
+                                {order.shipping_address?.city}, {order.shipping_address?.state} — {order.shipping_address?.zip}
                             </p>
                         </div>
                     </div>
@@ -126,7 +127,7 @@ const VendorOrderDetailPage: React.FC = () => {
                                 <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Credited on Delivery</span>
                                 <span className="text-2xl font-black italic tracking-tighter">₹{(vendorSubtotal || 0).toLocaleString()}</span>
                             </div>
-                            <span className="text-[9px] font-black uppercase bg-white/10 px-2 py-1 rounded-lg italic">{order.payment_mode}</span>
+                            <span className="text-[9px] font-black uppercase bg-white/10 px-2 py-1 rounded-lg italic">{order.payment_method}</span>
                         </div>
                     </div>
                 </div>
@@ -136,6 +137,7 @@ const VendorOrderDetailPage: React.FC = () => {
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 flex flex-col gap-3 z-[110] shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
                  {order.status === 'Placed' && (
                     <button 
+                      // Fix: Use capitalized status value
                       onClick={() => handleAction('Confirmed', 'Merchant accepted the commitment.')}
                       disabled={isProcessing}
                       className="w-full h-14 bg-[#F43397] text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-[#F43397]/20 active:scale-95 transition-all flex items-center justify-center"
@@ -145,6 +147,7 @@ const VendorOrderDetailPage: React.FC = () => {
                  )}
                  {order.status === 'Confirmed' && (
                     <button 
+                      // Fix: Use capitalized status value
                       onClick={() => handleAction('Packed', 'Items verified and packed.')}
                       disabled={isProcessing}
                       className="w-full h-14 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center"
@@ -164,6 +167,7 @@ const VendorOrderDetailPage: React.FC = () => {
                         </button>
                         {order.status === 'Packed' && (
                             <button 
+                                // Fix: Use capitalized status value
                                 onClick={() => handleAction('Shipped', 'Handed over to logistics partner.')}
                                 disabled={isProcessing}
                                 className="flex-[1.5] bg-accent text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all flex items-center justify-center"

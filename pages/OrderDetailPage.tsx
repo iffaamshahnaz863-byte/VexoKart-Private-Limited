@@ -55,7 +55,7 @@ const OrderDetailPage: React.FC = () => {
                 <img src={firstItem.image} className="w-20 h-20 rounded-2xl object-contain bg-gray-50 border border-gray-100" />
                 <div>
                     <h3 className="text-sm font-black text-gray-800 uppercase italic leading-tight">{firstItem.name}</h3>
-                    <p className="text-[10px] font-bold text-accent mt-1 uppercase tracking-widest">{order.payment_mode}</p>
+                    <p className="text-[10px] font-bold text-accent mt-1 uppercase tracking-widest">{order.payment_method}</p>
                     <p className="text-xl font-black text-gray-900 mt-2">₹{order.total.toLocaleString()}</p>
                 </div>
             </div>
@@ -66,6 +66,12 @@ const OrderDetailPage: React.FC = () => {
                         onClick={() => navigate(`/cancel-order/${order.id}`)}
                         className="w-full py-4 border-2 border-red-100 text-red-500 rounded-2xl font-black uppercase tracking-widest text-[10px] active:bg-red-50 transition-all"
                     >Cancel Order</button>
+                )}
+                {isDelivered && !alreadyReviewed && (
+                     <button 
+                        onClick={() => setShowRating(true)}
+                        className="w-full py-4 bg-accent text-white rounded-2xl font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all shadow-lg shadow-accent/20"
+                    >Rate Product</button>
                 )}
                 {!isCancelled && (
                     <button onClick={() => setShowInvoice(true)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all">Download Invoice</button>
@@ -83,9 +89,9 @@ const OrderDetailPage: React.FC = () => {
         {/* Address */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 italic">Fulfillment Node</h3>
-            <p className="text-sm font-black text-gray-800 uppercase italic">{order.shippingAddress?.fullName}</p>
+            <p className="text-sm font-black text-gray-800 uppercase italic">{order.shipping_address?.fullName}</p>
             <p className="text-xs font-bold text-gray-500 leading-relaxed mt-1 uppercase tracking-tighter">
-                {order.shippingAddress?.street}, {order.shippingAddress?.city}, {order.shippingAddress?.state} — {order.shippingAddress?.zip}
+                {order.shipping_address?.street}, {order.shipping_address?.city}, {order.shipping_address?.state} — {order.shipping_address?.zip}
             </p>
         </div>
       </div>

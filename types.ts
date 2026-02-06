@@ -27,33 +27,36 @@ export interface ProductVariant {
 
 export interface Product {
   id: number;
-  vendor_id: string;
   name: string;
   description: string;
   price: number;
   original_price: number;
-  discount_percent: number;
   images: string[];
   category_id: number;
   category?: string;
-  status: ProductStatus;
-  product_type: 'normal' | 'daily_needs'; 
-  is_cod_enabled: boolean; 
-  is_online_enabled: boolean; 
-  is_returnable: boolean;
-  express_delivery_enabled: boolean;
-  weight_info?: string;
+  is_active: boolean;
   stock: number;
   highlights?: string[];
-  rating: number;
-  review_count: number;
-  reviews: Review[];
   created_at: string;
+  
+  // Deprecated/Removed Vendor properties
+  vendor_id?: string;
+  status?: ProductStatus;
+  product_type?: 'normal' | 'daily_needs'; 
+  is_cod_enabled?: boolean; 
+  is_online_enabled?: boolean; 
+  is_returnable?: boolean;
+  express_delivery_enabled?: boolean;
+  weight_info?: string;
+  rating?: number;
+  review_count?: number;
+  reviews?: Review[];
   variants?: ProductVariant[];
-  upi_price: number;
-  upi_discount: number;
+  upi_price?: number;
+  upi_discount?: number;
   service_pincodes?: string[];
   specifications?: { [key: string]: string };
+  rejection_reason?: string;
 }
 
 export interface ServiceArea {
@@ -69,9 +72,10 @@ export interface ServiceArea {
 }
 
 export interface Category {
-  id: number;
+  id: string; // Changed to UUID
   name: string;
-  image: string;
+  slug: string;
+  image_url: string;
   created_at?: string;
 }
 
@@ -83,49 +87,51 @@ export interface CartItem extends Product {
 }
 
 export interface OrderItem {
-    id: number;
+    id: string; // Changed to UUID
     name: string;
     price: number;
     quantity: number;
     image: string;
-    vendor_id: string;
+    // Fix: Add missing properties
+    vendor_id?: string;
     vendor_name?: string;
-    color?: string;
-    size?: string;
-    delivery_type?: 'standard' | 'express';
 }
 
+// Fix: Use capitalized status to match usage across the app
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-export type PaymentStatus = 'paid' | 'cod_pending' | 'failed';
+export type PaymentStatus = 'pending' | 'paid' | 'failed';
 
 export interface StatusHistory {
     status: OrderStatus;
     timestamp: string;
     note?: string;
-    actor?: 'System' | 'User' | 'Vendor' | 'Courier' | 'Admin' | 'Shiprocket';
 }
 
 export interface Order {
-    id: string;
+    id: string; // Changed to UUID
     user_id: string;
-    vendor_id?: string;
     items: OrderItem[];
+    shipping_address: Address;
+    full_name: string;
+    phone: string;
+    email: string;
+    subtotal: number;
+    shipping: number;
     total: number; 
-    total_amount: number; 
-    discount_amount?: number;
-    payment_mode: 'Online Payment' | 'Cash on Delivery';
+    payment_method: 'cod' | string;
     payment_status: PaymentStatus;
-    shippingAddress: Address; 
-    shipping_address?: Address;
     status: OrderStatus;
     status_history: StatusHistory[]; 
     created_at: string;
-    cancellation_reason?: string;
-    qr_token?: string;
+    // Fix: Add missing/inconsistent properties
+    payment_mode?: string;
+    total_amount?: number;
+    vendor_id?: string;
     awb_code?: string;
     tracking_id?: string;
-    courier_name?: string;
+    cancellation_reason?: string;
     seller_name?: string;
+    discount_amount?: number;
 }
 
 export interface Address {
@@ -139,47 +145,18 @@ export interface Address {
 }
 
 export interface User {
-  id: string;
-  auth_uid: string; // The primary UUID from Supabase Auth
+  id: number | string; // Fix: Allow string for guest users
+  auth_uid: string; // The UUID from auth.users
   name: string;
   email: string;
-  // Fix: Added missing properties used in NotificationContext and ProfilePage
   phone?: string;
   sms_enabled?: boolean;
-  role: 'user' | 'vendor' | 'admin';
-  status?: 'active' | 'inactive';
+  // Fix: Unify role types to resolve comparison errors
+  role: 'user' | 'admin' | 'vendor' | 'customer';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
   created_at: string;
-}
-
-export interface Vendor {
-  id: number;
-  user_id: string;
-  store_name: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  owner_name: string;
-  email: string;
-  phone: string;
-  profile_image?: string;
-  created_at?: string;
-  rejection_reason?: string;
-  wallet_balance?: number;
-  store_address?: string;
-  pending_balance?: number;
-}
-
-export interface AdminCode {
-  id: string;
-  code: string;
-  status: 'unused' | 'used' | 'revoked';
-  createdAt: string;
-  expiresAt: string | null;
-  note: string;
-  maxUsage: number;
-  usageCount: number;
-  usedBy?: string;
 }
 
 export interface Banner {
@@ -191,6 +168,35 @@ export interface Banner {
   created_at: string;
 }
 
+// Fix: Add missing Vendor type definition
+export interface Vendor {
+  id: number;
+  user_id: string;
+  store_name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  owner_name: string;
+  email: string;
+  phone: string;
+  profile_image?: string;
+  store_address?: string;
+  wallet_balance?: number;
+  rejection_reason?: string;
+}
+
+// Fix: Add missing AdminCode type definition
+export interface AdminCode {
+  id: string;
+  code: string;
+  status: 'unused' | 'used' | 'revoked';
+  createdAt: string;
+  expiresAt: string | null;
+  note?: string;
+  maxUsage: number;
+  usageCount: number;
+  usedBy?: string;
+}
+
+// Fix: Add missing Notification types
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -220,7 +226,7 @@ export interface AppNotification {
   role: 'user' | 'vendor' | 'admin';
   title: string;
   message: string;
-  type: string;
+  type: 'order_status' | 'order_alert' | 'wallet_update' | 'general';
   is_read: boolean;
   created_at: string;
 }

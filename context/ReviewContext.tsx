@@ -46,15 +46,15 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const addReview = async (reviewData: Partial<Review>) => {
-    if (!user || !user.auth_id) {
+    if (!user || !user.auth_uid) {
       throw new Error("You must be logged in to submit a review, and your account must have a valid security ID.");
     }
     
     setIsSubmitting(true);
     try {
-      // CRITICAL FIX: Directly use the auth_id from the user context.
+      // CRITICAL FIX: Directly use the auth_uid from the user context.
       // This removes the inefficient and error-prone database lookup.
-      const resolvedUuid = user.auth_id;
+      const resolvedUuid = user.auth_uid;
 
       const payload = {
         product_id: Number(reviewData.product_id),

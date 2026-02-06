@@ -44,7 +44,7 @@ const MenuPage: React.FC = () => {
                 >
                     <div className="aspect-square rounded-xl overflow-hidden mb-3 bg-gray-50 flex items-center justify-center">
                         <img 
-                            src={cat.image} 
+                            src={cat.image_url} 
                             alt={cat.name} 
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform" 
                         />

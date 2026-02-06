@@ -7,6 +7,7 @@ import GlassmorphicCard from '../../components/GlassmorphicCard';
 import ShippingDetailsModal from '../../components/admin/ShippingDetailsModal';
 import OrderStatusHistoryModal from '../../components/admin/OrderStatusHistoryModal';
 
+// Fix: Use capitalized status values to match OrderStatus type
 const ALL_STATUSES: OrderStatus[] = ['Placed', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
 const AdminOrdersPage: React.FC = () => {
@@ -16,6 +17,7 @@ const AdminOrdersPage: React.FC = () => {
   const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
 
   const handleStatusChange = (order: Order, status: OrderStatus) => {
+    // Fix: Use capitalized status value and check for existing properties
     if (status === 'Shipped' && !order.awb_code && !order.tracking_id) {
       setSelectedOrder(order);
       setShippingModalOpen(true);
@@ -39,6 +41,7 @@ const AdminOrdersPage: React.FC = () => {
   
   const getStatusColor = (status: OrderStatus) => {
       switch(status) {
+          // Fix: Use capitalized status values to match OrderStatus type
           case 'Placed': return 'text-gray-300 bg-gray-700/50 border-gray-600/50';
           case 'Confirmed': return 'text-cyan-400 bg-cyan-900/50 border-cyan-600/50';
           case 'Packed': return 'text-indigo-400 bg-indigo-900/50 border-indigo-600/50';
@@ -60,7 +63,6 @@ const AdminOrdersPage: React.FC = () => {
       )}
       {isHistoryModalOpen && selectedOrder && (
         <OrderStatusHistoryModal
-          // FIX: The `Order` type uses `status_history`. `statusHistory` is a property added by the context but not reflected in the component's state type.
           history={selectedOrder.status_history || []}
           onClose={() => setHistoryModalOpen(false)}
         />
@@ -85,7 +87,7 @@ const AdminOrdersPage: React.FC = () => {
                 <tr key={order.id} className="border-b border-gray-800 hover:bg-surface/50">
                   <td className="p-4 text-text-main font-mono">#{order.id}</td>
                   <td className="p-4">{new Date(order.created_at).toLocaleDateString()}</td>
-                  <td className="p-4">{order.shippingAddress?.fullName || order.user_id}</td>
+                  <td className="p-4">{order.shipping_address?.fullName || order.user_id}</td>
                   <td className="p-4 font-semibold">₹{(order.total_amount || order.total || 0).toFixed(2)}</td>
                   <td className="p-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(order.status)}`}>
@@ -107,6 +109,7 @@ const AdminOrdersPage: React.FC = () => {
                     <button onClick={() => openHistoryModal(order)} className="text-accent hover:underline text-xs font-semibold">
                       History
                     </button>
+                    {/* Fix: Use capitalized status values for comparison */}
                     {['Packed', 'Shipped', 'Out for Delivery', 'Delivered'].includes(order.status) && (
                         <button 
                             onClick={() => generateShippingLabel(order.id)}

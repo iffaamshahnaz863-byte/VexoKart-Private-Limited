@@ -1,5 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+// Fix: Import newly defined Notification types
 import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types.ts';
 import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
@@ -65,7 +66,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       let query = `role=eq.${user.role}&order=created_at.desc`;
       
-      if (user.role === 'user') {
+      // Fix: Check for both 'user' and 'customer' roles to handle data inconsistencies
+      if (user.role === 'user' || user.role === 'customer') {
         query += `&user_id=eq.${user.id}`;
       } else if (user.role === 'vendor') {
         query += `&vendor_id=not.is.null`; 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
@@ -78,8 +79,8 @@ const CourierScanPage: React.FC = () => {
         );
     }
 
-    /* Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_mode' instead. */
-    const isCOD = order?.payment_mode === 'Cash on Delivery';
+    // Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_method' instead.
+    const isCOD = order?.payment_method === 'Cash on Delivery';
     const isPaid = order?.payment_status === 'paid';
 
     return (
@@ -108,16 +109,16 @@ const CourierScanPage: React.FC = () => {
                         <div className="flex justify-between items-center">
                             <span className="text-text-muted uppercase text-[10px] tracking-widest">Consignee</span>
                             <div className="text-right text-text-main">
-                                <p className="text-base font-black italic">{order?.shippingAddress.fullName}</p>
-                                <p className="text-[11px] font-bold text-accent uppercase">{order?.shippingAddress.phone}</p>
+                                <p className="text-base font-black italic">{order?.shipping_address.fullName}</p>
+                                <p className="text-[11px] font-bold text-accent uppercase">{order?.shipping_address.phone}</p>
                             </div>
                         </div>
 
                         <div className="flex justify-between items-start">
                             <span className="text-text-muted uppercase text-[10px] tracking-widest">Delivery Route</span>
                             <div className="text-right text-text-main max-w-[200px]">
-                                <p className="uppercase tracking-tighter">{order?.shippingAddress.city}, {order?.shippingAddress.state}</p>
-                                <p className="text-lg font-black tracking-widest border-b-2 border-text-main inline-block">{order?.shippingAddress.zip}</p>
+                                <p className="uppercase tracking-tighter">{order?.shipping_address.city}, {order?.shipping_address.state}</p>
+                                <p className="text-lg font-black tracking-widest border-b-2 border-text-main inline-block">{order?.shipping_address.zip}</p>
                             </div>
                         </div>
 
@@ -153,6 +154,7 @@ const CourierScanPage: React.FC = () => {
                     </div>
                     
                     <button 
+                        // Fix: Use capitalized status value
                         onClick={() => handleUpdate('Delivered')}
                         disabled={isSubmitting || order?.status === 'Delivered' || order?.status === 'Cancelled'}
                         className="w-full bg-green-600 text-white p-6 rounded-3xl flex items-center justify-between shadow-2xl shadow-green-600/30 active:scale-95 transition-all disabled:opacity-50 group"
@@ -170,6 +172,7 @@ const CourierScanPage: React.FC = () => {
                     </button>
 
                     <button 
+                        // Fix: Use capitalized status value
                         onClick={() => handleUpdate('Out for Delivery')}
                         disabled={isSubmitting || order?.status === 'Out for Delivery' || order?.status === 'Delivered' || order?.status === 'Cancelled'}
                         className="w-full bg-blue-600 text-white p-6 rounded-3xl flex items-center justify-between shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50 group"
@@ -188,6 +191,7 @@ const CourierScanPage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <button 
+                            // Fix: Use capitalized status value
                             onClick={() => handleUpdate('Shipped')}
                             disabled={isSubmitting || ['Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'].includes(order?.status || '')}
                             className="bg-white text-text-main p-5 rounded-3xl border border-border shadow-sm active:scale-95 transition-all disabled:opacity-50"
@@ -196,6 +200,7 @@ const CourierScanPage: React.FC = () => {
                             <p className="text-[9px] text-text-muted mt-1 uppercase font-bold">Transit Entry</p>
                         </button>
                         <button 
+                            // Fix: Use capitalized status value
                             onClick={() => handleUpdate('Cancelled')}
                             disabled={isSubmitting || order?.status === 'Delivered' || order?.status === 'Cancelled'}
                             className="bg-red-50 text-red-600 p-5 rounded-3xl border border-red-100 shadow-sm active:scale-95 transition-all disabled:opacity-50"

@@ -1,3 +1,4 @@
+
 import { jsPDF } from 'jspdf';
 import { Order } from '../types';
 
@@ -11,13 +12,17 @@ export const generateShippingLabelPDF = async (order: Order): Promise<jsPDF> => 
     format: 'a4',
   });
 
-  const address = order.shippingAddress || order.shipping_address;
-  const isCOD = order.payment_mode === 'Cash on Delivery';
+  // Fix: Use correct property 'shipping_address'
+  const address = order.shipping_address;
+  // Fix: Use correct property 'payment_method'
+  const isCOD = order.payment_method === 'Cash on Delivery';
   
+  // Fix: Use correct property 'total_amount'
   const totalAmount = Number(order.total_amount || order.total || 0);
   const subtotal = totalAmount / 1.18;
   const gstAmount = totalAmount - subtotal;
   
+  // Fix: Use correct properties from Order and OrderItem types
   const vendorName = order.seller_name || order.items[0]?.vendor_name || 'VexoKart Authorized Vendor';
   const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'VX-VND-001';
 
@@ -167,6 +172,7 @@ export const generateInvoicePDF = async (order: Order): Promise<jsPDF> => {
   const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const gstAmount = subtotal * 0.18;
   const finalTotal = subtotal + gstAmount;
+  // Fix: Use correct properties from Order and OrderItem types
   const primarySeller = order.seller_name || order.items[0]?.vendor_name || 'VexoKart Authorized Vendor';
 
   doc.setFont('helvetica', 'bold');
@@ -192,11 +198,12 @@ export const generateInvoicePDF = async (order: Order): Promise<jsPDF> => {
   doc.setFont('helvetica', 'bold');
   doc.text('BILLED TO:', 110, 40);
   doc.setFont('helvetica', 'normal');
-  doc.text(order.shippingAddress?.fullName || 'Valued Customer', 110, 45);
+  // Fix: Use correct property 'shipping_address'
+  doc.text(order.shipping_address?.fullName || 'Valued Customer', 110, 45);
   doc.text([
-    order.shippingAddress?.street || '',
-    `${order.shippingAddress?.city || ''}, ${order.shippingAddress?.state || ''} — ${order.shippingAddress?.zip || ''}`,
-    `Phone: ${order.shippingAddress?.phone || ''}`
+    order.shipping_address?.street || '',
+    `${order.shipping_address?.city || ''}, ${order.shipping_address?.state || ''} — ${order.shipping_address?.zip || ''}`,
+    `Phone: ${order.shipping_address?.phone || ''}`
   ], 110, 50);
 
   doc.line(15, 75, 195, 75);

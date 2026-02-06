@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Order, OrderStatus } from '../../types';
@@ -138,6 +139,7 @@ const VendorOrdersPage: React.FC = () => {
                                 <div className="mt-4 pt-4 border-t border-gray-50 flex flex-col sm:flex-row gap-2">
                                     {order.status === 'Placed' && (
                                         <button 
+                                            // Fix: Use capitalized status value
                                             onClick={(e) => { e.stopPropagation(); handleAction(order.id, 'Confirmed', 'Order accepted via dashboard'); }}
                                             disabled={isProcessing}
                                             className="w-full sm:flex-1 h-11 bg-[#F43397] text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-[#F43397]/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
@@ -147,6 +149,7 @@ const VendorOrdersPage: React.FC = () => {
                                     )}
                                     {order.status === 'Confirmed' && (
                                         <button 
+                                            // Fix: Use capitalized status value
                                             onClick={(e) => { e.stopPropagation(); handleAction(order.id, 'Packed', 'Order packed via dashboard'); }}
                                             disabled={isProcessing}
                                             className="w-full sm:flex-1 h-11 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"

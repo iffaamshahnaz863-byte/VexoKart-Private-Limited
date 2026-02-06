@@ -2,6 +2,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+// Fix: Import newly defined Vendor type
 import { Vendor } from '../../types';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 

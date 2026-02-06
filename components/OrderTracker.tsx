@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { OrderStatus, StatusHistory } from '../types';
 
@@ -6,10 +7,12 @@ interface OrderTrackerProps {
   history: StatusHistory[];
 }
 
+// Fix: Use capitalized status values to match OrderStatus type
 const ALL_STATUSES: OrderStatus[] = ['Placed', 'Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'];
 
 const OrderTracker: React.FC<OrderTrackerProps> = ({ status, history }) => {
 
+  // Fix: Use capitalized status value
   if (status === 'Cancelled') {
     const cancelEntry = history.find(h => h.status === 'Cancelled');
     return (

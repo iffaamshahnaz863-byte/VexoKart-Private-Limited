@@ -1,5 +1,6 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
+// Fix: Import newly defined Vendor type
 import { Vendor } from '../types';
 import { BASE_API_URL, API_HEADERS } from '../constants';
 

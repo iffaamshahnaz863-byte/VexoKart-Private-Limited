@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCategories } from '../../hooks/useCategories';
@@ -33,7 +34,7 @@ const AdminCategoriesPage: React.FC = () => {
                   <td className="p-4">{category.id}</td>
                    <td className="p-4">
                         <img 
-                          src={category.image || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Category'} 
+                          src={category.image_url || 'https://placehold.co/100x100/F8F9FA/A0A0A0?text=Category'} 
                           alt={category.name} 
                           className="w-12 h-12 object-cover rounded-md bg-gray-700" 
                         />
