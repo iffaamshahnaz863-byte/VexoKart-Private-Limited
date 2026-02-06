@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useOrders } from '../../context/OrderContext';
 import { Order, OrderStatus } from '../../types';
@@ -59,7 +60,8 @@ const AdminOrdersPage: React.FC = () => {
       )}
       {isHistoryModalOpen && selectedOrder && (
         <OrderStatusHistoryModal
-          history={selectedOrder.statusHistory || selectedOrder.status_history || []}
+          // FIX: The `Order` type uses `status_history`. `statusHistory` is a property added by the context but not reflected in the component's state type.
+          history={selectedOrder.status_history || []}
           onClose={() => setHistoryModalOpen(false)}
         />
       )}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { SearchIcon } from './icons/SearchIcon.tsx';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -45,7 +46,7 @@ const Header: React.FC<HeaderProps> = ({ title, showSearch = false }) => {
           </div>
         ) : (
           <div 
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate(isAuthenticated ? '/profile' : '/login')}
             className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer active:scale-95 transition-transform"
           >
             {isAuthenticated ? (

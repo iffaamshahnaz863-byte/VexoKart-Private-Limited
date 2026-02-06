@@ -1,13 +1,13 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { ServiceArea } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { ServiceArea } from '../types.ts'; // Keep type for compatibility, but logic simplifies
+import { BASE_API_URL, API_HEADERS } from '../constants.ts';
 
 interface ServiceAreaContextType {
   serviceAreas: ServiceArea[];
   activePincodes: string[];
   isLoading: boolean;
-  addServiceArea: (area: Omit<ServiceArea, 'id' | 'created_at'>) => Promise<void>;
+  addServiceArea: (area: Partial<ServiceArea>) => Promise<void>;
   updateServiceArea: (id: number, updates: Partial<ServiceArea>) => Promise<void>;
   deleteServiceArea: (id: number) => Promise<void>;
   refreshServiceAreas: () => Promise<void>;
@@ -15,19 +15,10 @@ interface ServiceAreaContextType {
 
 const ServiceAreaContext = createContext<ServiceAreaContextType | undefined>(undefined);
 
-// Initial Seed Data to ensure app works before DB is populated
-const SEED_AREAS: ServiceArea[] = [
-    { id: 101, country: 'India', state: 'Haryana', city: 'Gurgaon', area_name: 'DLF Phase 1-4', pincode: '122001', is_active: true },
-    { id: 102, country: 'India', state: 'Haryana', city: 'Gurgaon', area_name: 'Cyber City', pincode: '122002', is_active: true },
-    { id: 103, country: 'India', state: 'Delhi', city: 'New Delhi', area_name: 'Connaught Place', pincode: '110001', is_active: true },
-    { id: 104, country: 'India', state: 'Maharashtra', city: 'Mumbai', area_name: 'Bandra West', pincode: '400050', is_active: true },
-];
-
 export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Normalize pincodes to strings for strict comparison
   const activePincodes = serviceAreas
     .filter(a => a.is_active)
     .map(a => String(a.pincode).trim());
@@ -35,19 +26,29 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
   const refreshServiceAreas = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BASE_API_URL}/service_areas?order=created_at.desc`, {
+      const res = await fetch(`${BASE_API_URL}/daily_needs_pincodes?order=created_at.desc`, {
         headers: API_HEADERS
       });
       if (res.ok) {
         const data = await res.json();
-        setServiceAreas(Array.isArray(data) && data.length > 0 ? data : SEED_AREAS);
+        // Adapt the simpler pincode data to the ServiceArea structure for compatibility
+        const adaptedData = data.map((p: any) => ({
+          id: p.id,
+          pincode: p.pincode,
+          is_active: p.is_active,
+          created_at: p.created_at,
+          country: 'India',
+          state: '',
+          city: '',
+          area_name: ''
+        }));
+        setServiceAreas(Array.isArray(adaptedData) ? adaptedData : []);
       } else {
-        // Fallback if table doesn't exist yet
-        setServiceAreas(SEED_AREAS);
+        setServiceAreas([]);
       }
     } catch (e) {
-      console.warn("Service Area Sync Failed, using local seed.");
-      setServiceAreas(SEED_AREAS);
+      console.warn("Pincode Sync Failed.", e);
+      setServiceAreas([]);
     } finally {
       setIsLoading(false);
     }
@@ -57,44 +58,48 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
     refreshServiceAreas();
   }, []);
 
-  const addServiceArea = async (area: Omit<ServiceArea, 'id' | 'created_at'>) => {
+  const addServiceArea = async (area: Partial<ServiceArea>) => {
+    const payload = {
+        pincode: String(area.pincode).trim(),
+        is_active: area.is_active,
+        created_by: area.created_by
+    };
     try {
-      const res = await fetch(`${BASE_API_URL}/service_areas`, {
+      const res = await fetch(`${BASE_API_URL}/daily_needs_pincodes`, {
         method: 'POST',
         headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-        body: JSON.stringify({ ...area, created_at: new Date().toISOString() })
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("DB Error");
       await refreshServiceAreas();
     } catch (e) {
-      // Optimistic update for demo
-      const newArea = { ...area, id: Date.now(), created_at: new Date().toISOString() };
-      setServiceAreas(prev => [newArea, ...prev]);
+      console.error("Failed to add pincode", e);
     }
   };
 
   const updateServiceArea = async (id: number, updates: Partial<ServiceArea>) => {
+    const payload = { is_active: updates.is_active };
     try {
-      await fetch(`${BASE_API_URL}/service_areas?id=eq.${id}`, {
+      await fetch(`${BASE_API_URL}/daily_needs_pincodes?id=eq.${id}`, {
         method: 'PATCH',
         headers: API_HEADERS,
-        body: JSON.stringify(updates)
+        body: JSON.stringify(payload)
       });
-      setServiceAreas(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+      await refreshServiceAreas();
     } catch (e) {
-      setServiceAreas(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+      console.error("Failed to update pincode", e);
     }
   };
 
   const deleteServiceArea = async (id: number) => {
     try {
-      await fetch(`${BASE_API_URL}/service_areas?id=eq.${id}`, {
+      await fetch(`${BASE_API_URL}/daily_needs_pincodes?id=eq.${id}`, {
         method: 'DELETE',
         headers: API_HEADERS
       });
       setServiceAreas(prev => prev.filter(a => a.id !== id));
     } catch (e) {
-      setServiceAreas(prev => prev.filter(a => a.id !== id));
+      console.error("Failed to delete pincode", e);
     }
   };
 

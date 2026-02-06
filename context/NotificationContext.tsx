@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types.ts';
 import { BASE_API_URL, API_HEADERS } from '../constants.ts';
@@ -170,7 +171,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
         const message = `VexoKart: Login successful for ${user.email}. If this wasn't you, secure your account immediately.`;
         if (settings.testMode) return;
-        await sendQuickSMS(user.phone, message);
+        // Fix: Handled potentially undefined phone number on User type
+        await sendQuickSMS(user.phone || '', message);
     } catch (err) {}
   };
 

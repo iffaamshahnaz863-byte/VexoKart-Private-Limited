@@ -1,114 +1,173 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 
 const LoginPage: React.FC = () => {
+  const { login, signup, user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>(location.state?.defaultTab || 'login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const [showSecurityUpdate, setShowSecurityUpdate] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  // Redirection Logic based on Role
   useEffect(() => {
-    if (isAuthenticated) {
-        navigate('/home', { replace: true });
+    if (isAuthenticated && user) {
+      if (user.role === 'admin') navigate('/admin');
+      else if (user.role === 'vendor') navigate('/vendor');
+      else navigate('/home');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-        setError("Please fill in all fields");
-        return;
-    }
-    
-    setIsSubmitting(true);
     setError('');
-    
+    setShowSecurityUpdate(false);
+    setLoading(true);
+
     try {
-        await login(email.trim(), password);
-        navigate('/home', { replace: true });
+      if (activeTab === 'signup') {
+        if (!name) throw new Error("Name is required");
+        await signup(name, email, password);
+      } else {
+        await login(email, password);
+      }
     } catch (err: any) {
-        console.error(err);
-        // Display exact error message from Supabase for clarity
-        setError(err.message || "Invalid credentials");
+      // Catch login failures specifically to show the security update notice
+      if (activeTab === 'login') {
+        setShowSecurityUpdate(true);
+      } else {
+        setError(err.message || "Authentication failed. Please try again.");
+      }
     } finally {
-        setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
+  const inputClasses = "w-full mt-1 bg-surface border border-border rounded-xl p-3 text-sm font-bold text-text-main placeholder-text-muted outline-none focus:border-accent transition-all";
+
   return (
-    <div className="min-h-screen bg-white flex flex-col p-6 pt-12 animate-in fade-in duration-300">
-      
-      <div className="mb-8">
-        <button onClick={() => navigate('/home')} className="mb-4 inline-flex items-center gap-2 text-text-muted text-xs font-bold uppercase tracking-widest hover:text-text-main transition-colors">
-            <ChevronLeftIcon className="w-4 h-4" />
-            Back to Browse
-        </button>
-        <h2 className="text-3xl font-black text-text-main italic uppercase tracking-tight mb-2">Welcome Back</h2>
-        <p className="text-text-muted text-sm font-medium">Log in to continue shopping</p>
-      </div>
+    <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-black text-text-main italic uppercase tracking-tighter">
+            Vexo<span className="text-accent">Kart</span>
+          </h1>
+          <p className="text-text-muted text-[10px] font-black uppercase tracking-[0.4em] mt-2">Secure Gateway</p>
+        </div>
 
-      <div className="flex-1 max-w-md mx-auto w-full">
-        {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-bold flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                {error}
-            </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Email Address</label>
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 transition-all focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/5">
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="name@example.com"
-                        className="w-full bg-transparent p-3 text-sm font-bold text-text-main placeholder-gray-300 outline-none"
-                    />
+        <div className="bg-white rounded-3xl shadow-premium border border-border p-8 relative overflow-hidden">
+          
+          {/* Security Update Overlay */}
+          {showSecurityUpdate && (
+            <div className="absolute inset-0 bg-white z-20 flex flex-col items-center justify-center p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center mb-4 text-accent">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h3 className="text-xl font-black text-text-main uppercase italic tracking-tight">Security Update</h3>
+                <p className="text-gray-500 text-sm mt-3 leading-relaxed">
+                    We've upgraded our security systems. <br/>
+                    If you created your account earlier, please <b>reset your password</b> once to continue.
+                </p>
+                <div className="w-full space-y-3 mt-8">
+                    <Link 
+                        to="/forgot-password" 
+                        state={{ email }}
+                        className="block w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-accent/20 active:scale-95 transition-all"
+                    >
+                        Reset Password
+                    </Link>
+                    <button 
+                        onClick={() => setShowSecurityUpdate(false)}
+                        className="text-gray-400 font-bold uppercase text-[10px] tracking-widest hover:text-gray-600 transition-colors"
+                    >
+                        Try Login Again
+                    </button>
                 </div>
             </div>
+          )}
 
-            <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Password</label>
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-2 transition-all focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/5">
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full bg-transparent p-3 text-sm font-bold text-text-main placeholder-gray-300 outline-none"
-                    />
-                </div>
+          <div className="flex bg-surface p-1 rounded-full mb-8">
+            <button
+              onClick={() => { setActiveTab('login'); setError(''); setShowSecurityUpdate(false); }}
+              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${activeTab === 'login' ? 'bg-white text-text-main shadow-sm' : 'text-text-muted'}`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => { setActiveTab('signup'); setError(''); setShowSecurityUpdate(false); }}
+              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${activeTab === 'signup' ? 'bg-white text-text-main shadow-sm' : 'text-text-muted'}`}
+            >
+              Signup
+            </button>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-500 text-xs font-bold text-center italic">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {activeTab === 'signup' && (
+              <div>
+                <label className="text-[10px] font-black uppercase text-text-muted tracking-widest ml-2">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputClasses}
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+            )}
+            <div>
+              <label className="text-[10px] font-black uppercase text-text-muted tracking-widest ml-2">Email Address</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClasses}
+                placeholder="name@example.com"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-text-muted tracking-widest ml-2">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClasses}
+                placeholder="••••••••"
+              />
             </div>
 
             <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none mt-4"
+              type="submit"
+              disabled={loading}
+              className="w-full bg-accent text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50"
             >
-                {isSubmitting ? 'Verifying...' : 'Secure Login'}
+              {loading ? 'Processing...' : activeTab === 'login' ? 'Secure Login' : 'Create Account'}
             </button>
-        </form>
-
-        <div className="mt-8 text-center">
-            <p className="text-gray-400 text-xs font-bold">
-                Don't have an account?{' '}
-                <Link to="/signup" className="text-accent hover:underline decoration-2 underline-offset-4">
-                    Create One
-                </Link>
-            </p>
+          </form>
         </div>
-        
-        <div className="mt-12 border-t border-gray-100 pt-6 text-center">
-             <Link to="/vendor/login" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">
-                Vendor / Admin Portal
-             </Link>
+
+        <div className="text-center mt-8 space-y-4">
+            <Link to="/forgot-password" size="sm" className="text-[10px] font-black uppercase text-text-muted tracking-widest block hover:text-accent transition-colors">
+                Forgot Password?
+            </Link>
+            <button onClick={() => navigate('/home')} className="text-[10px] font-black uppercase text-text-muted tracking-widest border-b border-transparent hover:border-text-muted pb-1 transition-all">
+                Continue as Guest
+            </button>
         </div>
       </div>
     </div>

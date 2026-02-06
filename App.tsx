@@ -12,6 +12,8 @@ import ProfilePage from './pages/ProfilePage.tsx';
 import CheckoutPage from './pages/CheckoutPage.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 import SignupPage from './pages/SignupPage.tsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.tsx';
+import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
 import MyOrdersPage from './pages/MyOrdersPage.tsx';
 import OrderDetailPage from './pages/OrderDetailPage.tsx';
 import CancelOrderPage from './pages/CancelOrderPage.tsx'; 
@@ -67,7 +69,7 @@ import AdminOrdersPage from './pages/admin/AdminOrdersPage.tsx';
 import AdminUsersPage from './pages/admin/AdminUsersPage.tsx';
 import AdminCategoriesPage from './pages/admin/AdminCategoriesPage.tsx';
 import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage.tsx';
-import AdminServiceAreasPage from './pages/admin/AdminServiceAreasPage.tsx';
+import AdminPincodesPage from './pages/admin/AdminPincodesPage.tsx';
 import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
 import AdminPayoutsPage from './pages/admin/AdminPayoutsPage.tsx';
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage.tsx';
@@ -80,25 +82,25 @@ import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div></div>;
-  if (!isAuthenticated || user?.role !== 'admin') return <Navigate to="/vendor/login" replace />;
+  if (!isAuthenticated || user?.role !== 'admin') return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
 const VendorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, isAuthenticated, isLoading } = useAuth();
     if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div></div>;
-    if (!isAuthenticated || user?.role !== 'vendor') return <Navigate to="/vendor/login" replace />;
+    if (!isAuthenticated || user?.role !== 'vendor') return <Navigate to="/login" replace />;
     return <>{children}</>;
 };
 
 const AppContent: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const location = useLocation();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   
   // Logic to hide BottomNav
-  const hideNavRoutes = ['/checkout', '/order-success', '/vendor/login', '/vendor/signup', '/scan', '/onboarding', '/welcome', '/login', '/signup'];
+  const hideNavRoutes = ['/checkout', '/order-success', '/vendor/login', '/vendor/signup', '/scan', '/onboarding', '/welcome', '/login', '/signup', '/forgot-password', '/update-password'];
   const isHideNav = hideNavRoutes.includes(location.pathname) || location.pathname.startsWith('/admin') || location.pathname.startsWith('/vendor');
   
   const showBottomNav = !isInitializing && !isHideNav && !location.pathname.startsWith('/order/') && !location.pathname.startsWith('/cancel-order/') && !location.pathname.startsWith('/product/');
@@ -106,25 +108,18 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (!isInitializing && !isLoading) {
       const path = location.pathname;
-      const isPublicAuthRoute = ['/login', '/signup', '/onboarding', '/welcome'].includes(path);
+      const isPublicAuthRoute = ['/login', '/signup', '/onboarding', '/welcome', '/forgot-password', '/update-password'].includes(path);
       const isScanRoute = path.startsWith('/scan');
 
-      // 1. Check Logged In User Onboarding Status
-      if (isAuthenticated && user) {
-        if (user.has_seen_onboarding === false && path !== '/onboarding') {
-          // If user hasn't seen onboarding in DB, force show it
-          navigate('/onboarding', { replace: true });
-        }
-      } 
-      // 2. Check Device Onboarding Status (Logged Out)
-      else if (!isAuthenticated && !isScanRoute) {
+      // Check Device Onboarding Status for logged-out users
+      if (!isAuthenticated && !isScanRoute && !isPublicAuthRoute) {
         const hasSeenOnboardingDevice = localStorage.getItem('vxk_device_onboarding');
         if (!hasSeenOnboardingDevice && path !== '/onboarding') {
            navigate('/onboarding', { replace: true });
         }
       }
     }
-  }, [isInitializing, isLoading, isAuthenticated, user, navigate, location.pathname]);
+  }, [isInitializing, isLoading, isAuthenticated, navigate, location.pathname]);
 
   if (isInitializing) return <SplashScreen onFinish={() => setIsInitializing(false)} />;
 
@@ -158,6 +153,8 @@ const AppContent: React.FC = () => {
           {/* Auth & Onboarding */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/update-password" element={<UpdatePasswordPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/welcome" element={<WelcomePage />} />
 
@@ -180,7 +177,7 @@ const AppContent: React.FC = () => {
           <Route path="/admin" element={<AdminRoute><AdminLayout><Outlet /></AdminLayout></AdminRoute>}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="analytics" element={<AdminAnalyticsPage />} />
-            <Route path="service-areas" element={<AdminServiceAreasPage />} />
+            <Route path="pincodes" element={<AdminPincodesPage />} />
             <Route path="vendors" element={<AdminVendorsPage />} />
             <Route path="orders" element={<AdminOrdersPage />} />
             <Route path="payouts" element={<AdminPayoutsPage />} />

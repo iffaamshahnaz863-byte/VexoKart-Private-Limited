@@ -53,6 +53,7 @@ export interface Product {
   upi_price: number;
   upi_discount: number;
   service_pincodes?: string[];
+  specifications?: { [key: string]: string };
 }
 
 export interface ServiceArea {
@@ -64,6 +65,7 @@ export interface ServiceArea {
   pincode: string;
   is_active: boolean;
   created_at?: string;
+  created_by?: string;
 }
 
 export interface Category {
@@ -138,18 +140,18 @@ export interface Address {
 
 export interface User {
   id: string;
-  auth_id?: string; // New: For linking to auth.users if primary ID is different
+  auth_uid: string; // The primary UUID from Supabase Auth
   name: string;
   email: string;
-  phone: string;
-  password?: string;
+  // Fix: Added missing properties used in NotificationContext and ProfilePage
+  phone?: string;
+  sms_enabled?: boolean;
   role: 'user' | 'vendor' | 'admin';
+  status?: 'active' | 'inactive';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
   created_at: string;
-  sms_enabled?: boolean;
-  has_seen_onboarding?: boolean; // New: Track onboarding status
 }
 
 export interface Vendor {

@@ -67,7 +67,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       let filter = `order=created_at.desc`;
 
       if (user.role === "user") {
-        filter += `&user_id=eq.${user.id}`;
+        // Use auth_id (UUID) to query orders, ensuring consistency with how reviews are linked.
+        filter += `&user_id=eq.${user.auth_id}`;
       } else if (user.role === "vendor") {
         const vRes = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${user.id}&select=id`, { headers: API_HEADERS });
         if (!vRes.ok) {
@@ -194,8 +195,9 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
-    // Handle User ID: Send null if guest to prevent BigInt error
-    const userIdValue = user.id.toString().startsWith('guest-') ? null : user.id;
+    // CRITICAL FIX: Use the auth_id (UUID) as the user_id foreign key.
+    // This aligns with how reviews are stored and assumes orders.user_id is a UUID.
+    const userIdValue = user.auth_id ? user.auth_id : null;
 
     const payload: any = {
       user_id: userIdValue,

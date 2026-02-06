@@ -33,15 +33,14 @@ const slides = [
 const OnboardingPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
-  const { user, completeOnboarding } = useAuth();
+  const { user } = useAuth();
 
   const handleNext = async () => {
     if (currentSlide < slides.length - 1) {
       setCurrentSlide(prev => prev + 1);
     } else {
-      // Logic: If logged in, update DB. If not, update LocalStorage.
+      // Logic: If logged in, go home. If not, go to welcome/auth page.
       if (user) {
-          await completeOnboarding();
           navigate('/home', { replace: true });
       } else {
           localStorage.setItem('vxk_device_onboarding', 'true');

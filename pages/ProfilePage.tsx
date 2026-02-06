@@ -19,7 +19,7 @@ const ProfilePage: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/login');
   };
 
   const toggleSMS = () => {

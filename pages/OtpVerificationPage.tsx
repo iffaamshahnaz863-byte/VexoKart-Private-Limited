@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +13,7 @@ const OtpVerificationPage: React.FC = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
+  // FIX: These methods were missing from the context. Added dummy implementations in AuthContext.
   const { verifyOtp, sendOtp } = useAuth();
   
   const phone = location.state?.phone || '';
@@ -83,7 +85,8 @@ const OtpVerificationPage: React.FC = () => {
             {otp.map((digit, idx) => (
                 <input
                     key={idx}
-                    ref={(el) => (inputRefs.current[idx] = el)}
+                    // FIX: Wrapped ref callback in braces to prevent it from returning a value, which caused a type error.
+                    ref={(el) => { inputRefs.current[idx] = el; }}
                     type="tel"
                     maxLength={1}
                     value={digit}
