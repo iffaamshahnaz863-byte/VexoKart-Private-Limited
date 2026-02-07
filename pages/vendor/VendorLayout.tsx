@@ -1,48 +1,37 @@
 
-import React, { ReactNode, useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useVendors } from '../../context/VendorContext.tsx';
 import VendorStatusPage from './VendorStatusPage.tsx';
 import Toast from '../../components/Toast.tsx';
 
-interface VendorLayoutProps {
-  children: ReactNode;
-}
-
-const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
+const VendorLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { currentVendor, isVendorLoading, vendorError, fetchCurrentVendor } = useVendors();
   const navigate = useNavigate();
   const location = useLocation();
   const [showToast, setShowToast] = useState(false);
   
-  // Track previous status to detect changes
   const prevStatusRef = useRef<string | undefined>(undefined);
   
   useEffect(() => {
     if (user?.id) {
-      // Force fetch to ensure fresh status from DB on mount
       fetchCurrentVendor(user.id.toString(), true);
     }
   }, [user?.id]);
 
   useEffect(() => {
     if (currentVendor) {
-        // Detect Pending -> Approved transition
         if (prevStatusRef.current === 'pending' && currentVendor.status === 'approved') {
             setShowToast(true);
         }
-        
-        // Auto-logout if blocked (suspended) logic if desired, or let StatusPage handle it.
-        // We will let StatusPage handle it to show the "Suspended" message instead of a confusing logout.
-        
         prevStatusRef.current = currentVendor.status;
     }
   }, [currentVendor]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem('vxk_vendor_cache');
+    sessionStorage.removeItem('dch_vendor_cache');
     logout();
     navigate('/login');
   };
@@ -112,7 +101,6 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-[#F8F9FA] pb-24 lg:pb-0 animate-in fade-in duration-300">
       <Toast isVisible={showToast} message="Your account has been approved 🎉" onClose={() => setShowToast(false)} />
       
-      {/* Desktop Sidebar (Optional, keep for desktop users) */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-border p-6 flex-col fixed h-full z-30">
         <div className="flex flex-col items-center text-center px-2 mb-10">
             <div className="relative mb-4">
@@ -151,14 +139,12 @@ const VendorLayout: React.FC<VendorLayoutProps> = ({ children }) => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="lg:ml-64 p-4 lg:p-10 overflow-auto">
         <div className="max-w-5xl mx-auto">
-            {children}
+            <Outlet />
         </div>
       </main>
 
-      {/* Mobile Bottom Nav (Meesho Style) */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-[68px] bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] z-[100] px-2 flex justify-around items-center">
          {menuItems.map(item => {
            const isActive = location.pathname === item.path || (item.path === '/vendor' && location.pathname === '/vendor');

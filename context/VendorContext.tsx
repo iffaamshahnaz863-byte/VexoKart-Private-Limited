@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 // Fix: Import newly defined Vendor type
 import { Vendor } from '../types';
@@ -27,7 +28,7 @@ const VENDOR_COLUMNS = 'id,user_id,store_name,status,owner_name,email,phone,prof
 export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(() => {
-    const cached = sessionStorage.getItem('vxk_vendor_cache');
+    const cached = sessionStorage.getItem('dch_vendor_cache');
     return cached ? JSON.parse(cached) : null;
   });
   const [isVendorLoading, setIsVendorLoading] = useState(false);
@@ -76,12 +77,12 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const profile = data[0];
         if (JSON.stringify(profile) !== JSON.stringify(currentVendor)) {
             setCurrentVendor(profile);
-            sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(profile));
+            sessionStorage.setItem('dch_vendor_cache', JSON.stringify(profile));
         }
       } else {
         setCurrentVendor(null);
         setVendorError("Vendor profile not found. Access denied.");
-        sessionStorage.removeItem('vxk_vendor_cache');
+        sessionStorage.removeItem('dch_vendor_cache');
       }
     } catch (error: any) {
       console.error("[VendorSync] Profile Fetch Error:", error.message);
@@ -105,7 +106,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         const fresh = data[0];
                         if (JSON.stringify(fresh) !== JSON.stringify(currentVendor)) {
                             setCurrentVendor(fresh);
-                            sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(fresh));
+                            sessionStorage.setItem('dch_vendor_cache', JSON.stringify(fresh));
                         }
                     }
                 }
@@ -147,7 +148,7 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           const updatedVendor = updatedData[0];
           if (currentVendor && currentVendor.id === id) {
             setCurrentVendor(updatedVendor);
-            sessionStorage.setItem('vxk_vendor_cache', JSON.stringify(updatedVendor));
+            sessionStorage.setItem('dch_vendor_cache', JSON.stringify(updatedVendor));
           }
       }
       await fetchVendors();

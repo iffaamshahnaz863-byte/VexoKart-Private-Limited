@@ -67,7 +67,6 @@ const CheckoutPage: React.FC = () => {
         shipping: SHIPPING_FEE,
         total: finalPayable,
         payment_method: 'cod',
-        payment_mode: 'Cash on Delivery',
       });
 
       clearCart();

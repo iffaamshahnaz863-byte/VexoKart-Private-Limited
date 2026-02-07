@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import Header from '../components/Header';
 import GlassmorphicCard from '../components/GlassmorphicCard';
@@ -23,7 +24,7 @@ const HelpPage: React.FC = () => {
     },
     {
       question: "Is it safe to use my credit/debit card?",
-      answer: "Yes, absolutely. All payments are processed through secure, PCI-DSS compliant payment gateways. Vexo Kart does not store your card details."
+      answer: "Yes, absolutely. All payments are processed through secure, PCI-DSS compliant payment gateways. DAR CYCLE HUB does not store your card details."
     },
     {
       question: "Can I cancel my order?",
@@ -31,7 +32,7 @@ const HelpPage: React.FC = () => {
     },
     {
       question: "Do you ship internationally?",
-      answer: "Currently, Vexo Kart operates exclusively within India. We ship to over 26,000 pincodes across the country."
+      answer: "Currently, DAR CYCLE HUB operates exclusively within India. We ship to over 26,000 pincodes across the country."
     }
   ];
 

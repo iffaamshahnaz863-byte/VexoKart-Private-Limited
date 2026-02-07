@@ -66,7 +66,7 @@ const AdminNotificationsPage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">From Identity</label>
-                <input type="text" value={settings.emailFrom} onChange={(e) => updateSettings({ emailFrom: e.target.value })} className={inputClasses} placeholder="VexoKart Support <support@vexokart.com>" />
+                <input type="text" value={settings.emailFrom} onChange={(e) => updateSettings({ emailFrom: e.target.value })} className={inputClasses} placeholder="DAR CYCLE HUB Support <support@darcyclehub.com>" />
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">API / SMTP Host</label>

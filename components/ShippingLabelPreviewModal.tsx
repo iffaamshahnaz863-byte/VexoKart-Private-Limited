@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useOrders } from '../context/OrderContext.tsx';
 import Barcode from 'react-barcode';
@@ -25,7 +26,7 @@ const ShippingLabelPreviewModal: React.FC = () => {
     const address = order.shippingAddress || order.shipping_address;
     const isCOD = order.payment_mode === 'Cash on Delivery';
     
-    const vendorName = order.seller_name || order.items[0]?.vendor_name || 'VexoKart Authorized Vendor';
+    const vendorName = order.seller_name || order.items[0]?.vendor_name || 'DAR CYCLE HUB Authorized Vendor';
 
     const totalAmount = Number(order.total_amount || order.total || 0);
     const subtotal = totalAmount / 1.18;
@@ -122,7 +123,7 @@ const ShippingLabelPreviewModal: React.FC = () => {
                         {/* 1. BRAND HEADER */}
                         <div className="flex justify-between items-start border-b-[2px] border-black pb-4 mb-4">
                             <div>
-                                <h1 className="text-3xl font-black italic tracking-tighter leading-none">VexoKart</h1>
+                                <h1 className="text-3xl font-black italic tracking-tighter leading-none">DAR CYCLE HUB</h1>
                                 <p className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-60">Logistics Hub • Secure Node</p>
                             </div>
                             <div className="text-right">
@@ -153,7 +154,7 @@ const ShippingLabelPreviewModal: React.FC = () => {
                                 <p className="text-[10px] mt-1 font-bold text-gray-700 leading-tight uppercase">
                                     Warehouse Node-A1<br/>
                                     Industrial Estate<br/>
-                                    Support: 1800-VEXO-KART
+                                    Support: 1800-DCH-HUB
                                 </p>
                             </div>
                             <div className="p-4">
@@ -187,7 +188,7 @@ const ShippingLabelPreviewModal: React.FC = () => {
                                         <tr key={i} className="border-b border-gray-100 last:border-0">
                                             <td className="py-2">
                                                 <p className="font-black text-[11px]">{item.name}</p>
-                                                <p className="text-[8px] text-gray-400 mt-0.5">SKU: VXK-{item.id}</p>
+                                                <p className="text-[8px] text-gray-400 mt-0.5">SKU: DCH-{item.id}</p>
                                             </td>
                                             <td className="py-2 text-right font-black">{item.quantity}</td>
                                         </tr>
@@ -230,7 +231,7 @@ const ShippingLabelPreviewModal: React.FC = () => {
                         {/* 6. MANIFEST FOOTER */}
                         <div className="mt-8 text-center opacity-30">
                             <p className="text-[7px] font-black uppercase tracking-[0.3em]">
-                                VexoKart Systems • Electronic Manifest v5.0 • Verified Protocol
+                                DAR CYCLE HUB Systems • Electronic Manifest v5.0 • Verified Protocol
                             </p>
                         </div>
                     </div>

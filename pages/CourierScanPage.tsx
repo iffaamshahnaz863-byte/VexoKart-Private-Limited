@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
@@ -17,13 +18,11 @@ const CourierScanPage: React.FC = () => {
 
     useEffect(() => {
         window.scrollTo(0, 0);
-        // Refresh orders context to ensure we have the token-to-order mapping
     }, [token]);
 
     const handleUpdate = async (status: OrderStatus) => {
         if (!token || isSubmitting) return;
         
-        // Confirmation for final delivery or RTO
         if (['Delivered', 'Cancelled'].includes(status)) {
             const confirmMsg = status === 'Delivered' 
                 ? "Collect payment (if applicable) before marking as Delivered. Continue?" 
@@ -79,19 +78,17 @@ const CourierScanPage: React.FC = () => {
         );
     }
 
-    // Fix: Property 'payment_method' does not exist on type 'Order'. Use 'payment_method' instead.
-    const isCOD = order?.payment_method === 'Cash on Delivery';
+    const isCOD = order?.payment_method === 'cod';
     const isPaid = order?.payment_status === 'paid';
 
     return (
         <div className="min-h-screen bg-[#F0F2F5] pb-24">
             <div className="bg-white p-6 border-b border-border sticky top-0 z-10 shadow-sm flex items-center justify-between">
-                 <h1 className="text-xl font-black text-text-main italic tracking-tighter uppercase leading-none">Vexo<span className="text-accent">Kart</span> <span className="text-text-muted font-medium ml-1">Scan Station</span></h1>
+                 <h1 className="text-xl font-black text-text-main italic tracking-tighter uppercase leading-none">DAR CYCLE<span className="text-accent">HUB</span> <span className="text-text-muted font-medium ml-1">Scan Station</span></h1>
                  <span className="px-2 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-green-100">Authenticated</span>
             </div>
 
             <div className="p-6 max-w-lg mx-auto space-y-6">
-                {/* Logistics Header Card */}
                 <GlassmorphicCard className="p-6 bg-white border-none shadow-md overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 -mr-10 -mt-10 rounded-full"></div>
                     <div className="flex justify-between items-start mb-8 relative z-10">
@@ -146,7 +143,6 @@ const CourierScanPage: React.FC = () => {
                     </div>
                 </GlassmorphicCard>
 
-                {/* Fulfillment Controls */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between px-2">
                         <p className="text-[11px] font-black uppercase tracking-widest text-text-muted italic">Stage Transition</p>
@@ -154,7 +150,6 @@ const CourierScanPage: React.FC = () => {
                     </div>
                     
                     <button 
-                        // Fix: Use capitalized status value
                         onClick={() => handleUpdate('Delivered')}
                         disabled={isSubmitting || order?.status === 'Delivered' || order?.status === 'Cancelled'}
                         className="w-full bg-green-600 text-white p-6 rounded-3xl flex items-center justify-between shadow-2xl shadow-green-600/30 active:scale-95 transition-all disabled:opacity-50 group"
@@ -172,7 +167,6 @@ const CourierScanPage: React.FC = () => {
                     </button>
 
                     <button 
-                        // Fix: Use capitalized status value
                         onClick={() => handleUpdate('Out for Delivery')}
                         disabled={isSubmitting || order?.status === 'Out for Delivery' || order?.status === 'Delivered' || order?.status === 'Cancelled'}
                         className="w-full bg-blue-600 text-white p-6 rounded-3xl flex items-center justify-between shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50 group"
@@ -191,7 +185,6 @@ const CourierScanPage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <button 
-                            // Fix: Use capitalized status value
                             onClick={() => handleUpdate('Shipped')}
                             disabled={isSubmitting || ['Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'].includes(order?.status || '')}
                             className="bg-white text-text-main p-5 rounded-3xl border border-border shadow-sm active:scale-95 transition-all disabled:opacity-50"
@@ -200,7 +193,6 @@ const CourierScanPage: React.FC = () => {
                             <p className="text-[9px] text-text-muted mt-1 uppercase font-bold">Transit Entry</p>
                         </button>
                         <button 
-                            // Fix: Use capitalized status value
                             onClick={() => handleUpdate('Cancelled')}
                             disabled={isSubmitting || order?.status === 'Delivered' || order?.status === 'Cancelled'}
                             className="bg-red-50 text-red-600 p-5 rounded-3xl border border-red-100 shadow-sm active:scale-95 transition-all disabled:opacity-50"
@@ -211,7 +203,6 @@ const CourierScanPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Audit Input */}
                 <div className="space-y-2">
                     <label className="text-[11px] font-black uppercase tracking-widest text-text-muted ml-2 block italic">Shipment Logs (Audit)</label>
                     <textarea 
@@ -222,11 +213,10 @@ const CourierScanPage: React.FC = () => {
                     />
                 </div>
 
-                {/* Secure Protocol Meta */}
                 <div className="pt-10 flex flex-col items-center">
                     <div className="flex items-center gap-3 py-2 px-4 bg-white/50 rounded-full border border-border">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted italic">VexoKart Logistics Protocol v4.0</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted italic">DCH Logistics Protocol v1.0</span>
                     </div>
                     <p className="mt-4 text-[8px] text-text-muted uppercase font-bold max-w-[200px] text-center opacity-60 leading-relaxed tracking-tighter">Every status update is geo-tagged and permanently logged for audit protection.</p>
                 </div>

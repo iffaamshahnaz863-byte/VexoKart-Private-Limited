@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 // Fix: Import newly defined Notification types
 import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types.ts';
@@ -38,16 +39,16 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpHost: 'api.sendgrid.com',
   smtpUser: '',
   smtpPass: '',
-  emailFrom: 'BICT Computer Education – VexoKart <bictcomputereducation1@gmail.com>',
+  emailFrom: 'DAR CYCLE HUB <support@darcyclehub.com>',
   smsApiKey: getEnvKey('FAST2SMS_API_KEY') || 'DEMO_KEY_FSTSMS_LIVE',
-  smsSenderId: 'VXKART',
+  smsSenderId: 'DCHUB',
   smsTemplateId: '',
   testMode: false,
 };
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<NotificationSettings>(() => {
-    const local = localStorage.getItem('vexokart-notification-settings');
+    const local = localStorage.getItem('dch-notification-settings');
     const saved = local ? JSON.parse(local) : DEFAULT_SETTINGS;
     return { ...saved, smsApiKey: getEnvKey('FAST2SMS_API_KEY') || saved.smsApiKey };
   });
@@ -58,7 +59,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const unreadCount = inbox.filter(m => !m.is_read).length;
 
   useEffect(() => {
-    localStorage.setItem('vexokart-notification-settings', JSON.stringify(settings));
+    localStorage.setItem('dch-notification-settings', JSON.stringify(settings));
   }, [settings]);
 
   const fetchInbox = async (user?: User) => {
@@ -67,7 +68,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       let query = `role=eq.${user.role}&order=created_at.desc`;
       
       // Fix: Check for both 'user' and 'customer' roles to handle data inconsistencies
-      if (user.role === 'user' || user.role === 'customer') {
+      if (user.role === 'customer') {
         query += `&user_id=eq.${user.id}`;
       } else if (user.role === 'vendor') {
         query += `&vendor_id=not.is.null`; 
@@ -171,7 +172,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const notifyLogin = async (user: User) => {
     try {
-        const message = `VexoKart: Login successful for ${user.email}. If this wasn't you, secure your account immediately.`;
+        const message = `DAR CYCLE HUB: Login successful for ${user.email}. If this wasn't you, secure your account immediately.`;
         if (settings.testMode) return;
         // Fix: Handled potentially undefined phone number on User type
         await sendQuickSMS(user.phone || '', message);

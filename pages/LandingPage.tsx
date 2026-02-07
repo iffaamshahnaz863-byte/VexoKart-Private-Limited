@@ -33,7 +33,7 @@ const LandingPage: React.FC = () => {
 
       <div className="p-6 pt-12">
         <h1 className="text-4xl font-black text-gray-900 italic uppercase tracking-tighter">
-          Vexo<span className="text-[#FF8A00]">Kart</span>
+          DAR CYCLE<span className="text-[#FF8A00]">HUB</span>
         </h1>
         <p className="text-gray-500 text-sm font-medium mt-1">Choose your shopping experience</p>
       </div>
@@ -78,7 +78,7 @@ const LandingPage: React.FC = () => {
         </div>
       </div>
       
-      <p className="text-center text-[10px] font-bold text-gray-300 uppercase tracking-widest pb-8">VexoKart Multi-Vertical Platform</p>
+      <p className="text-center text-[10px] font-bold text-gray-300 uppercase tracking-widest pb-8">DAR CYCLE HUB Multi-Vertical Platform</p>
     </div>
   );
 };

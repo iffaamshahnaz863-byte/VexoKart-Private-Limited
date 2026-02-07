@@ -1,4 +1,70 @@
 
+
+// Fix: Add Vendor interface
+export interface Vendor {
+  id: number;
+  user_id: string;
+  store_name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  owner_name: string;
+  email: string;
+  phone: string;
+  profile_image?: string;
+  wallet_balance?: number;
+  store_address?: string;
+  rejection_reason?: string;
+  created_at: string;
+}
+
+// Fix: Add AdminCode interface
+export interface AdminCode {
+  id: string;
+  code: string;
+  status: 'unused' | 'used' | 'revoked';
+  createdAt: string;
+  expiresAt: string | null;
+  note?: string;
+  maxUsage: number;
+  usageCount: number;
+  usedBy?: string | null;
+}
+
+// Fix: Add Notification types
+export interface NotificationSettings {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  smtpHost: string;
+  smtpUser: string;
+  smtpPass: string;
+  emailFrom: string;
+  smsApiKey: string;
+  smsSenderId: string;
+  smsTemplateId: string;
+  testMode: boolean;
+}
+
+export interface NotificationLog {
+  id: number;
+  createdAt: string;
+  channel: 'email' | 'sms';
+  orderId: string;
+  status: 'sent' | 'failed';
+  response: string;
+}
+
+export interface AppNotification {
+  id: number;
+  user_id?: string | number;
+  vendor_id?: string | number;
+  role: 'user' | 'vendor' | 'admin' | 'customer';
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+
 export interface Review {
   id: number;
   product_id: number;
@@ -56,7 +122,6 @@ export interface Product {
   upi_discount?: number;
   service_pincodes?: string[];
   specifications?: { [key: string]: string };
-  rejection_reason?: string;
 }
 
 export interface ServiceArea {
@@ -92,12 +157,12 @@ export interface OrderItem {
     price: number;
     quantity: number;
     image: string;
-    // Fix: Add missing properties
-    vendor_id?: string;
+    // Fix: Add missing optional properties
     vendor_name?: string;
+    vendor_id?: string;
 }
 
-// Fix: Use capitalized status to match usage across the app
+// Fix: Change OrderStatus to PascalCase to match usage across the app
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed';
 
@@ -105,6 +170,8 @@ export interface StatusHistory {
     status: OrderStatus;
     timestamp: string;
     note?: string;
+    actor?: string;
+    address_snapshot?: any;
 }
 
 export interface Order {
@@ -118,20 +185,23 @@ export interface Order {
     subtotal: number;
     shipping: number;
     total: number; 
-    payment_method: 'cod' | string;
+    payment_method: 'cod';
     payment_status: PaymentStatus;
     status: OrderStatus;
     status_history: StatusHistory[]; 
     created_at: string;
-    // Fix: Add missing/inconsistent properties
-    payment_mode?: string;
-    total_amount?: number;
-    vendor_id?: string;
+    // Fix: Add missing optional properties from usage in various components
     awb_code?: string;
     tracking_id?: string;
-    cancellation_reason?: string;
+    total_amount?: number;
     seller_name?: string;
-    discount_amount?: number;
+    vendor_id?: string;
+    cancellation_reason?: string;
+    qr_token?: string;
+    qrToken?: string;
+    payment_mode?: string;
+    metadata?: any;
+    address?: any;
 }
 
 export interface Address {
@@ -145,14 +215,14 @@ export interface Address {
 }
 
 export interface User {
-  id: number | string; // Fix: Allow string for guest users
+  id: number; // The bigserial primary key from public.users
   auth_uid: string; // The UUID from auth.users
   name: string;
   email: string;
   phone?: string;
   sms_enabled?: boolean;
-  // Fix: Unify role types to resolve comparison errors
-  role: 'user' | 'admin' | 'vendor' | 'customer';
+  // Fix: Expand role to fix type inconsistencies
+  role: 'customer' | 'admin' | 'vendor' | 'user';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
@@ -165,68 +235,5 @@ export interface Banner {
   title: string;
   status: boolean;
   display_order: number;
-  created_at: string;
-}
-
-// Fix: Add missing Vendor type definition
-export interface Vendor {
-  id: number;
-  user_id: string;
-  store_name: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  owner_name: string;
-  email: string;
-  phone: string;
-  profile_image?: string;
-  store_address?: string;
-  wallet_balance?: number;
-  rejection_reason?: string;
-}
-
-// Fix: Add missing AdminCode type definition
-export interface AdminCode {
-  id: string;
-  code: string;
-  status: 'unused' | 'used' | 'revoked';
-  createdAt: string;
-  expiresAt: string | null;
-  note?: string;
-  maxUsage: number;
-  usageCount: number;
-  usedBy?: string;
-}
-
-// Fix: Add missing Notification types
-export interface NotificationSettings {
-  emailEnabled: boolean;
-  smsEnabled: boolean;
-  smtpHost: string;
-  smtpUser: string;
-  smtpPass: string;
-  emailFrom: string;
-  smsApiKey: string;
-  smsSenderId: string;
-  smsTemplateId: string;
-  testMode: boolean;
-}
-
-export interface NotificationLog {
-  id: number;
-  createdAt: string;
-  channel: 'email' | 'sms';
-  orderId: string;
-  status: 'sent' | 'failed';
-  response: string;
-}
-
-export interface AppNotification {
-  id: number;
-  user_id?: string;
-  vendor_id?: number;
-  role: 'user' | 'vendor' | 'admin';
-  title: string;
-  message: string;
-  type: 'order_status' | 'order_alert' | 'wallet_update' | 'general';
-  is_read: boolean;
   created_at: string;
 }

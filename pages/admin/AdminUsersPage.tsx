@@ -90,7 +90,7 @@ const AdminUsersPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="p-6 text-right">
-                    {user.email !== 'admin@vexokart.com' ? (
+                    {user.email !== 'admin@darcyclehub.com' ? (
                         <button onClick={() => handleDelete(user.email, user.name)} className="text-red-400 font-black uppercase text-[10px] hover:underline">Revoke Access</button>
                     ) : (
                         <span className="text-text-muted text-[10px] font-bold italic uppercase">Root Account</span>

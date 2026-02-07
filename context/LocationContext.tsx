@@ -24,7 +24,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // Restore session
   useEffect(() => {
-    const saved = sessionStorage.getItem('vxk_daily_location');
+    const saved = sessionStorage.getItem('dch_daily_location');
     if (saved) {
         const { pincode, area } = JSON.parse(saved);
         if (pincode) {
@@ -49,10 +49,10 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
         setIsServiceable(isValid);
         
         // Update session storage with new valid status
-        const saved = sessionStorage.getItem('vxk_daily_location');
+        const saved = sessionStorage.getItem('dch_daily_location');
         if (saved) {
             const parsed = JSON.parse(saved);
-            sessionStorage.setItem('vxk_daily_location', JSON.stringify({ ...parsed, serviceable: isValid }));
+            sessionStorage.setItem('dch_daily_location', JSON.stringify({ ...parsed, serviceable: isValid }));
         }
     }
   }, [currentPincode, activePincodes, isAreasLoading]);
@@ -65,7 +65,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   const requestLocation = async () => {
     return new Promise<void>((resolve, reject) => {
       // CLEAR CACHE BEFORE CHECKING SERVICEABILITY
-      sessionStorage.removeItem('vxk_daily_location');
+      sessionStorage.removeItem('dch_daily_location');
       setHasPermission(false);
       setIsServiceable(false);
 
@@ -89,7 +89,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
           
           // Validation happens in useEffect via validatePincode
           
-          sessionStorage.setItem('vxk_daily_location', JSON.stringify({
+          sessionStorage.setItem('dch_daily_location', JSON.stringify({
               pincode: mockPincode,
               area: mockArea,
               serviceable: true // Optimistic, corrected by effect if needed
@@ -126,7 +126,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       setAddressArea(area);
       // Validation happens in useEffect
       
-      sessionStorage.setItem('vxk_daily_location', JSON.stringify({
+      sessionStorage.setItem('dch_daily_location', JSON.stringify({
           pincode: cleanPincode,
           area,
           serviceable: validatePincode(cleanPincode)
@@ -138,7 +138,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       setIsServiceable(false);
       setCurrentPincode(null);
       setAddressArea(null);
-      sessionStorage.removeItem('vxk_daily_location');
+      sessionStorage.removeItem('dch_daily_location');
   };
 
   return (

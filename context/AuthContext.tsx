@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
 import { supabase } from '../supabase.ts';
@@ -17,6 +18,9 @@ interface AuthContextType {
   removeFromWishlist: (productId: number) => Promise<void>;
   isInWishlist: (productId: number) => boolean;
   updateUserSession: (userData: User) => void;
+  // Fix: Add missing OTP methods for compatibility
+  verifyOtp: (phone: string, code: string) => Promise<void>;
+  sendOtp: (phone: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -143,6 +147,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isInWishlist = (productId: number) => user?.wishlist.includes(productId) || false;
 
+  // Fix: Add dummy implementations for OTP methods
+  const verifyOtp = async (phone: string, code: string) => {
+    console.warn("OTP verification is not implemented in this demo.", { phone, code });
+    // In a real app, you would call supabase.auth.verifyOtp()
+    return Promise.resolve();
+  };
+  
+  const sendOtp = async (phone: string) => {
+    console.warn("Send OTP is not implemented in this demo.", { phone });
+    // In a real app, you would call supabase.auth.signInWithOtp()
+    return Promise.resolve();
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -157,7 +174,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       addToWishlist, 
       removeFromWishlist, 
       isInWishlist, 
-      updateUserSession 
+      updateUserSession,
+      verifyOtp,
+      sendOtp
     }}>
       {children}
     </AuthContext.Provider>

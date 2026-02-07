@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
@@ -49,7 +50,7 @@ const AdminProductsPage: React.FC = () => {
             <tbody>
               {products.map(product => {
                 const vendor = getVendorById(product.vendor_id);
-                const vendorName = vendor ? vendor.store_name : (product.vendor_id === 'vexokart_internal' ? 'VexoKart' : 'Internal');
+                const vendorName = vendor ? vendor.store_name : (product.vendor_id === 'dch_internal' ? 'DAR CYCLE HUB' : 'Internal');
 
                 return (
                     <tr key={product.id} className="border-b border-gray-800 hover:bg-surface/50">

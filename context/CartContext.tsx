@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { CartItem, Product } from '../types.ts';
 import { useAuth } from './AuthContext.tsx';
@@ -20,12 +21,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
-    const local = localStorage.getItem('vexokart-cart');
+    const local = localStorage.getItem('dch-cart');
     if (local) setCartItems(JSON.parse(local));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('vexokart-cart', JSON.stringify(cartItems));
+    localStorage.setItem('dch-cart', JSON.stringify(cartItems));
     
     if (user) {
       const syncCart = async () => {

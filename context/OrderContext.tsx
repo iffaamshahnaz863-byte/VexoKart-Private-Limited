@@ -144,7 +144,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
-            seller_name: o.vendor?.store_name || "VexoKart Direct",
+            seller_name: o.vendor?.store_name || "DAR CYCLE HUB Direct",
             shippingAddress: addressSource,
           };
         })

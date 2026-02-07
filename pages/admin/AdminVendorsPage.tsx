@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useVendors } from '../../context/VendorContext';
 import { useProducts } from '../../hooks/useProducts';
@@ -91,7 +92,7 @@ const AdminVendorsPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-black text-gray-900 italic tracking-tighter uppercase leading-none">{vendor.store_name}</h3>
-                    <p className="text-[10px] font-black text-accent uppercase tracking-widest mt-2">UID: VXK-VND-{vendor.id}</p>
+                    <p className="text-[10px] font-black text-accent uppercase tracking-widest mt-2">UID: DCH-VND-{vendor.id}</p>
                     <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase">Merchant: {vendor.owner_name}</p>
                   </div>
               </div>

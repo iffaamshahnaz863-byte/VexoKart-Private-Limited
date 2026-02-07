@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext.tsx';
@@ -12,7 +13,6 @@ const PrintLabelPage: React.FC = () => {
 
     useEffect(() => {
         if (order) {
-            // Delay print to allow SVGs (Barcode/QR) to render fully
             const timer = setTimeout(() => {
                 window.print();
             }, 1200);
@@ -31,24 +31,21 @@ const PrintLabelPage: React.FC = () => {
     const address = order.shippingAddress || order.shipping_address;
     const isCOD = order.payment_mode === 'Cash on Delivery';
     
-    // Ensure "Sold By" is dynamic from vendor record or item metadata
-    const vendorName = order.seller_name || order.items[0]?.vendor_name || 'VexoKart Authorized Vendor';
-    const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'VX-VND-001';
+    const vendorName = order.seller_name || order.items[0]?.vendor_name || 'DAR CYCLE HUB';
+    const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'DCH-INT-001';
 
-    // Financial calculations
     const totalAmount = Number(order.total_amount || order.total || 0);
     const subtotal = totalAmount / 1.18;
     const gstAmount = totalAmount - subtotal;
 
     const handleDownloadPDF = async () => {
         const doc = await generateShippingLabelPDF(order);
-        doc.save(`VexoKart_Label_Order_${order.id}.pdf`);
+        doc.save(`DCH_Label_Order_${order.id}.pdf`);
     };
 
     return (
         <div className="min-h-screen bg-gray-200 flex flex-col items-center py-10 print:py-0 print:bg-white print:block">
             
-            {/* STICKY CONTROL PANEL */}
             <div className="fixed top-4 right-4 flex flex-col gap-2 no-print z-50">
                 <button 
                     onClick={() => window.print()}
@@ -72,15 +69,13 @@ const PrintLabelPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* THE SHIPPING LABEL (A4 Optimized) */}
             <div 
                 id="shipping-label" 
                 className="w-[210mm] min-h-[297mm] bg-white border-[3px] border-black p-8 flex flex-col text-black font-sans print:border-none print:m-0"
             >
-                {/* 1. HEADER */}
                 <div className="flex justify-between items-start border-b-[3px] border-black pb-4 mb-4">
                     <div>
-                        <h1 className="text-5xl font-black italic tracking-tighter leading-none">VexoKart</h1>
+                        <h1 className="text-5xl font-black italic tracking-tighter leading-none">DAR CYCLE HUB</h1>
                         <p className="text-[11px] font-black uppercase tracking-[0.4em] mt-2">Logistics Hub • Secure Fulfillment</p>
                     </div>
                     <div className="text-right">
@@ -94,7 +89,6 @@ const PrintLabelPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 2. SCAN AREA (BARCODE PRIMARY) */}
                 <div className="flex flex-col items-center py-6 border-b-[3px] border-black mb-6">
                     <div className="max-w-full overflow-hidden">
                         <Barcode 
@@ -108,9 +102,7 @@ const PrintLabelPage: React.FC = () => {
                     <p className="text-lg font-black tracking-[0.8em] mt-2">ID: {order.id}</p>
                 </div>
 
-                {/* 3. ADDRESS BLOCKS (EQUAL WIDTH) */}
                 <div className="grid grid-cols-2 gap-0 border-[3px] border-black overflow-hidden mb-6">
-                    {/* SHIP FROM */}
                     <div className="border-r-[3px] border-black p-6 bg-gray-50/50 flex flex-col justify-between">
                         <div>
                             <p className="text-[11px] font-black uppercase mb-4 tracking-widest text-gray-500 border-b border-black/10 pb-1">SHIP FROM (SELLER)</p>
@@ -118,7 +110,7 @@ const PrintLabelPage: React.FC = () => {
                             <p className="text-xs mt-3 font-bold text-gray-800 leading-relaxed uppercase">
                                 Warehouse Node-A1<br/>
                                 Industrial Logistics Estate<br/>
-                                Phone: 1800-VEXO-KART
+                                Phone: 1800-DCH-HELP
                             </p>
                         </div>
                         <div className="mt-8">
@@ -127,7 +119,6 @@ const PrintLabelPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* DELIVER TO */}
                     <div className="p-6 flex flex-col">
                         <p className="text-[11px] font-black uppercase mb-4 tracking-widest text-gray-500 border-b border-black/10 pb-1">DELIVER TO (CONSIGNEE)</p>
                         <p className="font-black text-2xl leading-tight uppercase italic mb-3">{address?.fullName}</p>
@@ -137,7 +128,6 @@ const PrintLabelPage: React.FC = () => {
                         </p>
                         <p className="mt-4 font-black text-xl uppercase tracking-tighter">PH: {address?.phone}</p>
                         
-                        {/* THE PINCODE BOX */}
                         <div className="mt-auto pt-6 flex justify-center">
                             <div className="border-[5px] border-black px-12 py-3 inline-block">
                                 <p className="font-black text-5xl tracking-[0.2em]">{address?.zip}</p>
@@ -146,7 +136,6 @@ const PrintLabelPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 4. ITEM TABLE & QR */}
                 <div className="flex gap-6 mb-6">
                     <div className="flex-grow border-[3px] border-black p-4">
                         <table className="w-full text-left">
@@ -161,7 +150,7 @@ const PrintLabelPage: React.FC = () => {
                                     <tr key={i} className="border-b border-gray-200">
                                         <td className="py-3">
                                             <p className="font-black text-sm">{item.name}</p>
-                                            <p className="text-[9px] text-gray-500 mt-0.5 tracking-tight">SKU: VXK-{item.id} • HSN: 61091000</p>
+                                            <p className="text-[9px] text-gray-500 mt-0.5 tracking-tight">SKU: DCH-{item.id}</p>
                                         </td>
                                         <td className="py-3 text-right text-lg font-black">{item.quantity}</td>
                                     </tr>
@@ -170,7 +159,6 @@ const PrintLabelPage: React.FC = () => {
                         </table>
                     </div>
                     
-                    {/* SECONDARY SCAN (QR) */}
                     <div className="shrink-0 border-[3px] border-black p-4 flex flex-col items-center justify-center bg-white">
                         <QRCode 
                             size={100}
@@ -186,13 +174,11 @@ const PrintLabelPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 5. PRICING & GST (BOTTOM RIGHT) */}
                 <div className="mt-auto flex justify-between items-end border-t-[3px] border-black pt-6">
                     <div className="max-w-sm opacity-50">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] italic mb-2">Electronic Fulfillment Manifest</p>
                         <p className="text-[8px] font-bold uppercase leading-tight text-gray-700">
-                            Subject to VexoKart Logistics Jurisdiction.<br/>
-                            This serves as Shipping Label and Tax Invoice.<br/>
+                            Subject to DAR CYCLE HUB Logistics Jurisdiction.<br/>
                             {isCOD ? 'PAYMENT STATUS: PENDING (COLLECT AT DOORSTEP)' : 'PAYMENT STATUS: SECURELY PAID ONLINE'}
                         </p>
                     </div>
@@ -217,20 +203,12 @@ const PrintLabelPage: React.FC = () => {
                     </div>
                 </div>
                 
-                {/* 6. SYSTEM FOOTER */}
                 <div className="mt-12 pt-4 border-t border-dashed border-gray-400 text-center">
                     <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-400 italic">
-                        VexoKart Fulfillment System • V1.0 Verified Manifest
-                    </p>
-                    <p className="text-[8px] font-bold uppercase text-gray-400 mt-2">
-                        Printed: {new Date().toLocaleString()} • This is a system-generated label
+                        DCH Fulfillment System • V1.0 Verified Manifest
                     </p>
                 </div>
             </div>
-
-            <p className="mt-8 text-[10px] text-gray-400 uppercase font-black tracking-widest no-print">
-                Optimized for standard A4 and 4x6 Thermal Printing
-            </p>
         </div>
     );
 };

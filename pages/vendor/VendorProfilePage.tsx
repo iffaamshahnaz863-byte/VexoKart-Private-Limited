@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -127,7 +128,7 @@ const VendorProfilePage: React.FC = () => {
                  <form onSubmit={handleSubmit} className="space-y-8">
                     <div className="flex flex-col items-center gap-6 pb-8 border-b border-border">
                         <div className="relative group">
-                            <img src={logoPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(storeName || 'V')}&background=FF8A00&color=fff`} alt="Logo Preview" className="w-32 h-32 rounded-3xl object-cover bg-background border-4 border-white shadow-2xl transition-transform group-hover:scale-105" />
+                            <img src={logoPreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(storeName || 'D')}&background=FF8A00&color=fff`} alt="Logo Preview" className="w-32 h-32 rounded-3xl object-cover bg-background border-4 border-white shadow-2xl transition-transform group-hover:scale-105" />
                             <input type="file" id="logoUpload" accept="image/*" onChange={handleImageChange} className="hidden" disabled={isUpdating} />
                             <label htmlFor="logoUpload" className="absolute -bottom-2 -right-2 p-3 bg-accent text-white rounded-2xl shadow-xl cursor-pointer hover:bg-orange-600 transition-colors">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
