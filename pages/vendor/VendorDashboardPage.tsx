@@ -1,3 +1,4 @@
+
 import React, { useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
@@ -90,7 +91,7 @@ const VendorDashboardPage: React.FC = () => {
         </div>
         <button 
           onClick={() => navigate('/vendor/products/new')}
-          className="bg-[#F43397] text-white p-4 rounded-2xl shadow-lg shadow-[#F43397]/20 flex items-center gap-2 active:scale-95 transition-all"
+          className="bg-primary text-white p-4 rounded-2xl shadow-lg shadow-primary/20 flex items-center gap-2 active:scale-95 transition-all"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
           <span className="text-[10px] font-black uppercase tracking-widest">Add Product</span>
@@ -122,7 +123,7 @@ const VendorDashboardPage: React.FC = () => {
         <StatCard 
           label="Today Sales" 
           value={`₹${(stats.todayRev || 0).toLocaleString()}`} 
-          colorClass="text-[#F43397]" 
+          colorClass="text-pink-500" 
           onClick={() => navigate('/vendor/wallet')}
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
         />
@@ -141,35 +142,7 @@ const VendorDashboardPage: React.FC = () => {
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>}
         />
       </div>
-
-      <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-premium">
-        <h3 className="text-sm font-black uppercase italic text-gray-800 mb-6 flex items-center justify-between">
-          Fulfillment Task Hub
-          <span className="bg-accent/10 text-accent text-[9px] font-black px-2 py-1 rounded-lg">LIVE FEED</span>
-        </h3>
-        
-        {stats.pendingCount > 0 ? (
-          <div className="space-y-4">
-             <div className="flex items-center gap-4 bg-orange-50 p-4 rounded-2xl border border-orange-100">
-                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-500/20">!</div>
-                <div className="flex-grow">
-                   <p className="text-xs font-black text-gray-800 uppercase italic">Pending Action Required</p>
-                   <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">You have {stats.pendingCount} orders waiting for shipment manifest.</p>
-                </div>
-                <button onClick={() => navigate('/vendor/orders')} className="text-orange-600 text-[10px] font-black underline uppercase">Resolve</button>
-             </div>
-          </div>
-        ) : (
-          <div className="text-center py-10 opacity-40 grayscale">
-            <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <p className="text-[10px] font-black uppercase tracking-widest italic">All Manifests Synced</p>
-          </div>
-        )}
-      </div>
-
-      <div className="pt-4 text-center">
-         <p className="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300">VexoKart Merchant Protocol v6.2 • Secure Node</p>
-      </div>
+      
     </div>
   );
 };

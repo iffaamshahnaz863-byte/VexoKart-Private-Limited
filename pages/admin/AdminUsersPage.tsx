@@ -1,31 +1,33 @@
 
-import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect } from 'react';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import UserFormModal from '../../components/admin/UserFormModal';
 import { User } from '../../types';
+import { supabase } from '../../supabase.ts';
 
 const AdminUsersPage: React.FC = () => {
-  const { users, deleteUser, addUser, fetchUsers } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = async () => {
+  const fetchUsers = async () => {
     setIsRefreshing(true);
-    await fetchUsers();
+    const { data, error } = await supabase.from('users').select('*');
+    if (data) setUsers(data);
+    if (error) console.error("Error fetching users:", error);
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   const handleDelete = async (email: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete user "${name}" (${email})? This action cannot be undone.`)) {
-        await deleteUser(email);
-        await fetchUsers(); // Re-sync
-    }
+    alert("User deletion must be handled via a secure backend function for security reasons. This action is disabled on the client.");
   }
 
-  const handleCreateUser = async (userData: { name: string; email: string; phone: string; pass: string; role: User['role'] }) => {
-    await addUser(userData);
-    await fetchUsers(); // Re-sync
+  const handleCreateUser = async (userData: any) => {
+    alert("User creation must be handled via a secure backend function to protect the Supabase admin key. This action is disabled on the client.");
     setModalOpen(false);
   }
 
@@ -39,7 +41,7 @@ const AdminUsersPage: React.FC = () => {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={handleRefresh} 
+            onClick={fetchUsers} 
             disabled={isRefreshing}
             className="p-3 bg-surface border border-border text-text-secondary rounded-xl hover:text-accent transition-all disabled:opacity-50"
             title="Force Sync from DB"

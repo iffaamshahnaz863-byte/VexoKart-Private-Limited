@@ -18,6 +18,25 @@ import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { OrderProvider } from './context/OrderContext.tsx';
 import { ProductProvider } from './context/ProductContext.tsx';
 import { CategoryProvider } from './context/CategoryContext.tsx';
+import { VendorProvider } from './context/VendorContext.tsx';
+import { AdminCodeProvider } from './context/AdminCodeContext.tsx';
+import { BannerProvider } from './context/BannerContext.tsx';
+import { ServiceAreaProvider } from './context/ServiceAreaContext.tsx';
+import { RecentlyViewedProvider } from './context/RecentlyViewedContext.tsx';
+import { ReviewProvider } from './context/ReviewContext.tsx';
+import { LocationProvider } from './context/LocationContext.tsx';
+import MenuPage from './pages/MenuPage.tsx';
+import WishlistPage from './pages/WishlistPage.tsx';
+import ShippingAddressesPage from './pages/ShippingAddressesPage.tsx';
+import AddressFormPage from './pages/AddressFormPage.tsx';
+import CancelOrderPage from './pages/CancelOrderPage.tsx';
+import HelpPage from './pages/HelpPage.tsx';
+import AboutUsPage from './pages/AboutUsPage.tsx';
+import ContactUsPage from './pages/ContactUsPage.tsx';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
+import DailyNeedsPage from './pages/DailyNeedsPage.tsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.tsx';
+import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
 
 // Admin Imports
 import AdminLayout from './pages/admin/AdminLayout.tsx';
@@ -27,6 +46,17 @@ import AdminProductFormPage from './pages/admin/AdminProductFormPage.tsx';
 import AdminOrdersPage from './pages/admin/AdminOrdersPage.tsx';
 import AdminCategoriesPage from './pages/admin/AdminCategoriesPage.tsx';
 import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage.tsx';
+import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage.tsx';
+import AdminPincodesPage from './pages/admin/AdminPincodesPage.tsx';
+import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
+import AdminPayoutsPage from './pages/admin/AdminPayoutsPage.tsx';
+import AdminMarketingPage from './pages/admin/AdminBannersPage.tsx'; // Renamed for clarity
+import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage.tsx';
+import AdminApprovalsPage from './pages/admin/AdminApprovalsPage.tsx';
+import AdminUsersPage from './pages/admin/AdminUsersPage.tsx';
+import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
+
 
 const AdminRoute: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -49,6 +79,8 @@ const AppContent: React.FC = () => {
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
+          <Route path="/menu" element={<MenuPage />} />
+          <Route path="/daily" element={<DailyNeedsPage />} />
           
           {/* User Routes */}
           <Route path="/orders" element={<MyOrdersPage />} />
@@ -56,21 +88,44 @@ const AppContent: React.FC = () => {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-success" element={<OrderSuccessPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
+          <Route path="/addresses" element={<ShippingAddressesPage />} />
+          <Route path="/addresses/new" element={<AddressFormPage />} />
+          <Route path="/addresses/edit/:id" element={<AddressFormPage />} />
+          <Route path="/cancel-order/:id" element={<CancelOrderPage />} />
           
           {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/update-password" element={<UpdatePasswordPage />} />
+          
+          {/* Static Pages */}
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/about-us" element={<AboutUsPage />} />
+          <Route path="/contact-us" element={<ContactUsPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           
           {/* Admin Panel */}
           <Route path="/admin" element={<AdminRoute />}>
             <Route element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
+              <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="pincodes" element={<AdminPincodesPage />} />
+              <Route path="vendors" element={<AdminVendorsPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="payouts" element={<AdminPayoutsPage />} />
+              <Route path="marketing" element={<AdminMarketingPage />} />
               <Route path="products" element={<AdminProductsPage />} />
               <Route path="products/new" element={<AdminProductFormPage />} />
               <Route path="products/edit/:id" element={<AdminProductFormPage />} />
               <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="categories/new" element={<AdminCategoryFormPage />} />
               <Route path="categories/edit/:id" element={<AdminCategoryFormPage />} />
+              <Route path="audit" element={<AdminAuditLogsPage />} />
+              <Route path="approvals" element={<AdminApprovalsPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="codes" element={<AdminCodesPage />} />
+              <Route path="notifications" element={<AdminNotificationsPage />} />
             </Route>
           </Route>
         </Routes>
@@ -82,17 +137,31 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
   <AuthProvider>
-    <CategoryProvider>
-      <ProductProvider>
-        <CartProvider>
-          <OrderProvider>
-            <HashRouter>
-              <AppContent />
-            </HashRouter>
-          </OrderProvider>
-        </CartProvider>
-      </ProductProvider>
-    </CategoryProvider>
+    <ServiceAreaProvider>
+     <LocationProvider>
+      <CategoryProvider>
+        <VendorProvider>
+         <ProductProvider>
+          <CartProvider>
+            <AdminCodeProvider>
+             <BannerProvider>
+              <RecentlyViewedProvider>
+                <ReviewProvider>
+                  <OrderProvider>
+                    <HashRouter>
+                      <AppContent />
+                    </HashRouter>
+                  </OrderProvider>
+                </ReviewProvider>
+              </RecentlyViewedProvider>
+             </BannerProvider>
+            </AdminCodeProvider>
+          </CartProvider>
+         </ProductProvider>
+        </VendorProvider>
+      </CategoryProvider>
+     </LocationProvider>
+    </ServiceAreaProvider>
   </AuthProvider>
 );
 
