@@ -28,6 +28,38 @@ const sanitizeUser = (u: any): User => ({
   recentlyViewed: Array.isArray(u.recentlyViewed) ? u.recentlyViewed : [],
 });
 
+const getUserProfile = async (sessionUser: any): Promise<User | null> => {
+    let { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_uid', sessionUser.id)
+        .single();
+    
+    if (error && !profile) {
+        console.warn('User profile not found. Creating a new one as a fallback.');
+        const { data: newProfile, error: upsertError } = await supabase
+            .from('users')
+            .upsert({
+                auth_uid: sessionUser.id,
+                email: sessionUser.email,
+                name: sessionUser.user_metadata?.name || sessionUser.email,
+                role: 'user',
+                status: 'active'
+            }, { onConflict: 'auth_uid' })
+            .select()
+            .single();
+        
+        if (upsertError) {
+            console.error("CRITICAL: Failed to create missing user profile on login.", upsertError);
+            return null;
+        }
+        profile = newProfile;
+    }
+    
+    return profile ? sanitizeUser(profile) : null;
+};
+
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,13 +68,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const fetchUserSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_uid', session.user.id)
-          .single();
-        if (data) setUser(sanitizeUser(data));
-        if (error) console.error("Error fetching initial profile:", error);
+        const profile = await getUserProfile(session.user);
+        if (profile) setUser(profile);
       }
       setIsLoading(false);
     };
@@ -53,13 +80,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           setIsLoading(true);
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_uid', session.user.id)
-            .single();
-          if (data) setUser(sanitizeUser(data));
-          if (error) console.error("Error fetching profile on sign in:", error);
+          const profile = await getUserProfile(session.user);
+          if (profile) {
+            setUser(profile);
+          } else {
+            await supabase.auth.signOut();
+          }
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
@@ -79,26 +105,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password: pass,
+      options: {
+        data: { name: name }
+      }
     });
+
     if (authError) throw authError;
-    if (!authData.user) throw new Error("Signup failed: No user data returned.");
-    
-    // Manually insert into public.users to ensure profile exists immediately.
+    if (!authData.user) throw new Error("Signup failed: No user data returned from auth service.");
+
     const { error: profileError } = await supabase
       .from('users')
-      .insert({
+      .upsert({
         auth_uid: authData.user.id,
         email: email,
         name: name,
         role: 'user',
         status: 'active'
-      });
+      }, { onConflict: 'auth_uid' });
 
     if (profileError) {
-      console.error("Critical: Failed to create user profile after auth signup.", profileError);
-      // Optional: attempt to delete the auth user for cleanup
-      // await supabase.auth.admin.deleteUser(authData.user.id);
-      throw new Error(`Failed to create user profile: ${profileError.message}`);
+      console.error("CRITICAL: User profile upsert failed after auth signup. The login handler will fix this.", profileError);
     }
   };
 

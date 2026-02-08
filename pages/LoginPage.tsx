@@ -32,6 +32,7 @@ const LoginPage: React.FC = () => {
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setLoading(true);
 
     try {
