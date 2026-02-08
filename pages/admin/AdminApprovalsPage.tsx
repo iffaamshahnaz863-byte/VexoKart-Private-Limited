@@ -2,14 +2,11 @@
 import React, { useState } from 'react';
 // Changed import from context file to the dedicated hook file
 import { useProducts } from '../../hooks/useProducts';
-// useVendors is now correctly exported from VendorContext
-import { useVendors } from '../../context/VendorContext';
 import { useAuth } from '../../context/AuthContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 
 const AdminApprovalsPage: React.FC = () => {
   const { products, updateProduct, toggleProductStatus } = useProducts();
-  const { getVendorById } = useVendors();
   const { user } = useAuth();
   const [filter, setFilter] = useState<'pending' | 'rejected' | 'all'>('pending');
   const [processingId, setProcessingId] = useState<number | null>(null);
@@ -91,7 +88,6 @@ const AdminApprovalsPage: React.FC = () => {
             <thead>
               <tr className="border-b border-border text-text-muted font-black uppercase text-[10px] tracking-widest">
                 <th className="p-6">Product Info</th>
-                <th className="p-6">Vendor</th>
                 <th className="p-6">Pricing</th>
                 <th className="p-6">Category</th>
                 <th className="p-6">Status</th>
@@ -100,7 +96,6 @@ const AdminApprovalsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-border">
               {filteredProducts.map(p => {
-                const vendor = getVendorById(p.vendor_id);
                 const isProcessing = processingId === p.id;
 
                 return (
@@ -119,12 +114,6 @@ const AdminApprovalsPage: React.FC = () => {
                           <p className="text-text-main font-bold truncate max-w-[220px]">{p.name}</p>
                           <p className="text-[10px] text-text-muted font-mono mt-0.5 tracking-tighter">SKU: #{p.id}</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-6">
-                      <div className="flex items-center gap-2">
-                        <img src={vendor?.profile_image || `https://ui-avatars.com/api/?name=${vendor?.store_name || 'D'}`} className="w-6 h-6 rounded-full border border-border" />
-                        <span className="text-text-secondary font-medium truncate max-w-[120px]">{vendor?.store_name || 'DAR CYCLE HUB'}</span>
                       </div>
                     </td>
                     <td className="p-6">

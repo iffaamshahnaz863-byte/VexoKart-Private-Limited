@@ -3,7 +3,6 @@ import React, { useMemo, useEffect, useState } from 'react';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
-import { useVendors } from '../../context/VendorContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase.ts';
 import { User } from '../../types.ts';
@@ -11,7 +10,6 @@ import { User } from '../../types.ts';
 const AdminDashboardPage: React.FC = () => {
   const { products = [] } = useProducts();
   const { orders = [] } = useOrders();
-  const { vendors = [] } = useVendors();
   const [users, setUsers] = useState<User[]>([]);
   const navigate = useNavigate();
 
@@ -25,23 +23,17 @@ const AdminDashboardPage: React.FC = () => {
 
   const platformStats = useMemo(() => {
     const totalGMV = orders.filter(o => o.status !== 'Cancelled').reduce((acc, curr) => acc + (curr.total || 0), 0);
-    // Fixed 10% commission simulation for the dashboard
     const platformRevenue = totalGMV * 0.10;
     const today = new Date().toISOString().split('T')[0];
     const todayOrders = orders.filter(o => o.created_at?.startsWith(today));
     
-    // Vendor Payouts Simulation (Wallet Balances)
-    const pendingPayouts = vendors.reduce((acc, v) => acc + (v.wallet_balance || 0), 0);
-
     return {
       gmv: totalGMV,
       revenue: platformRevenue,
       todayCount: todayOrders.length,
-      activeVendors: vendors.filter(v => v.status === 'approved').length,
       activeUsers: users.length,
-      payouts: pendingPayouts
     };
-  }, [orders, vendors, users]);
+  }, [orders, users]);
 
   const KPICard = ({ label, value, icon, trend, color, onClick }: any) => (
     <div 
@@ -96,25 +88,11 @@ const AdminDashboardPage: React.FC = () => {
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         />
         <KPICard 
-          label="Live Payout Liability" 
-          value={`₹${platformStats.payouts.toLocaleString()}`} 
-          color="bg-purple-500"
-          onClick={() => navigate('/admin/payouts')}
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
-        />
-        <KPICard 
           label="Fulfilled Today" 
           value={platformStats.todayCount} 
           color="bg-orange-500"
           onClick={() => navigate('/admin/orders')}
           icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
-        />
-        <KPICard 
-          label="Partner Network" 
-          value={platformStats.activeVendors} 
-          color="bg-cyan-500"
-          onClick={() => navigate('/admin/vendors')}
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
         />
         <KPICard 
           label="Verified Consumers" 

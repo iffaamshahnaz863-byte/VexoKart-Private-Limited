@@ -3,7 +3,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProducts } from '../../hooks/useProducts';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
-import { useVendors } from '../../context/VendorContext';
 import { Product } from '../../types';
 
 const getStatusPill = (status: Product['status']) => {
@@ -18,7 +17,6 @@ const getStatusPill = (status: Product['status']) => {
 
 const AdminProductsPage: React.FC = () => {
   const { products, deleteProduct, toggleProductStatus } = useProducts();
-  const { getVendorById } = useVendors();
   const navigate = useNavigate();
 
   const handleToggle = (id: number, currentStatus: string) => {
@@ -40,7 +38,6 @@ const AdminProductsPage: React.FC = () => {
             <thead>
               <tr className="border-b border-gray-700 text-sm text-text-muted">
                 <th className="p-4 font-semibold">Name</th>
-                <th className="p-4 font-semibold">Vendor</th>
                 <th className="p-4 font-semibold">Category</th>
                 <th className="p-4 font-semibold">Price</th>
                 <th className="p-4 font-semibold">Status</th>
@@ -49,13 +46,9 @@ const AdminProductsPage: React.FC = () => {
             </thead>
             <tbody>
               {products.map(product => {
-                const vendor = getVendorById(product.vendor_id);
-                const vendorName = vendor ? vendor.store_name : (product.vendor_id === 'dch_internal' ? 'DAR CYCLE HUB' : 'Internal');
-
                 return (
                     <tr key={product.id} className="border-b border-gray-800 hover:bg-surface/50">
                     <td className="p-4 text-text-main font-semibold">{product.name}</td>
-                    <td className="p-4 text-sm text-cyan-400">{vendorName}</td>
                     <td className="p-4 text-sm">{product.category}</td>
                     <td className="p-4 text-sm">₹{product.price.toFixed(2)}</td>
                     <td className="p-4">

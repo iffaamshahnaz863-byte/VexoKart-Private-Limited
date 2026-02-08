@@ -18,7 +18,6 @@ import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { OrderProvider } from './context/OrderContext.tsx';
 import { ProductProvider } from './context/ProductContext.tsx';
 import { CategoryProvider } from './context/CategoryContext.tsx';
-import { VendorProvider } from './context/VendorContext.tsx';
 import { AdminCodeProvider } from './context/AdminCodeContext.tsx';
 import { BannerProvider } from './context/BannerContext.tsx';
 import { ServiceAreaProvider } from './context/ServiceAreaContext.tsx';
@@ -40,7 +39,6 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
 import OnboardingPage from './pages/OnboardingPage.tsx';
 import WelcomePage from './pages/WelcomePage.tsx';
 import SignupPage from './pages/SignupPage.tsx';
-import VendorSignupPage from './pages/VendorSignupPage.tsx';
 import CourierScanPage from './pages/CourierScanPage.tsx';
 import PrintLabelPage from './pages/PrintLabelPage.tsx';
 import NotificationsPage from './pages/NotificationsPage.tsx';
@@ -64,27 +62,10 @@ import AdminUsersPage from './pages/admin/AdminUsersPage.tsx';
 import AdminCodesPage from './pages/admin/AdminCodesPage.tsx';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage.tsx';
 
-// Vendor Imports
-import VendorLayout from './pages/vendor/VendorLayout.tsx';
-import VendorDashboardPage from './pages/vendor/VendorDashboardPage.tsx';
-import VendorProductsPage from './pages/vendor/VendorProductsPage.tsx';
-import VendorProductFormPage from './pages/vendor/VendorProductFormPage.tsx';
-import VendorOrdersPage from './pages/vendor/VendorOrdersPage.tsx';
-import VendorOrderDetailPage from './pages/vendor/VendorOrderDetailPage.tsx';
-import VendorWalletPage from './pages/vendor/VendorWalletPage.tsx';
-import VendorProfilePage from './pages/vendor/VendorProfilePage.tsx';
-
 const UserRoute: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <Outlet />;
-};
-
-const VendorRoute: React.FC = () => {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>;
-  if (!user || user.role !== 'vendor') return <Navigate to="/login" replace />;
   return <Outlet />;
 };
 
@@ -142,26 +123,12 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/vendor-signup" element={<VendorSignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/update-password" element={<UpdatePasswordPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/welcome" element={<WelcomePage />} />
       <Route path="/scan/:token" element={<CourierScanPage />} />
       <Route path="/print/label/:orderId" element={<PrintLabelPage />} />
-
-      <Route path="/vendor" element={<VendorRoute />}>
-        <Route element={<VendorLayout />}>
-            <Route index element={<VendorDashboardPage />} />
-            <Route path="products" element={<VendorProductsPage />} />
-            <Route path="products/new" element={<VendorProductFormPage />} />
-            <Route path="products/edit/:id" element={<VendorProductFormPage />} />
-            <Route path="orders" element={<VendorOrdersPage />} />
-            <Route path="order/:id" element={<VendorOrderDetailPage />} />
-            <Route path="wallet" element={<VendorWalletPage />} />
-            <Route path="profile" element={<VendorProfilePage />} />
-        </Route>
-      </Route>
 
       <Route path="/admin" element={<AdminRoute />}>
         <Route element={<AdminLayout />}>
@@ -196,7 +163,6 @@ const App: React.FC = () => (
     <ServiceAreaProvider>
      <LocationProvider>
       <CategoryProvider>
-        <VendorProvider>
          <ProductProvider>
           <CartProvider>
             <AdminCodeProvider>
@@ -214,7 +180,6 @@ const App: React.FC = () => (
             </AdminCodeProvider>
           </CartProvider>
          </ProductProvider>
-        </VendorProvider>
       </CategoryProvider>
      </LocationProvider>
     </ServiceAreaProvider>

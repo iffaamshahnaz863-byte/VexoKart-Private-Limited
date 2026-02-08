@@ -1,21 +1,5 @@
 
 
-// Fix: Add Vendor interface
-export interface Vendor {
-  id: number;
-  user_id: string;
-  store_name: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  owner_name: string;
-  email: string;
-  phone: string;
-  profile_image?: string;
-  wallet_balance?: number;
-  store_address?: string;
-  rejection_reason?: string;
-  created_at: string;
-}
-
 // Fix: Add AdminCode interface
 export interface AdminCode {
   id: string;
@@ -221,8 +205,8 @@ export interface User {
   email: string;
   phone?: string;
   sms_enabled?: boolean;
-  // Fix: Expand role to fix type inconsistencies
-  role: 'customer' | 'admin' | 'vendor' | 'user';
+  // FIX: Added 'vendor' to user roles to fix type errors in NotificationContext and other components.
+  role: 'customer' | 'admin' | 'vendor';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
@@ -236,4 +220,19 @@ export interface Banner {
   status: boolean;
   display_order: number;
   created_at: string;
+}
+// FIX: Added missing Vendor interface to resolve import errors across multiple files.
+export interface Vendor {
+  id: number;
+  user_id: number;
+  store_name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  owner_name: string;
+  email: string;
+  phone: string;
+  profile_image?: string;
+  created_at: string;
+  rejection_reason?: string;
+  wallet_balance?: number;
+  store_address?: string;
 }
