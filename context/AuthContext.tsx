@@ -76,14 +76,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (name: string, email: string, pass: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password: pass,
-      options: {
-        data: { name },
-      },
     });
-    if (error) throw error;
+    if (authError) throw authError;
+    if (!authData.user) throw new Error("Signup failed: No user data returned.");
+    
+    // Manually insert into public.users to ensure profile exists immediately.
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert({
+        auth_uid: authData.user.id,
+        email: email,
+        name: name,
+        role: 'user',
+        status: 'active'
+      });
+
+    if (profileError) {
+      console.error("Critical: Failed to create user profile after auth signup.", profileError);
+      // Optional: attempt to delete the auth user for cleanup
+      // await supabase.auth.admin.deleteUser(authData.user.id);
+      throw new Error(`Failed to create user profile: ${profileError.message}`);
+    }
   };
 
   const logout = async () => {

@@ -22,8 +22,25 @@ const CancelOrderPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const order = useMemo(() => id ? getOrderById(id) : null, [id, getOrderById]);
+    const firstItem = useMemo(() => order?.items?.[0], [order]);
 
-    if (!order) return null;
+    if (!order || !firstItem) {
+        return (
+            <div className="min-h-screen bg-surface p-4 text-center">
+                <div className="sticky top-0 z-40 bg-white border-b border-gray-100 p-4 -mx-4 flex items-center gap-3">
+                    <button onClick={() => navigate(-1)}><ChevronLeftIcon className="w-6 h-6 text-gray-800" /></button>
+                    <h1 className="text-base font-black text-gray-900 uppercase italic tracking-tight">Order Error</h1>
+                </div>
+                <div className="mt-20">
+                    <h2 className="text-lg font-bold text-red-500">Invalid Order</h2>
+                    <p className="text-sm text-text-muted mt-2">This order cannot be cancelled as it contains no items.</p>
+                    <button onClick={() => navigate('/orders')} className="mt-6 bg-primary text-white font-bold px-6 py-2 rounded-lg">
+                        Back to Orders
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const handleCancel = async () => {
         if (!selectedReason || isSubmitting) return;
@@ -46,10 +63,10 @@ const CancelOrderPage: React.FC = () => {
             <div className="p-4 space-y-6">
                 {/* Item Summary */}
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex gap-4">
-                    <img src={order.items[0].image} className="w-16 h-16 rounded-xl object-contain bg-gray-50 border border-gray-100" />
+                    <img src={firstItem.image} className="w-16 h-16 rounded-xl object-contain bg-gray-50 border border-gray-100" />
                     <div>
-                        <h3 className="text-sm font-black text-gray-800 uppercase italic leading-tight">{order.items[0].name}</h3>
-                        <p className="text-[10px] font-bold text-gray-400 mt-1">Settlement: ₹{order.total.toLocaleString()} ({order.payment_mode})</p>
+                        <h3 className="text-sm font-black text-gray-800 uppercase italic leading-tight">{firstItem.name}</h3>
+                        <p className="text-[10px] font-bold text-gray-400 mt-1">Settlement: ₹{order.total.toLocaleString()} ({order.payment_method})</p>
                     </div>
                 </div>
 

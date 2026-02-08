@@ -25,7 +25,7 @@ const MyOrdersPage: React.FC = () => {
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return orders;
     return orders.filter(o => 
-      o.items.some((i: any) => i.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      o.items?.some((i: any) => i.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       o.id.includes(searchQuery)
     );
   }, [orders, searchQuery]);

@@ -34,7 +34,6 @@ import AboutUsPage from './pages/AboutUsPage.tsx';
 import ContactUsPage from './pages/ContactUsPage.tsx';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.tsx';
 import DailyNeedsPage from './pages/DailyNeedsPage.tsx';
-import ForgotPasswordPage from './pages/ForgotPasswordPage.tsx';
 import UpdatePasswordPage from './pages/UpdatePasswordPage.tsx';
 import OnboardingPage from './pages/OnboardingPage.tsx';
 import WelcomePage from './pages/WelcomePage.tsx';
@@ -121,7 +120,6 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/update-password" element={<UpdatePasswordPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/welcome" element={<WelcomePage />} />
