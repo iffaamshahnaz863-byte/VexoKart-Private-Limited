@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../supabase.ts'; // Direct import for signup
 
 const LoginPage: React.FC = () => {
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading, login, signup } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -16,13 +15,12 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redirection Logic based on Role
   useEffect(() => {
     if (!isAuthLoading && isAuthenticated && user) {
-      if (user.role === 'admin') navigate('/admin');
-      else navigate('/home'); // 'customer' role redirects to home
+      const from = location.state?.from || (user.role === 'admin' ? '/admin' : '/home');
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, user, isAuthLoading, navigate]);
+  }, [isAuthenticated, user, isAuthLoading, navigate, location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,23 +29,14 @@ const LoginPage: React.FC = () => {
 
     try {
       if (activeTab === 'signup') {
-        if (!name) throw new Error("Name is required");
-        // Using supabase client directly for signup to pass metadata
-        const { error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { name } }
-        });
-        if (signUpError) throw signUpError;
-        // Success is handled by onAuthStateChange listener
+        if (!name) throw new Error("Full name is required for signup.");
+        await signup(name, email, password);
       } else {
-        // Using context for login
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
-        // Success is handled by onAuthStateChange listener
+        await login(email, password);
       }
+      // On success, the onAuthStateChange listener in AuthContext will handle state updates and trigger the redirection effect.
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please try again.");
+      setError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }

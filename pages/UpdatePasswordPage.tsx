@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
-import { Session } from '@supabase/supabase-js';
 
 const UpdatePasswordPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -12,19 +11,12 @@ const UpdatePasswordPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase password recovery flow redirects with a hash fragment.
-    // We listen for the auth state change which will contain the session
-    // if the token in the URL is valid.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // Now we have a session, we can allow the user to update their password.
-        // We don't need to do anything here, the user is now signed in.
+        // This event confirms the user has a valid session to update their password.
       }
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -38,19 +30,22 @@ const UpdatePasswordPage: React.FC = () => {
     setError('');
     setMessage('');
 
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) throw updateError;
 
-    if (updateError) {
-        setError(updateError.message);
-    } else {
-        setMessage("Your password has been updated successfully. Redirecting to login...");
-        setTimeout(() => {
-            supabase.auth.signOut(); // Sign out to force a clean login with the new password
-            navigate('/login');
-        }, 3000);
+      setMessage("Your password has been updated successfully. You will be redirected to login shortly.");
+      
+      setTimeout(async () => {
+          await supabase.auth.signOut();
+          navigate('/login', { replace: true });
+      }, 3000);
+
+    } catch (err: any) {
+      setError(err.message || "Failed to update password. The link may have expired.");
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   return (
@@ -85,6 +80,7 @@ const UpdatePasswordPage: React.FC = () => {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Min. 6 characters"
                         className="w-full bg-transparent p-3 text-sm font-bold text-text-main placeholder-gray-300 outline-none"
+                        required
                     />
                 </div>
             </div>

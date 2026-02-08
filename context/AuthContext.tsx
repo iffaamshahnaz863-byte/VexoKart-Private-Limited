@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
 import { supabase } from '../supabase.ts';
@@ -18,14 +17,10 @@ interface AuthContextType {
   removeFromWishlist: (productId: number) => Promise<void>;
   isInWishlist: (productId: number) => boolean;
   updateUserSession: (userData: User) => void;
-  // Fix: Add missing OTP methods for compatibility
-  verifyOtp: (phone: string, code: string) => Promise<void>;
-  sendOtp: (phone: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to ensure user object has default arrays
 const sanitizeUser = (u: any): User => ({
   ...u,
   addresses: Array.isArray(u.addresses) ? u.addresses : [],
@@ -38,28 +33,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for initial session on app load
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const fetchUserSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        supabase
+        const { data, error } = await supabase
           .from('users')
           .select('*')
           .eq('auth_uid', session.user.id)
-          .single()
-          .then(({ data, error }) => {
-            if (data) setUser(sanitizeUser(data));
-            if (error) console.error("Error fetching initial profile:", error);
-            setIsLoading(false);
-          });
-      } else {
-        setIsLoading(false);
+          .single();
+        if (data) setUser(sanitizeUser(data));
+        if (error) console.error("Error fetching initial profile:", error);
       }
-    });
+      setIsLoading(false);
+    };
 
-    // Listen for auth state changes (SIGN_IN, SIGN_OUT)
+    fetchUserSession();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
+          setIsLoading(true);
           const { data, error } = await supabase
             .from('users')
             .select('*')
@@ -67,6 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .single();
           if (data) setUser(sanitizeUser(data));
           if (error) console.error("Error fetching profile on sign in:", error);
+          setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         }
@@ -79,7 +73,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, pass: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
-    // onAuthStateChange will handle setting the user state
   };
 
   const signup = async (name: string, email: string, pass: string) => {
@@ -87,21 +80,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       email,
       password: pass,
       options: {
-        data: {
-          name: name, // This metadata will be used by the trigger
-        },
+        data: { name },
       },
     });
     if (error) throw error;
-    // onAuthStateChange will handle setting the user state
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
-    setUser(null); // Eagerly clear user state
+    setUser(null);
   };
   
-  // The following functions are kept for compatibility with other components
   const updateUserSession = (userData: User) => setUser(sanitizeUser(userData));
 
   const modifyUserJson = async (column: keyof User, data: any) => {
@@ -147,19 +136,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isInWishlist = (productId: number) => user?.wishlist.includes(productId) || false;
 
-  // Fix: Add dummy implementations for OTP methods
-  const verifyOtp = async (phone: string, code: string) => {
-    console.warn("OTP verification is not implemented in this demo.", { phone, code });
-    // In a real app, you would call supabase.auth.verifyOtp()
-    return Promise.resolve();
-  };
-  
-  const sendOtp = async (phone: string) => {
-    console.warn("Send OTP is not implemented in this demo.", { phone });
-    // In a real app, you would call supabase.auth.signInWithOtp()
-    return Promise.resolve();
-  };
-
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -175,8 +151,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       removeFromWishlist, 
       isInWishlist, 
       updateUserSession,
-      verifyOtp,
-      sendOtp
     }}>
       {children}
     </AuthContext.Provider>

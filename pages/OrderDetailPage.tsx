@@ -29,7 +29,21 @@ const OrderDetailPage: React.FC = () => {
   const isDelivered = order.status === 'Delivered';
   const isCancelled = order.status === 'Cancelled';
   const isCancellable = ['Placed', 'Confirmed', 'Packed'].includes(order.status);
-  const firstItem = order.items[0];
+  const firstItem = order.items?.[0];
+  
+  if (!firstItem) {
+    return (
+        <div className="min-h-screen bg-[#F8F9FA] p-4">
+             <div className="sticky top-0 z-[100] bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-4">
+                <button onClick={() => navigate('/orders')} className="p-1"><ChevronLeftIcon className="w-6 h-6 text-gray-800" /></button>
+                <h1 className="text-base font-bold text-gray-800 uppercase tracking-tight italic">Order Error</h1>
+                </div>
+            </div>
+            <p className="text-center p-20 text-red-500 font-bold">This order contains no items and cannot be displayed.</p>
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-32">

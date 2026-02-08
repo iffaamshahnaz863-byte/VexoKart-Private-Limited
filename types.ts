@@ -1,6 +1,5 @@
 
 
-// Fix: Add AdminCode interface
 export interface AdminCode {
   id: string;
   code: string;
@@ -13,7 +12,6 @@ export interface AdminCode {
   usedBy?: string | null;
 }
 
-// Fix: Add Notification types
 export interface NotificationSettings {
   emailEnabled: boolean;
   smsEnabled: boolean;
@@ -36,11 +34,12 @@ export interface NotificationLog {
   response: string;
 }
 
+// Fix: Add vendor support to notifications
 export interface AppNotification {
   id: number;
   user_id?: string | number;
   vendor_id?: string | number;
-  role: 'user' | 'vendor' | 'admin' | 'customer';
+  role: 'customer' | 'admin' | 'vendor';
   title: string;
   message: string;
   type: string;
@@ -88,9 +87,6 @@ export interface Product {
   stock: number;
   highlights?: string[];
   created_at: string;
-  
-  // Deprecated/Removed Vendor properties
-  vendor_id?: string;
   status?: ProductStatus;
   product_type?: 'normal' | 'daily_needs'; 
   is_cod_enabled?: boolean; 
@@ -121,7 +117,7 @@ export interface ServiceArea {
 }
 
 export interface Category {
-  id: string; // Changed to UUID
+  id: string;
   name: string;
   slug: string;
   image_url: string;
@@ -135,18 +131,17 @@ export interface CartItem extends Product {
   delivery_type?: 'standard' | 'express';
 }
 
+// Fix: Add optional vendor properties to OrderItem for downstream use
 export interface OrderItem {
-    id: string; // Changed to UUID
+    id: string;
     name: string;
     price: number;
     quantity: number;
     image: string;
-    // Fix: Add missing optional properties
+    vendor_id?: string | number;
     vendor_name?: string;
-    vendor_id?: string;
 }
 
-// Fix: Change OrderStatus to PascalCase to match usage across the app
 export type OrderStatus = 'Placed' | 'Confirmed' | 'Packed' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed';
 
@@ -158,8 +153,9 @@ export interface StatusHistory {
     address_snapshot?: any;
 }
 
+// Fix: Add optional vendor properties to Order for downstream use
 export interface Order {
-    id: string; // Changed to UUID
+    id: string;
     user_id: string;
     items: OrderItem[];
     shipping_address: Address;
@@ -174,18 +170,17 @@ export interface Order {
     status: OrderStatus;
     status_history: StatusHistory[]; 
     created_at: string;
-    // Fix: Add missing optional properties from usage in various components
     awb_code?: string;
     tracking_id?: string;
     total_amount?: number;
-    seller_name?: string;
-    vendor_id?: string;
     cancellation_reason?: string;
     qr_token?: string;
     qrToken?: string;
     payment_mode?: string;
     metadata?: any;
     address?: any;
+    seller_name?: string;
+    vendor_id?: string | number;
 }
 
 export interface Address {
@@ -198,19 +193,36 @@ export interface Address {
     phone: string;
 }
 
+// Fix: Add 'vendor' to user role to support vendor-specific logic
 export interface User {
-  id: number; // The bigserial primary key from public.users
-  auth_uid: string; // The UUID from auth.users
+  id: number;
+  auth_uid: string;
   name: string;
   email: string;
   phone?: string;
   sms_enabled?: boolean;
-  // FIX: Added 'vendor' to user roles to fix type errors in NotificationContext and other components.
   role: 'customer' | 'admin' | 'vendor';
   addresses: Address[];
   wishlist: number[];
   recentlyViewed: number[];
   created_at: string;
+}
+
+// Fix: Add missing Vendor type definition
+export interface Vendor {
+  id: number;
+  user_id: string;
+  store_name: string;
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  owner_name: string;
+  email: string;
+  phone: string;
+  profile_image?: string;
+  created_at?: string;
+  rejection_reason?: string;
+  wallet_balance?: number;
+  store_address?: string;
+  pending_balance?: number;
 }
 
 export interface Banner {
@@ -220,19 +232,4 @@ export interface Banner {
   status: boolean;
   display_order: number;
   created_at: string;
-}
-// FIX: Added missing Vendor interface to resolve import errors across multiple files.
-export interface Vendor {
-  id: number;
-  user_id: number;
-  store_name: string;
-  status: 'pending' | 'approved' | 'rejected' | 'suspended';
-  owner_name: string;
-  email: string;
-  phone: string;
-  profile_image?: string;
-  created_at: string;
-  rejection_reason?: string;
-  wallet_balance?: number;
-  store_address?: string;
 }

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useOrders } from '../context/OrderContext';
@@ -56,7 +55,7 @@ const MyOrdersPage: React.FC = () => {
               <SearchIcon className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             </div>
             <button className="px-3 border border-gray-200 rounded-lg flex items-center justify-center bg-white active:bg-gray-50">
-              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
             </button>
           </div>
         </div>
@@ -79,8 +78,10 @@ const MyOrdersPage: React.FC = () => {
         ) : (
           filteredOrders.map(order => {
             const theme = getStatusTheme(order.status);
-            const firstItem = order.items[0];
+            const firstItem = order.items?.[0];
             const dateStr = new Date(order.created_at).toLocaleDateString([], { day: 'numeric', month: 'short' });
+
+            if (!firstItem) return null;
 
             return (
               <Link 

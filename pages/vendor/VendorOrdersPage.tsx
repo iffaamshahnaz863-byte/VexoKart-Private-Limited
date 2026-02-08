@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Order, OrderStatus } from '../../types';
@@ -99,8 +98,10 @@ const VendorOrdersPage: React.FC = () => {
 
             <div className="space-y-4">
                 {vendorOrders.map((order: any) => {
-                    const firstItem = order.vendorItems[0];
+                    const firstItem = order.vendorItems?.[0];
                     const isProcessing = processingId === order.id;
+
+                    if (!firstItem) return null;
 
                     return (
                         <div 

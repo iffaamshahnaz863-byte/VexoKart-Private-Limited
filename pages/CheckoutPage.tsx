@@ -52,7 +52,7 @@ const CheckoutPage: React.FC = () => {
       name: item.name,
       price: item.price,
       quantity: item.quantity,
-      image: item.images[0],
+      image: item.images?.[0] || '',
     }));
 
     try {

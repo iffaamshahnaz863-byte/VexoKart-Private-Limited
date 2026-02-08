@@ -53,8 +53,6 @@ import AdminCategoriesPage from './pages/admin/AdminCategoriesPage.tsx';
 import AdminCategoryFormPage from './pages/admin/AdminCategoryFormPage.tsx';
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage.tsx';
 import AdminPincodesPage from './pages/admin/AdminPincodesPage.tsx';
-import AdminVendorsPage from './pages/admin/AdminVendorsPage.tsx';
-import AdminPayoutsPage from './pages/admin/AdminPayoutsPage.tsx';
 import AdminMarketingPage from './pages/admin/AdminBannersPage.tsx';
 import AdminAuditLogsPage from './pages/admin/AdminAuditLogsPage.tsx';
 import AdminApprovalsPage from './pages/admin/AdminApprovalsPage.tsx';
@@ -135,9 +133,7 @@ const AppRoutes: React.FC = () => {
           <Route index element={<AdminDashboardPage />} />
           <Route path="analytics" element={<AdminAnalyticsPage />} />
           <Route path="pincodes" element={<AdminPincodesPage />} />
-          <Route path="vendors" element={<AdminVendorsPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
-          <Route path="payouts" element={<AdminPayoutsPage />} />
           <Route path="marketing" element={<AdminMarketingPage />} />
           <Route path="products" element={<AdminProductsPage />} />
           <Route path="products/new" element={<AdminProductFormPage />} />

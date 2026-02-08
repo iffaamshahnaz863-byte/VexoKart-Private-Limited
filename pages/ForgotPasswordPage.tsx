@@ -24,18 +24,19 @@ const ForgotPasswordPage: React.FC = () => {
     setError('');
     setMessage('');
     
-    // The redirect URL should point to your hosted site's update-password route
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/#/update-password`,
-    });
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/#/update-password`,
+      });
 
-    if (resetError) {
-        setError(resetError.message);
-    } else {
-        setMessage("Password reset link sent! Please check your email inbox (and spam folder) to set a new password.");
+      if (resetError) throw resetError;
+
+      setMessage("Password reset link sent! Please check your email inbox (and spam folder) to set a new password.");
+    } catch (err: any) {
+      setError(err.message || "Failed to send reset link. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   return (
