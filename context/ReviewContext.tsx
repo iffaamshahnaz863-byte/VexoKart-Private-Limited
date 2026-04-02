@@ -2,8 +2,8 @@
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 import { Review } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
 import { useAuth } from './AuthContext';
+import { supabase } from '../supabase.ts';
 
 interface ReviewContextType {
   getReviewsByProduct: (productId: number) => Promise<Review[]>;
@@ -20,11 +20,13 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const getReviewsByProduct = async (productId: number): Promise<Review[]> => {
     try {
-      const res = await fetch(`${BASE_API_URL}/product_reviews?select=*,user:users(name)&product_id=eq.${productId}&order=created_at.desc`, {
-        headers: API_HEADERS
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
+      const { data, error } = await supabase
+        .from('product_reviews')
+        .select('*, user:users(name)')
+        .eq('product_id', productId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
       return Array.isArray(data) ? data : [];
     } catch (e) {
       console.error("Failed to fetch reviews", e);
@@ -35,11 +37,12 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const hasUserReviewedOrder = async (orderId: string): Promise<boolean> => {
     if (!user) return false;
     try {
-      // Use order_id as the primary filter for uniqueness check
-      const res = await fetch(`${BASE_API_URL}/product_reviews?order_id=eq.${orderId}&select=id`, {
-        headers: API_HEADERS
-      });
-      const data = await res.json();
+      const { data, error } = await supabase
+        .from('product_reviews')
+        .select('id')
+        .eq('order_id', orderId);
+      
+      if (error) throw error;
       return Array.isArray(data) && data.length > 0;
     } catch (e) {
       return false;
@@ -53,8 +56,6 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     
     setIsSubmitting(true);
     try {
-      // CRITICAL FIX: Directly use the auth_uid from the user context.
-      // This removes the inefficient and error-prone database lookup.
       const resolvedUuid = user.auth_uid;
 
       const payload = {
@@ -64,25 +65,20 @@ export const ReviewProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         review_text: reviewData.review_text || '',
         images: Array.isArray(reviewData.images) ? reviewData.images : [],
         video_url: reviewData.video_url || null, 
-        user_id: resolvedUuid, // Use the correct UUID from the authenticated session
+        user_id: resolvedUuid,
         created_at: new Date().toISOString()
       };
 
-      const res = await fetch(`${BASE_API_URL}/product_reviews`, {
-        method: 'POST',
-        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-        body: JSON.stringify(payload)
-      });
+      const { error } = await supabase
+        .from('product_reviews')
+        .insert([payload]);
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        console.error(`[ReviewContext] Database Rejection:`, res.status, JSON.stringify(errData, null, 2));
-        
-        if (res.status === 403 || res.status === 409) {
+      if (error) {
+        console.error(`[ReviewContext] Database Rejection:`, error.message);
+        if (error.code === '42501' || error.code === '23505') {
             throw new Error("Action restricted: You may have already reviewed this purchase.");
         }
-        
-        throw new Error(errData.message || "Failed to submit review. Database constraint violation.");
+        throw new Error(error.message || "Failed to submit review. Database constraint violation.");
       }
     } catch (err: any) {
         console.error("[ReviewContext] Submit Fail:", err.message);
@@ -104,3 +100,4 @@ export const useReviews = () => {
   if (!context) throw new Error("useReviews missing provider");
   return context;
 };
+

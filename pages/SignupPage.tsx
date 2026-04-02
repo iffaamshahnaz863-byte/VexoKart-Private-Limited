@@ -79,7 +79,7 @@ const SignupPage: React.FC = () => {
   return (
     <AuthLayout 
       title="Create Account" 
-      subtitle="Join DAR CYCLE HUB and start your journey"
+      subtitle="Join VEXOKART and start your journey"
       backTo="/login"
     >
       <form onSubmit={handleSignup} className="space-y-5">

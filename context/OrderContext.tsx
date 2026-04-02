@@ -6,11 +6,10 @@ import React, {
   ReactNode,
   useContext,
 } from "react";
-// Fix: Import newly added Vendor type
-import { Order, OrderStatus, Address, PaymentStatus, Vendor } from "../types.ts";
+import { Order, OrderStatus, Address, PaymentStatus, Vendor, User, AppNotification } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
 import { useNotifications } from "./NotificationContext.tsx";
-import { BASE_API_URL, API_HEADERS } from "../constants.ts";
+import { supabase } from "../supabase.ts";
 
 interface OrderContextType {
   orders: any[];
@@ -54,7 +53,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
 
-    // FIX: Skip fetch for guest users (ID starts with 'guest-') to avoid DB type errors
     if (user.id.toString().startsWith('guest-')) {
         setOrders([]);
         setIsLoading(false);
@@ -63,59 +61,37 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       setIsLoading(true);
-      // Simplified join syntax for better compatibility
-      let selectString = `*,vendor:vendors(*)`;
-      let filter = `order=created_at.desc`;
+      
+      let query = supabase
+        .from('orders')
+        .select('*, vendor:vendors(*)')
+        .order('created_at', { ascending: false });
 
       if (user.role === "user") {
-        // Use auth_id (UUID) to query orders, ensuring consistency with how reviews are linked.
-        filter += `&user_id=eq.${user.auth_uid}`;
+        query = query.eq('user_id', user.auth_uid);
       } else if (user.role === "vendor") {
-        const vRes = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${user.id}&select=id`, { headers: API_HEADERS });
-        if (!vRes.ok) {
-           const errText = await vRes.text();
-           console.error("[OrderContext] Vendor profile fetch failed:", errText);
-           throw new Error("Vendor profile unreachable");
-        }
-        const vData = await vRes.json();
-        if (Array.isArray(vData) && vData.length > 0) {
-            filter += `&vendor_id=eq.${vData[0].id}`;
+        const { data: vendorData, error: vendorError } = await supabase
+          .from('vendors')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (vendorError) throw vendorError;
+        if (vendorData) {
+          query = query.eq('vendor_id', vendorData.id);
         } else {
-            setOrders([]);
-            setIsLoading(false);
-            return;
+          setOrders([]);
+          setIsLoading(false);
+          return;
         }
       }
 
-      const res = await fetch(`${BASE_API_URL}/orders?select=${selectString}&${filter}`, {
-        headers: { ...API_HEADERS, "Cache-Control": "no-cache" },
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ message: res.statusText }));
-        console.warn("[OrderContext] Primary fetch failed, trying fallback. Error:", errData.message);
-        
-        const fallbackRes = await fetch(`${BASE_API_URL}/orders?select=*&${filter}`, {
-            headers: { ...API_HEADERS, "Cache-Control": "no-cache" },
-        });
-        
-        if (fallbackRes.ok) {
-            const data = await fallbackRes.json();
-            processOrders(data);
-            return;
-        } else {
-            const fallbackErr = await fallbackRes.json().catch(() => ({ message: fallbackRes.statusText }));
-            console.error("[OrderContext] Fallback fetch failed:", fallbackErr.message);
-            // Don't throw here to avoid crashing the UI loop, just log
-            setOrders([]); 
-            return;
-        }
-      }
-
-      const data = await res.json();
-      processOrders(data);
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      processOrders(data || []);
     } catch (e: any) {
-      console.error("[OrderContext] Fatal Sync Error:", e.message);
+      console.error("[OrderContext] Error fetching orders:", e.message);
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -126,10 +102,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     if (Array.isArray(data)) {
       setOrders(
         data.map((o: any) => {
-          /**
-           * Robust Address Extraction:
-           * Retrieve the snapshot from the status_history entry where it was saved.
-           */
           const addressSource = (o.status_history?.[0]?.address_snapshot) ||
                                 (typeof o.metadata === 'object' && o.metadata?.address ? o.metadata.address : null) ||
                                 (typeof o.address === 'object' ? o.address : null) || 
@@ -144,7 +116,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
             statusHistory: o.status_history || [],
             qrToken: o.qr_token,
             date: o.created_at,
-            seller_name: o.vendor?.store_name || "DAR CYCLE HUB Direct",
+            seller_name: o.vendor?.store_name || "VEXOKART Direct",
             shippingAddress: addressSource,
           };
         })
@@ -155,7 +127,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (user) {
         refreshOrders();
-        // Only fetch inbox if it's a real user, guests usually don't have DB notifications
         if (!user.id.toString().startsWith('guest-')) {
             fetchInbox(user);
         }
@@ -196,8 +167,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
-    // CRITICAL FIX: Use the auth_id (UUID) as the user_id foreign key.
-    // This aligns with how reviews are stored and assumes orders.user_id is a UUID.
     const userIdValue = user.auth_uid ? user.auth_uid : null;
 
     const payload: any = {
@@ -205,7 +174,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendor_id: vendorIdValue,
       items: orderData.items,
       total_amount: Number(orderData.total),
-      discount_amount: Number(orderData.discount_amount || 0), // Store UPI discount
+      discount_amount: Number(orderData.discount_amount || 0),
       payment_mode: orderData.payment_method,
       payment_status: orderData.payment_method === "Cash on Delivery" ? "cod_pending" : "paid",
       status: "Placed" as OrderStatus,
@@ -220,22 +189,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       created_at: timestamp
     };
 
-    const res = await fetch(`${BASE_API_URL}/orders`, {
-      method: "POST",
-      headers: { ...API_HEADERS, "Prefer": "return=representation" },
-      body: JSON.stringify(payload),
-    });
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([payload])
+      .select();
 
-    if (!res.ok) {
-      const errorBody = await res.json().catch(() => ({}));
-      console.error("[OrderContext] Database Rejection Details:", res.status, JSON.stringify(errorBody));
-      throw new Error(errorBody.message || `Order placement failed (Status: ${res.status})`);
-    }
+    if (error) throw error;
 
-    const result = await res.json();
-    const orderId = result[0].id.toString();
+    const orderId = data[0].id.toString();
 
-    // Only attempt notifications if we have a valid user ID, otherwise client-side only
     if (userIdValue) {
         try {
             await createAppNotification({
@@ -261,7 +223,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     }
 
     refreshOrders();
-    // Only refresh inbox if valid user
     if (userIdValue && user) fetchInbox(user);
     
     return orderId;
@@ -283,17 +244,14 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     if (details.courier_name) updatePayload.courier_name = details.courier_name;
     if (details.tracking_id) updatePayload.tracking_id = details.tracking_id;
 
-    const res = await fetch(`${BASE_API_URL}/orders?id=eq.${orderId}`, {
-      method: "PATCH",
-      headers: { ...API_HEADERS },
-      body: JSON.stringify(updatePayload),
-    });
+    const { error } = await supabase
+      .from('orders')
+      .update(updatePayload)
+      .eq('id', orderId);
 
-    if (res.ok) {
-        // Notifications only for non-guest users usually, but logic exists inside createAppNotification
+    if (!error) {
         try {
             if (order.user_id && !order.user_id.toString().startsWith('guest-')) {
-// Fix: Use capitalized status values to match the OrderStatus type
                 if (status === 'Packed') {
                     await createAppNotification({
                         user_id: order.user_id,
@@ -302,7 +260,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                         message: 'Your order has been packed and will be shipped soon.',
                         type: 'order_status'
                     });
-// Fix: Use capitalized status values to match the OrderStatus type
                 } else if (status === 'Shipped') {
                     await createAppNotification({
                         user_id: order.user_id,
@@ -311,7 +268,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
                         message: 'Your order is on the way. Tracking updates will be available soon.',
                         type: 'order_status'
                     });
-// Fix: Use capitalized status values to match the OrderStatus type
                 } else if (status === 'Delivered') {
                     await createAppNotification({
                         user_id: order.user_id,
@@ -341,7 +297,6 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const createShipment = async (orderId: string, vendorData: any) => {
-    // Fix: Use capitalized status to match OrderStatus type
     await updateOrderStatus(orderId, 'Confirmed', { note: 'Shipment manifest processing started.' });
   };
 
@@ -383,3 +338,4 @@ export const useOrders = () => {
   if (!context) throw new Error("OrderContext missing.");
   return context;
 };
+

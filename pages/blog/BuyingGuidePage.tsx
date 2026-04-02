@@ -14,7 +14,7 @@ const BuyingGuidePage: React.FC = () => {
                 </header>
 
                 <div className="prose prose-lg text-gray-600 leading-relaxed space-y-10">
-                    <p className="text-xl font-medium text-gray-800">In an ocean of digital listings, finding true quality can feel like finding a needle in a haystack. This DAR CYCLE HUB guide provides the professional framework you need to evaluate products like a pro.</p>
+                    <p className="text-xl font-medium text-gray-800">In an ocean of digital listings, finding true quality can feel like finding a needle in a haystack. This VEXOKART guide provides the professional framework you need to evaluate products like a pro.</p>
                     
                     <section>
                         <h2 className="text-2xl font-black text-gray-900 uppercase italic mb-4">1. Master the Materials List</h2>
@@ -23,7 +23,7 @@ const BuyingGuidePage: React.FC = () => {
 
                     <section>
                         <h2 className="text-2xl font-black text-gray-900 uppercase italic mb-4">2. Deconstruct the Reviews</h2>
-                        <p>Don't just look at the star rating. Look for "Verified Purchase" badges and analyze the "Sentimental Depth" of the comments. Authentic quality often prompts users to mention specific details like stitch density, button weight, or interface latency. At DAR CYCLE HUB, we use AI to filter out bot-generated praise, leaving you with genuine human feedback.</p>
+                        <p>Don't just look at the star rating. Look for "Verified Purchase" badges and analyze the "Sentimental Depth" of the comments. Authentic quality often prompts users to mention specific details like stitch density, button weight, or interface latency. At VEXOKART, we use AI to filter out bot-generated praise, leaving you with genuine human feedback.</p>
                     </section>
 
                     <section>
@@ -33,7 +33,7 @@ const BuyingGuidePage: React.FC = () => {
 
                     <section>
                         <h2 className="text-2xl font-black text-gray-900 uppercase italic mb-4">4. Evaluate the Price-to-Value Ratio</h2>
-                        <p>While everyone loves a discount, extreme underpricing is often a red flag for counterfeit goods. Quality has a cost—from raw materials to fair labor practices. DAR CYCLE HUB aims to provide "Smart Value," meaning the best possible price for a product that is guaranteed to be authentic and durable.</p>
+                        <p>While everyone loves a discount, extreme underpricing is often a red flag for counterfeit goods. Quality has a cost—from raw materials to fair labor practices. VEXOKART aims to provide "Smart Value," meaning the best possible price for a product that is guaranteed to be authentic and durable.</p>
                     </section>
 
                     <footer className="pt-10 border-t border-gray-100 text-center">

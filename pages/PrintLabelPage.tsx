@@ -31,8 +31,8 @@ const PrintLabelPage: React.FC = () => {
     const address = order.shippingAddress || order.shipping_address;
     const isCOD = order.payment_mode === 'Cash on Delivery';
     
-    const vendorName = order.seller_name || order.items[0]?.vendor_name || 'DAR CYCLE HUB';
-    const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'DCH-INT-001';
+    const vendorName = order.seller_name || order.items[0]?.vendor_name || 'VEXOKART';
+    const vendorId = order.vendor_id || order.items[0]?.vendor_id || 'VXK-INT-001';
 
     const totalAmount = Number(order.total_amount || order.total || 0);
     const subtotal = totalAmount / 1.18;
@@ -40,7 +40,7 @@ const PrintLabelPage: React.FC = () => {
 
     const handleDownloadPDF = async () => {
         const doc = await generateShippingLabelPDF(order);
-        doc.save(`DCH_Label_Order_${order.id}.pdf`);
+        doc.save(`VXK_Label_Order_${order.id}.pdf`);
     };
 
     return (
@@ -75,7 +75,7 @@ const PrintLabelPage: React.FC = () => {
             >
                 <div className="flex justify-between items-start border-b-[3px] border-black pb-4 mb-4">
                     <div>
-                        <h1 className="text-5xl font-black italic tracking-tighter leading-none">DAR CYCLE HUB</h1>
+                        <h1 className="text-5xl font-black italic tracking-tighter leading-none">VEXOKART</h1>
                         <p className="text-[11px] font-black uppercase tracking-[0.4em] mt-2">Logistics Hub • Secure Fulfillment</p>
                     </div>
                     <div className="text-right">
@@ -110,7 +110,7 @@ const PrintLabelPage: React.FC = () => {
                             <p className="text-xs mt-3 font-bold text-gray-800 leading-relaxed uppercase">
                                 Warehouse Node-A1<br/>
                                 Industrial Logistics Estate<br/>
-                                Phone: 1800-DCH-HELP
+                                Phone: 1800-VXK-HELP
                             </p>
                         </div>
                         <div className="mt-8">
@@ -150,7 +150,7 @@ const PrintLabelPage: React.FC = () => {
                                     <tr key={i} className="border-b border-gray-200">
                                         <td className="py-3">
                                             <p className="font-black text-sm">{item.name}</p>
-                                            <p className="text-[9px] text-gray-500 mt-0.5 tracking-tight">SKU: DCH-{item.id}</p>
+                                            <p className="text-[9px] text-gray-500 mt-0.5 tracking-tight">SKU: VXK-{item.id}</p>
                                         </td>
                                         <td className="py-3 text-right text-lg font-black">{item.quantity}</td>
                                     </tr>
@@ -178,7 +178,7 @@ const PrintLabelPage: React.FC = () => {
                     <div className="max-w-sm opacity-50">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] italic mb-2">Electronic Fulfillment Manifest</p>
                         <p className="text-[8px] font-bold uppercase leading-tight text-gray-700">
-                            Subject to DAR CYCLE HUB Logistics Jurisdiction.<br/>
+                            Subject to VEXOKART Logistics Jurisdiction.<br/>
                             {isCOD ? 'PAYMENT STATUS: PENDING (COLLECT AT DOORSTEP)' : 'PAYMENT STATUS: SECURELY PAID ONLINE'}
                         </p>
                     </div>
@@ -205,7 +205,7 @@ const PrintLabelPage: React.FC = () => {
                 
                 <div className="mt-12 pt-4 border-t border-dashed border-gray-400 text-center">
                     <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-400 italic">
-                        DCH Fulfillment System • V1.0 Verified Manifest
+                        VXK Fulfillment System • V1.0 Verified Manifest
                     </p>
                 </div>
             </div>

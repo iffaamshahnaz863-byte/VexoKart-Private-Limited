@@ -84,7 +84,7 @@ const CourierScanPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[#F0F2F5] pb-24">
             <div className="bg-white p-6 border-b border-border sticky top-0 z-10 shadow-sm flex items-center justify-between">
-                 <h1 className="text-xl font-black text-text-main italic tracking-tighter uppercase leading-none">DAR CYCLE<span className="text-accent">HUB</span> <span className="text-text-muted font-medium ml-1">Scan Station</span></h1>
+                 <h1 className="text-xl font-black text-text-main italic tracking-tighter uppercase leading-none">VEXO<span className="text-accent">KART</span> <span className="text-text-muted font-medium ml-1">Scan Station</span></h1>
                  <span className="px-2 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-green-100">Authenticated</span>
             </div>
 
@@ -216,7 +216,7 @@ const CourierScanPage: React.FC = () => {
                 <div className="pt-10 flex flex-col items-center">
                     <div className="flex items-center gap-3 py-2 px-4 bg-white/50 rounded-full border border-border">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted italic">DCH Logistics Protocol v1.0</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted italic">VEXOKART Logistics Protocol v1.0</span>
                     </div>
                     <p className="mt-4 text-[8px] text-text-muted uppercase font-bold max-w-[200px] text-center opacity-60 leading-relaxed tracking-tighter">Every status update is geo-tagged and permanently logged for audit protection.</p>
                 </div>

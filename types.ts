@@ -229,6 +229,7 @@ export interface Banner {
   id: number;
   image_url: string;
   title: string;
+  offer_text?: string;
   status: boolean;
   display_order: number;
   created_at: string;

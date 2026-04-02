@@ -116,7 +116,7 @@ const ProductDetailPage: React.FC = () => {
             <div className="p-4 space-y-4 w-full">
                 <div>
                     <h1 className="text-lg font-bold text-gray-800 leading-tight">{product.name}</h1>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Vendor: {vendor?.store_name || 'DAR CYCLE HUB Verified'}</p>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Vendor: {vendor?.store_name || 'VEXOKART Verified'}</p>
                 </div>
 
                 <div className="flex items-baseline gap-2">
@@ -181,7 +181,7 @@ const ProductDetailPage: React.FC = () => {
                     </div>
                     <div className="shrink-0 flex flex-col items-center p-3 rounded-2xl border bg-orange-50 border-orange-100">
                         <svg className="w-5 h-5 mb-1 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                        <span className="text-[8px] font-black uppercase whitespace-nowrap text-accent">DAR CYCLE HUB Verified</span>
+                        <span className="text-[8px] font-black uppercase whitespace-nowrap text-accent">VEXOKART Verified</span>
                     </div>
                 </div>
 

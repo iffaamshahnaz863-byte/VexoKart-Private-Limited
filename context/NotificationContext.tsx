@@ -1,9 +1,8 @@
 
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-// Fix: Import newly defined Notification types
 import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types.ts';
-import { BASE_API_URL, API_HEADERS } from '../constants.ts';
+import { supabase } from '../supabase.ts';
 
 interface NotificationContextType {
   settings: NotificationSettings;
@@ -39,16 +38,16 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   smtpHost: 'api.sendgrid.com',
   smtpUser: '',
   smtpPass: '',
-  emailFrom: 'DAR CYCLE HUB <support@darcyclehub.com>',
+  emailFrom: 'VEXOKART <support@vexokart.com>',
   smsApiKey: getEnvKey('FAST2SMS_API_KEY') || 'DEMO_KEY_FSTSMS_LIVE',
-  smsSenderId: 'DCHUB',
+  smsSenderId: 'VEXOK',
   smsTemplateId: '',
   testMode: false,
 };
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<NotificationSettings>(() => {
-    const local = localStorage.getItem('dch-notification-settings');
+    const local = localStorage.getItem('vexokart-notification-settings');
     const saved = local ? JSON.parse(local) : DEFAULT_SETTINGS;
     return { ...saved, smsApiKey: getEnvKey('FAST2SMS_API_KEY') || saved.smsApiKey };
   });
@@ -59,32 +58,33 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const unreadCount = inbox.filter(m => !m.is_read).length;
 
   useEffect(() => {
-    localStorage.setItem('dch-notification-settings', JSON.stringify(settings));
+    localStorage.setItem('vexokart-notification-settings', JSON.stringify(settings));
   }, [settings]);
 
   const fetchInbox = async (user?: User) => {
     if (!user) return;
     try {
-      let query = `role=eq.${user.role}&order=created_at.desc`;
+      let query = supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      // Fix: Check for both 'user' and 'customer' roles to handle data inconsistencies
       if (user.role === 'customer') {
-        query += `&user_id=eq.${user.id}`;
+        query = query.eq('user_id', user.id);
       } else if (user.role === 'vendor') {
-        query += `&vendor_id=not.is.null`; 
+        query = query.not('vendor_id', 'is', null);
+      } else if (user.role === 'admin') {
+        // Admins see all or specific admin notifications
       }
 
-      const res = await fetch(`${BASE_API_URL}/notifications?${query}`, {
-        headers: API_HEADERS
-      });
+      const { data, error } = await query;
       
-      if (!res.ok) return;
-      const data = await res.json();
-      if (Array.isArray(data)) {
+      if (error) throw error;
+      if (data) {
         setInbox(data);
       }
     } catch (e) {
-      console.warn("[Inbox Sync] Failed to fetch notifications from DB.");
+      console.error("[Inbox Sync] Error fetching notifications:", e);
     }
   };
 
@@ -96,15 +96,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         created_at: new Date().toISOString()
       };
       
-      const res = await fetch(`${BASE_API_URL}/notifications`, {
-        method: 'POST',
-        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-        body: JSON.stringify(payload)
-      });
+      const { error } = await supabase
+        .from('notifications')
+        .insert([payload]);
       
-      if (!res.ok) {
-        console.error("Failed to insert notification row");
-      }
+      if (error) throw error;
     } catch (e) {
       console.error("Notification DB Write Error:", e);
     }
@@ -116,11 +112,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const markAsRead = async (id: number) => {
     try {
-      await fetch(`${BASE_API_URL}/notifications?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ is_read: true })
-      });
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+      if (error) throw error;
       setInbox(prev => prev.map(m => m.id === id ? { ...m, is_read: true } : m));
     } catch (e) {
       console.error("Failed to mark as read", e);
@@ -132,13 +128,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     if (unreadIds.length === 0) return;
     
     try {
-      for (const id of unreadIds) {
-        await fetch(`${BASE_API_URL}/notifications?id=eq.${id}`, {
-          method: 'PATCH',
-          headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ is_read: true })
-        });
-      }
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .in('id', unreadIds);
+      if (error) throw error;
       setInbox(prev => prev.map(m => ({ ...m, is_read: true })));
     } catch (e) {
       console.error("Failed to mark all as read", e);
@@ -172,9 +166,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const notifyLogin = async (user: User) => {
     try {
-        const message = `DAR CYCLE HUB: Login successful for ${user.email}. If this wasn't you, secure your account immediately.`;
+        const message = `VEXOKART: Login successful for ${user.email}. If this wasn't you, secure your account immediately.`;
         if (settings.testMode) return;
-        // Fix: Handled potentially undefined phone number on User type
         await sendQuickSMS(user.phone || '', message);
     } catch (err) {}
   };
@@ -198,3 +191,4 @@ export const useNotifications = () => {
   if (!context) throw new Error('useNotifications must be used within NotificationProvider');
   return context;
 };
+

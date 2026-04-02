@@ -12,15 +12,15 @@ const PrivacyPolicyPage: React.FC = () => {
       <Header title="Privacy Protocol" />
       <article className="max-w-4xl mx-auto p-6 md:p-16 bg-white shadow-premium border border-border mt-10 rounded-3xl mb-20">
         <header className="mb-12 border-b border-gray-100 pb-8">
-            <span className="text-[10px] font-black uppercase text-primary tracking-[0.3em] mb-2 block">DAR CYCLE HUB</span>
+            <span className="text-[10px] font-black uppercase text-primary tracking-[0.3em] mb-2 block">VEXOKART</span>
             <h1 className="text-4xl font-black text-text-main italic uppercase tracking-tight leading-none">Privacy Policy &<br/>Data Protection</h1>
-            <p className="text-text-muted text-xs font-bold mt-4 uppercase tracking-widest">Effective Date: October 2024</p>
+            <p className="text-text-muted text-xs font-bold mt-4 uppercase tracking-widest">Effective Date: April 2026</p>
         </header>
         
         <div className="prose prose-sm text-text-secondary space-y-12 leading-relaxed text-base">
           <section>
             <h2 className="text-lg font-black text-text-main uppercase tracking-[0.2em] italic mb-4 border-l-4 border-primary pl-4">1. Introduction</h2>
-            <p>At DAR CYCLE HUB, we value the trust you place in us. This policy outlines how we collect, use, and protect your personal information when you use our website. We are committed to processing your data with transparency and in accordance with the Information Technology Act, 2000 (India) and global best practices.</p>
+            <p>At VEXOKART, we value the trust you place in us. This policy outlines how we collect, use, and protect your personal information when you use our website. We are committed to processing your data with transparency and in accordance with the Information Technology Act, 2000 (India) and global best practices.</p>
           </section>
 
           <section>
@@ -56,8 +56,8 @@ const PrivacyPolicyPage: React.FC = () => {
                     <p className="text-sm font-black text-text-main uppercase tracking-widest italic mb-2">Contact Grievance Officer</p>
                     <p className="leading-relaxed text-sm">If you have any questions regarding this Privacy Policy or wish to exercise your data rights, please contact our Grievance Officer:</p>
                     <p className="font-bold text-gray-900 mt-4">Compliance Lead</p>
-                    <p className="text-primary font-bold">support@darcyclehub.com</p>
-                    <p className="text-xs text-gray-500 mt-1">DAR CYCLE HUB, India.</p>
+                    <p className="text-primary font-bold">support@vexokart.com</p>
+                    <p className="text-xs text-gray-500 mt-1">VEXOKART, India.</p>
                 </div>
             </div>
           </section>

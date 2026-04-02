@@ -14,9 +14,9 @@ const Footer: React.FC = () => {
                 <circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 17.5l-8.5-10h12l-8.5 10zM5.5 17.5h13"/>
                </svg>
             </div>
-            <h2 className="text-2xl font-black italic text-text-main tracking-tighter uppercase">DAR CYCLE<span className="text-primary">HUB</span></h2>
+            <h2 className="text-2xl font-black italic text-text-main tracking-tighter uppercase">VEXO<span className="text-primary">KART</span></h2>
           </div>
-          <p className="text-sm text-text-secondary font-medium leading-relaxed max-w-xs uppercase tracking-tighter italic">Kashmir's premier destination for high-quality cycles and accessories.</p>
+          <p className="text-sm text-text-secondary font-medium leading-relaxed max-w-xs uppercase tracking-tighter italic">Your premier destination for high-quality products and accessories.</p>
           <div className="flex gap-4">
              <div className="w-8 h-8 bg-white border border-border rounded-lg flex items-center justify-center text-gray-400 hover:text-primary cursor-pointer transition-colors shadow-sm">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg>
@@ -48,7 +48,7 @@ const Footer: React.FC = () => {
         <div className="space-y-6">
            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-text-main italic border-b border-border pb-2">Legal</h3>
            <p className="text-xs text-text-muted font-medium tracking-tight leading-relaxed italic">This site uses cookies for analytics and personalized content. By using this site, you agree to our Privacy Policy.</p>
-           <p className="text-xs text-text-muted font-bold tracking-widest mt-4">© 2024 DAR CYCLE HUB. All Rights Reserved.</p>
+           <p className="text-xs text-text-muted font-bold tracking-widest mt-4">© 2026 VEXOKART. All Rights Reserved.</p>
         </div>
       </div>
     </footer>

@@ -63,7 +63,7 @@ const AdminDashboardPage: React.FC = () => {
              <h1 className="text-4xl font-black text-gray-900 italic uppercase tracking-tighter leading-none">Console<br/><span className="text-primary">Overview</span></h1>
              <span className="px-3 py-1 bg-black text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-black/10">v1.0</span>
            </div>
-           <p className="text-gray-400 font-bold text-sm mt-2">Real-time marketplace telemetry for DAR CYCLE HUB.</p>
+           <p className="text-gray-400 font-bold text-sm mt-2">Real-time marketplace telemetry for VEXOKART.</p>
         </div>
         <div className="flex gap-4">
             <button className="bg-primary text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-primary/20 active:scale-95 transition-all">Export Ledger</button>
@@ -104,7 +104,7 @@ const AdminDashboardPage: React.FC = () => {
       </div>
 
       <div className="pt-10 text-center opacity-30">
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-400">DAR CYCLE HUB • SECURE FULFILLMENT PROTOCOL</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-400">VEXOKART • SECURE FULFILLMENT PROTOCOL</p>
       </div>
     </div>
   );

@@ -30,7 +30,7 @@ const ContactUsPage: React.FC = () => {
             <div>
               <h1 className="text-4xl font-black text-text-main italic uppercase tracking-tight leading-none">Customer<br/><span className="text-primary">Support</span></h1>
               <p className="text-text-secondary mt-4 font-medium leading-relaxed">
-                DAR CYCLE HUB is dedicated to providing exemplary service. Our support team is available to assist you with product inquiries, order tracking, and service requests.
+                VEXOKART is dedicated to providing exemplary service. Our support team is available to assist you with product inquiries, order tracking, and service requests.
               </p>
             </div>
 
@@ -41,7 +41,7 @@ const ContactUsPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-text-muted tracking-widest">Official Support Email</p>
-                  <p className="text-sm font-bold text-text-main">support@darcyclehub.com</p>
+                  <p className="text-sm font-bold text-text-main">support@vexokart.com</p>
                   <p className="text-[10px] text-primary font-bold mt-2 uppercase tracking-wide">Response Time: Within 24 Business Hours</p>
                 </div>
               </div>
@@ -64,7 +64,7 @@ const ContactUsPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase text-text-muted tracking-widest">Registered Office</p>
-                  <p className="text-sm font-bold text-text-main">DAR CYCLE HUB</p>
+                  <p className="text-sm font-bold text-text-main">VEXOKART</p>
                   <p className="text-xs text-text-secondary mt-1">
                     Srinagar, Jammu & Kashmir,<br/>
                     India

@@ -1,9 +1,10 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Banner } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { supabase } from '../supabase';
 
 interface BannerContextType {
   banners: Banner[];
+  isLoading: boolean;
   addBanner: (imageUrl: string, title: string) => Promise<void>;
   deleteBanner: (id: number) => Promise<void>;
   toggleBannerStatus: (id: number, currentStatus: boolean) => Promise<void>;
@@ -12,45 +13,24 @@ interface BannerContextType {
 
 const BannerContext = createContext<BannerContextType | undefined>(undefined);
 
-const FALLBACK_BANNERS: Banner[] = [
-  {
-    id: 101,
-    image_url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80',
-    title: 'Seasonal Essentials',
-    status: true,
-    display_order: 1,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 102,
-    image_url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80',
-    title: 'Premium Tech Gear',
-    status: true,
-    display_order: 2,
-    created_at: new Date().toISOString()
-  }
-];
-
 export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchBanners = async () => {
     try {
-      const res = await fetch(`${BASE_API_URL}/banners?select=*&order=display_order.asc`, { 
-        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
-      });
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('banners')
+        .select('*')
+        .order('display_order', { ascending: true });
       
-      if (!res.ok) throw new Error("API status check failed");
-      
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        setBanners(data);
-      } else {
-        setBanners(FALLBACK_BANNERS);
-      }
+      if (error) throw error;
+      setBanners(data || []);
     } catch (error) {
-      console.warn("[BannerContext] API unreachable. Using fallback banners.", error);
-      setBanners(FALLBACK_BANNERS);
+      console.error("[BannerContext] Error fetching banners:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -61,48 +41,51 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const addBanner = async (url: string, title: string) => {
     try {
       const nextOrder = banners.length > 0 ? Math.max(...banners.map(b => b.display_order)) + 1 : 0;
-      const response = await fetch(`${BASE_API_URL}/banners`, {
-        method: 'POST',
-        headers: API_HEADERS,
-        body: JSON.stringify({ 
+      const { error } = await supabase
+        .from('banners')
+        .insert([{ 
           image_url: url, 
           title: title,
           status: true, 
           display_order: nextOrder 
-        })
-      });
+        }]);
       
-      if (!response.ok) throw new Error("Database rejected the request");
+      if (error) throw error;
       await fetchBanners();
     } catch (err) {
-      // Local optimistic update for demo purposes if API fails
-      const newB = { id: Date.now(), image_url: url, title, status: true, display_order: 0, created_at: new Date().toISOString() };
-      setBanners(prev => [...prev, newB]);
+      console.error("[BannerContext] Error adding banner:", err);
+      throw err;
     }
   };
 
   const deleteBanner = async (id: number) => {
     try {
-      await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, { method: 'DELETE', headers: API_HEADERS });
-    } finally {
+      const { error } = await supabase
+        .from('banners')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
       setBanners(prev => prev.filter(b => b.id !== id));
+    } catch (err) {
+      console.error("[BannerContext] Error deleting banner:", err);
     }
   };
 
   const toggleBannerStatus = async (id: number, currentStatus: boolean) => {
     try {
-      await fetch(`${BASE_API_URL}/banners?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: API_HEADERS,
-        body: JSON.stringify({ status: !currentStatus })
-      });
-    } finally {
+      const { error } = await supabase
+        .from('banners')
+        .update({ status: !currentStatus })
+        .eq('id', id);
+      if (error) throw error;
       setBanners(prev => prev.map(b => b.id === id ? { ...b, status: !currentStatus } : b));
+    } catch (err) {
+      console.error("[BannerContext] Error toggling banner status:", err);
     }
   };
 
   return (
-    <BannerContext.Provider value={{ banners, addBanner, deleteBanner, toggleBannerStatus, refreshBanners: fetchBanners }}>
+    <BannerContext.Provider value={{ banners, isLoading, addBanner, deleteBanner, toggleBannerStatus, refreshBanners: fetchBanners }}>
       {children}
     </BannerContext.Provider>
   );
@@ -110,6 +93,6 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
 export const useBanners = () => {
   const context = useContext(BannerContext);
-  if (!context) throw new Error('useBanners error');
+  if (!context) throw new Error('useBanners must be used within a BannerProvider');
   return context;
 };

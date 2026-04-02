@@ -66,7 +66,7 @@ const AdminNotificationsPage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">From Identity</label>
-                <input type="text" value={settings.emailFrom} onChange={(e) => updateSettings({ emailFrom: e.target.value })} className={inputClasses} placeholder="DAR CYCLE HUB Support <support@darcyclehub.com>" />
+                <input type="text" value={settings.emailFrom} onChange={(e) => updateSettings({ emailFrom: e.target.value })} className={inputClasses} placeholder="VEXOKART Support <support@vexokart.com>" />
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">API / SMTP Host</label>
@@ -100,7 +100,7 @@ const AdminNotificationsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">Sender ID</label>
-                  <input type="text" value={settings.smsSenderId} onChange={(e) => updateSettings({ smsSenderId: e.target.value })} className={inputClasses} placeholder="VXKART" />
+                  <input type="text" value={settings.smsSenderId} onChange={(e) => updateSettings({ smsSenderId: e.target.value })} className={inputClasses} placeholder="VEXOK" />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase text-text-muted mb-1 block">DLT Template ID</label>

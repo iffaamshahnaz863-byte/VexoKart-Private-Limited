@@ -1,9 +1,8 @@
 
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-// Fix: Import newly defined Vendor type
 import { Vendor } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { supabase } from '../supabase.ts';
 
 interface VendorContextType {
   vendors: Vendor[];
@@ -22,13 +21,12 @@ interface VendorContextType {
 
 export const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
-// FIXED: Removed 'rejection_reason', 'wallet_balance', 'store_address', 'pending_balance' to match DB schema
 const VENDOR_COLUMNS = 'id,user_id,store_name,status,owner_name,email,phone,profile_image';
 
 export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(() => {
-    const cached = sessionStorage.getItem('dch_vendor_cache');
+    const cached = sessionStorage.getItem('vexokart_vendor_cache');
     return cached ? JSON.parse(cached) : null;
   });
   const [isVendorLoading, setIsVendorLoading] = useState(false);
@@ -36,19 +34,13 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?select=*`, { 
-        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
-      });
+      const { data, error } = await supabase
+        .from('vendors')
+        .select('*');
       
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || `Fetch failed (${res.status})`);
-      }
-      
+      if (error) throw error;
       if (Array.isArray(data)) {
           setVendors(data);
-      } else {
-          console.error("[VendorSync] Response not an array:", data);
       }
     } catch (error: any) {
       console.error("[VendorSync] List Error:", error.message);
@@ -64,25 +56,23 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setVendorError(null);
     
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?user_id=eq.${userId}&select=${VENDOR_COLUMNS}`, {
-        headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' } 
-      });
+      const { data, error } = await supabase
+        .from('vendors')
+        .select(VENDOR_COLUMNS)
+        .eq('user_id', userId);
       
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.message || "Connection to vendor service failed.");
-      }
+      if (error) throw error;
       
       if (Array.isArray(data) && data.length > 0) {
         const profile = data[0];
         if (JSON.stringify(profile) !== JSON.stringify(currentVendor)) {
             setCurrentVendor(profile);
-            sessionStorage.setItem('dch_vendor_cache', JSON.stringify(profile));
+            sessionStorage.setItem('vexokart_vendor_cache', JSON.stringify(profile));
         }
       } else {
         setCurrentVendor(null);
         setVendorError("Vendor profile not found. Access denied.");
-        sessionStorage.removeItem('dch_vendor_cache');
+        sessionStorage.removeItem('vexokart_vendor_cache');
       }
     } catch (error: any) {
       console.error("[VendorSync] Profile Fetch Error:", error.message);
@@ -97,17 +87,16 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (currentVendor) {
         const pollStatus = async () => {
             try {
-                const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${currentVendor.id}&select=${VENDOR_COLUMNS}`, {
-                    headers: { ...API_HEADERS, 'Cache-Control': 'no-cache' }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        const fresh = data[0];
-                        if (JSON.stringify(fresh) !== JSON.stringify(currentVendor)) {
-                            setCurrentVendor(fresh);
-                            sessionStorage.setItem('dch_vendor_cache', JSON.stringify(fresh));
-                        }
+                const { data, error } = await supabase
+                    .from('vendors')
+                    .select(VENDOR_COLUMNS)
+                    .eq('id', currentVendor.id);
+                
+                if (!error && Array.isArray(data) && data.length > 0) {
+                    const fresh = data[0];
+                    if (JSON.stringify(fresh) !== JSON.stringify(currentVendor)) {
+                        setCurrentVendor(fresh);
+                        sessionStorage.setItem('vexokart_vendor_cache', JSON.stringify(fresh));
                     }
                 }
             } catch (e) {
@@ -132,23 +121,19 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (updates.phone) safeUpdates.phone = updates.phone;
 
     try {
-      const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-        body: JSON.stringify(safeUpdates)
-      });
+      const { data, error } = await supabase
+        .from('vendors')
+        .update(safeUpdates)
+        .eq('id', id)
+        .select();
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Update failed');
-      }
+      if (error) throw error;
       
-      const updatedData = await res.json();
-      if (Array.isArray(updatedData) && updatedData.length > 0) {
-          const updatedVendor = updatedData[0];
+      if (Array.isArray(data) && data.length > 0) {
+          const updatedVendor = data[0];
           if (currentVendor && currentVendor.id === id) {
             setCurrentVendor(updatedVendor);
-            sessionStorage.setItem('dch_vendor_cache', JSON.stringify(updatedVendor));
+            sessionStorage.setItem('vexokart_vendor_cache', JSON.stringify(updatedVendor));
           }
       }
       await fetchVendors();
@@ -170,15 +155,11 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         profile_image: data.profile_image
       };
 
-      const res = await fetch(`${BASE_API_URL}/vendors`, {
-        method: 'POST',
-        headers: { ...API_HEADERS, 'Prefer': 'return=minimal' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || 'Record creation failed');
-      }
+      const { error } = await supabase
+        .from('vendors')
+        .insert([payload]);
+      
+      if (error) throw error;
       await fetchVendors();
     } catch (err: any) {
       console.error("[VendorSync] Create Error:", err.message);
@@ -188,16 +169,13 @@ export const VendorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const updateVendorStatus = async (id: number, status: Vendor['status'], reason?: string) => {
     try {
-      const payload: any = { status };
-      // 'rejection_reason' column is missing in DB, skipping to avoid error
-      const res = await fetch(`${BASE_API_URL}/vendors?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: API_HEADERS,
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          console.error("Status update failed:", err?.message);
+      const { error } = await supabase
+        .from('vendors')
+        .update({ status })
+        .eq('id', id);
+      
+      if (error) {
+          console.error("Status update failed:", error.message);
       }
       await fetchVendors();
     } catch (err: any) {
@@ -226,3 +204,4 @@ export const useVendors = () => {
   if (!context) throw new Error('useVendors missing');
   return context;
 };
+

@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { CartItem, Product } from '../types.ts';
 import { useAuth } from './AuthContext.tsx';
-import { BASE_API_URL, API_HEADERS } from '../constants.ts';
+import { supabase } from '../supabase.ts';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -12,6 +12,7 @@ interface CartContextType {
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
+  isLoading: boolean;
 }
 
 export const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -19,27 +20,27 @@ export const CartContext = createContext<CartContextType | undefined>(undefined)
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const local = localStorage.getItem('dch-cart');
+    const local = localStorage.getItem('vexokart-cart');
     if (local) setCartItems(JSON.parse(local));
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('dch-cart', JSON.stringify(cartItems));
+    localStorage.setItem('vexokart-cart', JSON.stringify(cartItems));
     
     if (user) {
       const syncCart = async () => {
         try {
-          await fetch(`${BASE_API_URL}/carts?email=eq.${encodeURIComponent(user.email)}`, {
-            method: 'POST',
-            headers: { ...API_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ 
-              email: user.email, 
+          await supabase
+            .from('carts')
+            .upsert({ 
+              user_id: user.id, 
               items: cartItems, 
-              updatedAt: new Date().toISOString() 
-            })
-          });
+              updated_at: new Date().toISOString() 
+            }, { onConflict: 'user_id' });
         } catch (e) {
           console.warn("Cart background sync deferred:", e);
         }
@@ -69,7 +70,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const cartTotal = cartItems.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, cartCount, cartTotal }}>
+    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, cartCount, cartTotal, isLoading }}>
       {children}
     </CartContext.Provider>
   );

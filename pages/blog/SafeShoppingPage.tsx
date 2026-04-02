@@ -23,11 +23,11 @@ const SafeShoppingPage: React.FC = () => {
 
                     <section>
                         <h2 className="text-2xl font-black text-gray-900 uppercase italic mb-4">2. Understand Payment Gateway Safety</h2>
-                        <p>A trustworthy marketplace like DAR CYCLE HUB never asks for your PIN or password directly. Always check if the payment interface is hosted by a recognized provider such as Razorpay or CCAvenue. When using UPI, verify the merchant name on your banking app before authorizing the transaction.</p>
+                        <p>A trustworthy marketplace like VEXOKART never asks for your PIN or password directly. Always check if the payment interface is hosted by a recognized provider such as Razorpay or CCAvenue. When using UPI, verify the merchant name on your banking app before authorizing the transaction.</p>
                     </section>
 
                     <section className="bg-gray-50 p-8 rounded-3xl border border-gray-100 italic">
-                        "Secure shopping is about vigilance. Always check for the 'Verified Partner' badge and read real customer reviews before committing to a purchase." — DAR CYCLE HUB Security Team
+                        "Secure shopping is about vigilance. Always check for the 'Verified Partner' badge and read real customer reviews before committing to a purchase." — VEXOKART Security Team
                     </section>
 
                     <section>
@@ -41,7 +41,7 @@ const SafeShoppingPage: React.FC = () => {
                     </section>
 
                     <footer className="pt-10 border-t border-gray-100 text-center">
-                        <p className="text-sm font-bold text-gray-400">DAR CYCLE HUB is committed to your safety. Browse our <a href="/privacy-policy" className="text-accent underline">Privacy Protocol</a> for more information.</p>
+                        <p className="text-sm font-bold text-gray-400">VEXOKART is committed to your safety. Browse our <a href="/privacy-policy" className="text-accent underline">Privacy Protocol</a> for more information.</p>
                     </footer>
                 </div>
             </article>

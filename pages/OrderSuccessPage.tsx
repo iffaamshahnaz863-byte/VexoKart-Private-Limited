@@ -95,7 +95,7 @@ const OrderSuccessPage: React.FC = () => {
 
       <div className="mt-12 text-center">
         <p className="text-[8px] text-gray-300 font-black uppercase tracking-[0.4em]">
-          DAR CYCLE HUB • VERIFIED TRANSACTION
+          VEXOKART • VERIFIED TRANSACTION
         </p>
       </div>
        <style dangerouslySetInnerHTML={{ __html: `

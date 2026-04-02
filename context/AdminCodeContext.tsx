@@ -1,9 +1,8 @@
 
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-// Fix: Import newly defined AdminCode type
 import { AdminCode } from '../types';
-import { BASE_API_URL, API_HEADERS } from '../constants';
+import { supabase } from '../supabase.ts';
 
 interface AdminCodeContextType {
   adminCodes: AdminCode[];
@@ -19,13 +18,13 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   const fetchCodes = async () => {
     try {
-      const res = await fetch(`${BASE_API_URL}/admin_codes?select=*`, { headers: API_HEADERS });
-      const data = await res.json();
+      const { data, error } = await supabase
+        .from('admin_codes')
+        .select('*');
+      
+      if (error) throw error;
       if (Array.isArray(data)) {
         setAdminCodes(data);
-      } else {
-        console.error("Admin codes fetch failed:", data?.message || data?.error || JSON.stringify(data));
-        setAdminCodes([]);
       }
     } catch (error: any) {
       console.error("Error fetching admin codes:", error.message || error);
@@ -42,30 +41,32 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
     const newCode = {
       code,
       status: 'unused',
-      createdAt: new Date().toISOString(),
-      expiresAt,
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt,
       note,
-      maxUsage: 1,
-      usageCount: 0
+      max_usage: 1,
+      usage_count: 0
     };
-    const res = await fetch(`${BASE_API_URL}/admin_codes`, {
-      method: 'POST',
-      headers: API_HEADERS,
-      body: JSON.stringify(newCode)
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("Failed to generate code:", err?.message || res.statusText);
+    
+    const { error } = await supabase
+      .from('admin_codes')
+      .insert([newCode]);
+    
+    if (error) {
+        console.error("Failed to generate code:", error.message);
     }
     await fetchCodes();
   };
 
   const revokeCode = async (id: string) => {
-    await fetch(`${BASE_API_URL}/admin_codes?id=eq.${id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ status: 'revoked' })
-    });
+    const { error } = await supabase
+      .from('admin_codes')
+      .update({ status: 'revoked' })
+      .eq('id', id);
+    
+    if (error) {
+      console.error("Failed to revoke code:", error.message);
+    }
     await fetchCodes();
   };
 
@@ -73,11 +74,15 @@ export const AdminCodeProvider: React.FC<{ children: ReactNode }> = ({ children 
     const target = adminCodes.find(c => c.code === code);
     if (!target || target.status !== 'unused') return { isValid: false, message: 'Invalid code' };
     
-    fetch(`${BASE_API_URL}/admin_codes?id=eq.${target.id}`, {
-      method: 'PATCH',
-      headers: API_HEADERS,
-      body: JSON.stringify({ status: 'used', usedBy: userId, usageCount: target.usageCount + 1 })
-    }).then(fetchCodes);
+    supabase
+      .from('admin_codes')
+      .update({ 
+        status: 'used', 
+        used_by: userId, 
+        usage_count: (target.usage_count || 0) + 1 
+      })
+      .eq('id', target.id)
+      .then(() => fetchCodes());
 
     return { isValid: true, message: 'Code accepted' };
   };
@@ -96,3 +101,4 @@ export const useAdminCodes = () => {
   }
   return context;
 };
+
