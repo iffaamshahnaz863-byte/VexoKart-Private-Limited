@@ -54,6 +54,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
           return {
             ...item,
             id: Number(item.id),
+            images: Array.isArray(item.images) ? item.images : [],
             price: basePrice,
             original_price: Number(item.original_price || item.price || 0),
             category: item.category_data?.name || 'General',

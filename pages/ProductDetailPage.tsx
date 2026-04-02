@@ -105,9 +105,12 @@ const ProductDetailPage: React.FC = () => {
             <div className="w-full bg-white relative">
                 <div className="aspect-square w-full max-h-[50vh] flex items-center justify-center bg-gray-50 overflow-hidden">
                     <img 
-                        src={product.images[0]} 
+                        src={product.images?.[0] || 'https://placehold.co/600x600/F1F2F6/172337?text=DAR+CYCLE+HUB'} 
                         className="w-full h-full object-contain" 
                         alt={product.name} 
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://placehold.co/600x600/F1F2F6/172337?text=DAR+CYCLE+HUB';
+                        }}
                     />
                 </div>
             </div>

@@ -38,17 +38,34 @@ const HomePage: React.FC = () => {
     refreshBanners();
   };
 
-  const approvedProducts = products.filter(p => p.status === 'approved');
+  const approvedProducts = products.filter(p => p.status === 'approved' || !p.status);
+
+  const activeBanners = banners.filter(b => b.status !== false);
 
   return (
     <div className="bg-surface min-h-screen pb-20">
       <Header />
       
+      {/* Debug UI - Visible for testing */}
+      <div className="p-3 bg-yellow-50 border-b border-yellow-100">
+        <p className="text-[10px] font-bold text-yellow-700 uppercase tracking-widest">Debug Info</p>
+        <div className="flex gap-4 mt-1">
+          <span className="text-[10px] font-medium text-yellow-600">Banners: {banners.length} (Active: {activeBanners.length})</span>
+          <span className="text-[10px] font-medium text-yellow-600">Products: {products.length}</span>
+          <span className="text-[10px] font-medium text-yellow-600">Categories: {categories.length}</span>
+          <span className="text-[10px] font-medium text-yellow-600">Approved: {approvedProducts.length}</span>
+        </div>
+      </div>
+
       <div className="p-3">
-        {banners.length > 0 ? (
-           <BannerCarousel banners={banners.filter(b => b.status)} />
-        ) : (
+        {activeBanners.length > 0 ? (
+           <BannerCarousel banners={activeBanners} />
+        ) : isLoading ? (
            <div className="w-full h-44 bg-gray-200 rounded-2xl animate-pulse" />
+        ) : (
+           <div className="w-full h-44 bg-surface border-2 border-dashed border-border rounded-2xl flex items-center justify-center">
+             <p className="text-text-muted text-xs font-bold uppercase tracking-widest">No Banners Available</p>
+           </div>
         )}
       </div>
 

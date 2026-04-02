@@ -33,12 +33,15 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ banners }) => {
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
         {banners.map((banner, index) => (
-          <div key={banner.id || index} className="w-full h-full flex-shrink-0 relative">
+          <div key={banner.id || index} className="w-full h-full flex-shrink-0 relative bg-surface">
             <img
-              src={banner.image_url}
+              src={banner.image_url || 'https://placehold.co/1200x400/F1F2F6/172337?text=DAR+CYCLE+HUB'}
               alt={banner.title}
               className="w-full h-full object-cover"
               loading="lazy"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://placehold.co/1200x400/F1F2F6/172337?text=DAR+CYCLE+HUB';
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-8">
               <h3 className="text-white text-xl md:text-3xl font-black uppercase tracking-tight drop-shadow-md">
