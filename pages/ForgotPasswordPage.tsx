@@ -1,8 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
-import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
+import AuthLayout from '../components/AuthLayout';
+import AuthInput from '../components/AuthInput';
+import { Mail, Send, CheckCircle2 } from 'lucide-react';
+import { motion } from 'motion/react';
 
 const ForgotPasswordPage: React.FC = () => {
   const location = useLocation();
@@ -39,68 +42,84 @@ const ForgotPasswordPage: React.FC = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-white flex flex-col p-6 pt-12 animate-in fade-in duration-300">
-      
-      <div className="mb-12">
-        <button onClick={() => navigate('/login')} className="mb-6 inline-flex items-center gap-2 text-text-muted text-xs font-black uppercase tracking-widest hover:text-text-main transition-colors">
-            <ChevronLeftIcon className="w-4 h-4" />
-            Back to Login
-        </button>
-        <h2 className="text-3xl font-black text-text-main italic uppercase tracking-tighter mb-2 leading-none">Recover Access</h2>
-        <p className="text-text-muted text-sm font-medium mt-3">Enter your email to receive a secure recovery link.</p>
-      </div>
-
-      <div className="flex-1 max-w-md mx-auto w-full">
-        {error && (
-            <div className="mb-8 p-5 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-xs font-bold flex items-center gap-3">
-                <div className="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center shrink-0">!</div>
-                {error}
-            </div>
-        )}
-
-        {message && (
-            <div className="mb-8 p-6 bg-green-50 border border-green-100 rounded-3xl text-green-600 text-sm font-bold animate-in zoom-in duration-300">
-                <div className="flex items-center gap-3 mb-2">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <span className="uppercase tracking-widest text-[10px]">Email Dispatched</span>
-                </div>
-                {message}
-            </div>
-        )}
-
-        <form onSubmit={handleReset} className="space-y-6">
-            <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2 italic">Primary Email Address</label>
-                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-2 transition-all focus-within:border-accent focus-within:ring-8 focus-within:ring-accent/5">
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="name@example.com"
-                        className="w-full bg-transparent p-4 text-base font-bold text-text-main placeholder-gray-300 outline-none"
-                        required
-                    />
-                </div>
-            </div>
-
-            <button
-                type="submit"
-                disabled={isSubmitting || !!message}
-                className="w-full bg-accent text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none mt-4"
+  if (message) {
+    return (
+      <AuthLayout 
+        title="Check Your Email" 
+        subtitle="We've sent recovery instructions to your inbox"
+        showBackButton={false}
+      >
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 size={40} />
+          </div>
+          <p className="text-slate-600 text-sm leading-relaxed">
+            {message}
+          </p>
+          <div className="pt-4 flex flex-col gap-4">
+            <button 
+              onClick={() => setMessage('')} 
+              className="text-primary font-bold hover:underline text-sm"
             >
-                {isSubmitting ? 'Authenticating...' : 'Dispatch Recovery Link'}
+              Didn't receive the email? Try again
             </button>
-        </form>
+            <Link to="/login" className="text-slate-500 font-medium text-sm hover:text-slate-900">
+              Back to Login
+            </Link>
+          </div>
+        </div>
+      </AuthLayout>
+    );
+  }
 
-        {!message && (
-            <div className="mt-12 p-6 bg-surface rounded-3xl border border-border text-center">
-                <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">Need help?</p>
-                <p className="text-xs text-text-secondary mt-2">If you no longer have access to this email, please contact our support desk.</p>
-            </div>
+  return (
+    <AuthLayout 
+      title="Recover Access" 
+      subtitle="Enter your email to receive a secure recovery link"
+      backTo="/login"
+    >
+      <form onSubmit={handleReset} className="space-y-6">
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-xs font-bold text-center"
+          >
+            {error}
+          </motion.div>
         )}
+
+        <AuthInput 
+          label="Email Address" 
+          type="email" 
+          placeholder="name@example.com" 
+          icon={Mail} 
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <button 
+          type="submit" 
+          disabled={isSubmitting} 
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold uppercase tracking-widest text-[11px] shadow-xl shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {isSubmitting ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          ) : (
+            <>
+              <Send size={16} />
+              Send Recovery Link
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="mt-12 p-6 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Need help?</p>
+        <p className="text-xs text-slate-500 mt-2">If you no longer have access to this email, please contact our support desk.</p>
       </div>
-    </div>
+    </AuthLayout>
   );
 };
 

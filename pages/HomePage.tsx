@@ -106,7 +106,7 @@ const HomePage: React.FC = () => {
         ) : (
            <div className="w-full h-40 bg-gray-200 rounded-2xl animate-pulse" />
         )}
-      </section>
+      </div>
 
       {categories.length > 0 && (
         <section className="bg-white py-3 my-3 rounded-xl shadow-sm">
