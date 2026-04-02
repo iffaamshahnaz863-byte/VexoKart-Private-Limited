@@ -48,6 +48,8 @@ const ProductsPage: React.FC = () => {
     setSearchParams(newParams);
   };
 
+  const approvedProducts = products.filter(p => p.status === 'approved');
+
   return (
     <div className="bg-surface min-h-screen pb-20">
       <Header title="Our Products" showSearch />
@@ -70,13 +72,13 @@ const ProductsPage: React.FC = () => {
           ))}
         </div>
         
-        {isLoading && products.length === 0 ? (
+        {isLoading && approvedProducts.length === 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[...Array(8)].map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
-        ) : products.length > 0 ? (
+        ) : approvedProducts.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {products.filter(p => p.status === 'approved').map(product => (
+            {approvedProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>

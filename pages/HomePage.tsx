@@ -38,6 +38,8 @@ const HomePage: React.FC = () => {
     refreshBanners();
   };
 
+  const approvedProducts = products.filter(p => p.status === 'approved');
+
   return (
     <div className="bg-surface min-h-screen pb-20">
       <Header />
@@ -46,7 +48,7 @@ const HomePage: React.FC = () => {
         {banners.length > 0 ? (
            <BannerCarousel banners={banners.filter(b => b.status)} />
         ) : (
-           <div className="w-full h-40 bg-gray-200 rounded-2xl animate-pulse" />
+           <div className="w-full h-44 bg-gray-200 rounded-2xl animate-pulse" />
         )}
       </div>
 
@@ -77,11 +79,11 @@ const HomePage: React.FC = () => {
       <section className="p-3">
         <h2 className="text-lg font-bold text-text-main mb-4">New Arrivals</h2>
         
-        {isLoading && products.length === 0 ? (
+        {isLoading && approvedProducts.length === 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {[...Array(6)].map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
-        ) : products.length === 0 ? (
+        ) : approvedProducts.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
             <h3 className="font-bold text-text-main">No products found</h3>
             <p className="text-sm text-text-muted mt-2">Check back later for new arrivals.</p>
@@ -94,7 +96,7 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {products.filter(p => p.status === 'approved').map(product => (
+            {approvedProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>

@@ -29,45 +29,63 @@ const sanitizeUser = (u: any): User => ({
 });
 
 const getUserProfile = async (sessionUser: any): Promise<User | null> => {
-    // Fetch user profile
-    let { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', sessionUser.id)
-        .single();
-    
-    if (error && !profile) {
-        console.warn('User profile not found. Creating a new one as a fallback.');
-        const { data: newProfile, error: upsertError } = await supabase
+    try {
+        // Fetch user profile
+        let { data: profile, error } = await supabase
             .from('users')
-            .upsert({
-                id: sessionUser.id,
-                email: sessionUser.email,
-                name: sessionUser.user_metadata?.name || sessionUser.email,
-                role: 'customer',
-                status: 'active'
-            }, { onConflict: 'id' })
-            .select()
+            .select('*')
+            .eq('id', sessionUser.id)
             .single();
         
-        if (upsertError) {
-            console.error("CRITICAL: Failed to create missing user profile on login.", upsertError);
-            return null;
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+            console.error("[AuthContext] Error fetching user profile:", error.message);
         }
-        profile = newProfile;
-    }
 
-    // Fetch user addresses from the new addresses table
-    const { data: addresses, error: addressesError } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('user_id', sessionUser.id);
-    
-    if (addressesError) {
-        console.error("Failed to fetch user addresses.", addressesError);
+        if (!profile) {
+            console.warn('[AuthContext] User profile not found. Creating a new one using upsert.');
+            const { data: newProfile, error: upsertError } = await supabase
+                .from('users')
+                .upsert({
+                    id: sessionUser.id,
+                    email: sessionUser.email,
+                    name: sessionUser.user_metadata?.name || sessionUser.email,
+                    role: 'customer',
+                    status: 'active'
+                }, { onConflict: 'id' })
+                .select()
+                .single();
+            
+            if (upsertError) {
+                console.error("[AuthContext] Failed to auto-create user profile:", upsertError.message);
+                // Return a basic user object so the app doesn't break
+                return sanitizeUser({
+                    id: sessionUser.id,
+                    email: sessionUser.email,
+                    name: sessionUser.user_metadata?.name || sessionUser.email,
+                    role: 'customer',
+                    addresses: [],
+                    wishlist: [],
+                    recentlyViewed: []
+                });
+            }
+            profile = newProfile;
+        }
+
+        // Fetch user addresses from the dedicated addresses table
+        const { data: addresses, error: addressesError } = await supabase
+            .from('addresses')
+            .select('*')
+            .eq('user_id', sessionUser.id);
+        
+        if (addressesError) {
+            console.error("[AuthContext] Failed to fetch user addresses:", addressesError.message);
+        }
+        
+        return sanitizeUser({ ...profile, addresses: addresses || [] });
+    } catch (err: any) {
+        console.error("[AuthContext] Unexpected error in getUserProfile:", err.message);
+        return null;
     }
-    
-    return profile ? sanitizeUser({ ...profile, addresses: addresses || [] }) : null;
 };
 
 
@@ -89,17 +107,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
           setIsLoading(true);
-          const profile = await getUserProfile(session.user);
-          if (profile) {
-            setUser(profile);
-          } else {
-            await supabase.auth.signOut();
+          try {
+            const profile = await getUserProfile(session.user);
+            if (profile) {
+              setUser(profile);
+            }
+          } catch (err) {
+            console.error("[AuthContext] Auth state change error:", err);
+          } finally {
+            setIsLoading(false);
           }
-          setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
+          setIsLoading(false);
         }
       }
     );
@@ -124,10 +146,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (authError) throw authError;
     if (!authData.user) throw new Error("Signup failed: No user data returned from auth service.");
 
-    // Manual insert into users table as requested
+    // Manual upsert into users table as requested to ensure profile exists
     const { error: profileError } = await supabase
       .from('users')
-      .insert([
+      .upsert([
         {
           id: authData.user.id,
           email: email,
@@ -135,10 +157,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           role: 'customer',
           status: 'active'
         }
-      ]);
+      ], { onConflict: 'id' });
 
     if (profileError) {
-      console.error("CRITICAL: User profile insert failed after auth signup.", profileError);
+      console.error("[AuthContext] User profile upsert failed after auth signup:", profileError.message);
     }
   };
 

@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { ServiceArea } from '../types.ts'; // Keep type for compatibility, but logic simplifies
-import { BASE_API_URL, API_HEADERS } from '../constants.ts';
+import { supabase } from '../supabase.ts';
 
 interface ServiceAreaContextType {
   serviceAreas: ServiceArea[];
@@ -26,11 +26,14 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
   const refreshServiceAreas = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${BASE_API_URL}/daily_needs_pincodes?order=created_at.desc`, {
-        headers: API_HEADERS
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const { data, error } = await supabase
+        .from('daily_needs_pincodes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+
+      if (data) {
         // Adapt the simpler pincode data to the ServiceArea structure for compatibility
         const adaptedData = data.map((p: any) => ({
           id: p.id,
@@ -46,8 +49,8 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
       } else {
         setServiceAreas([]);
       }
-    } catch (e) {
-      console.warn("Pincode Sync Failed.", e);
+    } catch (e: any) {
+      console.warn("[ServiceAreaContext] Pincode Sync Failed:", e.message);
       setServiceAreas([]);
     } finally {
       setIsLoading(false);
@@ -65,41 +68,43 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
         created_by: area.created_by
     };
     try {
-      const res = await fetch(`${BASE_API_URL}/daily_needs_pincodes`, {
-        method: 'POST',
-        headers: { ...API_HEADERS, 'Prefer': 'return=representation' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error("DB Error");
+      const { error } = await supabase
+        .from('daily_needs_pincodes')
+        .insert([payload]);
+      
+      if (error) throw error;
       await refreshServiceAreas();
-    } catch (e) {
-      console.error("Failed to add pincode", e);
+    } catch (e: any) {
+      console.error("[ServiceAreaContext] Failed to add pincode:", e.message);
     }
   };
 
   const updateServiceArea = async (id: number, updates: Partial<ServiceArea>) => {
     const payload = { is_active: updates.is_active };
     try {
-      await fetch(`${BASE_API_URL}/daily_needs_pincodes?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: API_HEADERS,
-        body: JSON.stringify(payload)
-      });
+      const { error } = await supabase
+        .from('daily_needs_pincodes')
+        .update(payload)
+        .eq('id', id);
+      
+      if (error) throw error;
       await refreshServiceAreas();
-    } catch (e) {
-      console.error("Failed to update pincode", e);
+    } catch (e: any) {
+      console.error("[ServiceAreaContext] Failed to update pincode:", e.message);
     }
   };
 
   const deleteServiceArea = async (id: number) => {
     try {
-      await fetch(`${BASE_API_URL}/daily_needs_pincodes?id=eq.${id}`, {
-        method: 'DELETE',
-        headers: API_HEADERS
-      });
+      const { error } = await supabase
+        .from('daily_needs_pincodes')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
       setServiceAreas(prev => prev.filter(a => a.id !== id));
-    } catch (e) {
-      console.error("Failed to delete pincode", e);
+    } catch (e: any) {
+      console.error("[ServiceAreaContext] Failed to delete pincode:", e.message);
     }
   };
 

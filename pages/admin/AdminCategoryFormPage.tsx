@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useCategories } from '../../context/CategoryContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { SUPABASE_URL, SUPABASE_KEY } from '../../constants';
+import { supabase } from '../../supabase';
 
 const AdminCategoryFormPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -55,31 +56,28 @@ const AdminCategoryFormPage: React.FC = () => {
    * If the bucket is missing or upload fails, falls back to Base64 to ensure the category can still be saved.
    */
   const uploadImage = async (file: File): Promise<string> => {
-    const fileName = `categories/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-    // Using 'assets' as it's a more standard default bucket name than 'category-images'
+    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const bucket = 'assets'; 
-    const uploadUrl = `${SUPABASE_URL}/storage/v1/object/${bucket}/${fileName}`;
 
     try {
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': file.type
-        },
-        body: file
-      });
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(`categories/${fileName}`, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (response.ok) {
-        // Return the public URL if successful
-        return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.warn(`Storage upload to '${bucket}' failed (${response.status}: ${errorData.message || 'Unknown error'}). Falling back to Base64.`);
+      if (error) throw error;
+
+      if (data) {
+        const { data: publicUrlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(`categories/${fileName}`);
+        
+        return publicUrlData.publicUrl;
       }
-    } catch (err) {
-      console.error("Network error during storage upload, falling back to Base64:", err);
+    } catch (err: any) {
+      console.error("[AdminCategoryForm] Storage upload failed, falling back to Base64:", err.message);
     }
 
     // FALLBACK: Return as Base64 string if Storage is unavailable or fails

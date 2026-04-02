@@ -25,6 +25,7 @@ import { RecentlyViewedProvider } from './context/RecentlyViewedContext.tsx';
 import { ReviewProvider } from './context/ReviewContext.tsx';
 import { LocationProvider } from './context/LocationContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
+import { VendorProvider } from './context/VendorContext.tsx';
 import MenuPage from './pages/MenuPage.tsx';
 import WishlistPage from './pages/WishlistPage.tsx';
 import ShippingAddressesPage from './pages/ShippingAddressesPage.tsx';
@@ -167,31 +168,33 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => (
   <AuthProvider>
-    <NotificationProvider>
-      <ServiceAreaProvider>
-       <LocationProvider>
-        <CategoryProvider>
-           <ProductProvider>
-            <CartProvider>
-              <AdminCodeProvider>
-               <BannerProvider>
-                <RecentlyViewedProvider>
-                  <ReviewProvider>
-                    <OrderProvider>
-                      <HashRouter>
-                        <AppRoutes />
-                      </HashRouter>
-                    </OrderProvider>
-                  </ReviewProvider>
-                </RecentlyViewedProvider>
-               </BannerProvider>
-              </AdminCodeProvider>
-            </CartProvider>
-           </ProductProvider>
-        </CategoryProvider>
-       </LocationProvider>
-      </ServiceAreaProvider>
-    </NotificationProvider>
+    <VendorProvider>
+      <NotificationProvider>
+        <ServiceAreaProvider>
+         <LocationProvider>
+          <CategoryProvider>
+             <ProductProvider>
+              <CartProvider>
+                <AdminCodeProvider>
+                 <BannerProvider>
+                  <RecentlyViewedProvider>
+                    <ReviewProvider>
+                      <OrderProvider>
+                        <HashRouter>
+                          <AppRoutes />
+                        </HashRouter>
+                      </OrderProvider>
+                    </ReviewProvider>
+                  </RecentlyViewedProvider>
+                 </BannerProvider>
+                </AdminCodeProvider>
+              </CartProvider>
+             </ProductProvider>
+          </CategoryProvider>
+         </LocationProvider>
+        </ServiceAreaProvider>
+      </NotificationProvider>
+    </VendorProvider>
   </AuthProvider>
 );
 
