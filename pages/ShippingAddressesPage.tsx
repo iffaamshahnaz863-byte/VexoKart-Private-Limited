@@ -23,9 +23,9 @@ const ShippingAddressesPage: React.FC = () => {
             user.addresses.map(address => (
                 <GlassmorphicCard key={address.id} className="p-4">
                     <div className="text-text-secondary text-sm">
-                        <p className="font-bold text-text-main text-base">{address.fullName}</p>
-                        <p>{address.street}</p>
-                        <p>{address.city}, {address.state} {address.zip}</p>
+                        <p className="font-bold text-text-main text-base">{address.name}</p>
+                        <p>{address.address_line}</p>
+                        <p>{address.city}, {address.state} {address.pincode}</p>
                         <p>Phone: {address.phone}</p>
                     </div>
                     <div className="flex space-x-4 mt-3 pt-3 border-t border-gray-700/50 text-sm font-semibold">

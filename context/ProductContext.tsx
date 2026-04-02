@@ -24,6 +24,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     const { vendorId, categoryId, search, limit } = options;
     try {
       setIsLoading(true);
+      console.log("Fetching products from Supabase with options:", options);
       
       let query = supabase
         .from('products')
@@ -37,8 +38,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error("[ProductSync] Supabase error:", error);
+        throw error;
+      }
 
+      console.log("Products fetched successfully:", data?.length || 0);
       if (data) {
         const mappedProducts: Product[] = data.map((item: any) => {
           const basePrice = Number(item.price || 0);

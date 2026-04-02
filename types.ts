@@ -185,17 +185,18 @@ export interface Order {
 
 export interface Address {
     id: string;
-    fullName: string;
-    street: string;
+    user_id: string;
+    name: string;
+    phone: string;
+    address_line: string;
     city: string;
     state: string;
-    zip: string;
-    phone: string;
+    pincode: string;
 }
 
 // Fix: Add 'vendor' to user role to support vendor-specific logic
 export interface User {
-  id: number;
+  id: string;
   auth_uid: string;
   name: string;
   email: string;

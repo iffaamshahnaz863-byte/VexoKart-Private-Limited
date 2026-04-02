@@ -89,10 +89,10 @@ export const generateShippingLabelPDF = async (order: Order): Promise<jsPDF> => 
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(address?.fullName.toUpperCase() || 'VALUED CUSTOMER', 110, 90);
+  doc.text(address?.name.toUpperCase() || 'VALUED CUSTOMER', 110, 90);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text([address?.street || '', `${address?.city || ''}, ${address?.state || ''}`], 110, 98);
+  doc.text([address?.address_line || '', `${address?.city || ''}, ${address?.state || ''}`], 110, 98);
   doc.setFont('helvetica', 'bold');
   doc.text(`PH: ${address?.phone || ''}`, 110, 112);
 
@@ -100,7 +100,7 @@ export const generateShippingLabelPDF = async (order: Order): Promise<jsPDF> => 
   doc.setLineWidth(1.2);
   doc.rect(130, 116, 50, 10);
   doc.setFontSize(18);
-  doc.text(address?.zip || '000000', 155, 123.5, { align: 'center', charSpace: 2 });
+  doc.text(address?.pincode || '000000', 155, 123.5, { align: 'center', charSpace: 2 });
 
   // --- ITEM TABLE ---
   doc.setLineWidth(0.8);
@@ -198,10 +198,10 @@ export const generateInvoicePDF = async (order: Order): Promise<jsPDF> => {
   doc.setFont('helvetica', 'bold');
   doc.text('BILLED TO:', 110, 40);
   doc.setFont('helvetica', 'normal');
-  doc.text(order.shipping_address?.fullName || 'Valued Customer', 110, 45);
+  doc.text(order.shipping_address?.name || 'Valued Customer', 110, 45);
   doc.text([
-    order.shipping_address?.street || '',
-    `${order.shipping_address?.city || ''}, ${order.shipping_address?.state || ''} — ${order.shipping_address?.zip || ''}`,
+    order.shipping_address?.address_line || '',
+    `${order.shipping_address?.city || ''}, ${order.shipping_address?.state || ''} — ${order.shipping_address?.pincode || ''}`,
     `Phone: ${order.shipping_address?.phone || ''}`
   ], 110, 50);
 

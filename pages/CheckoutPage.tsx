@@ -57,10 +57,10 @@ const CheckoutPage: React.FC = () => {
 
     try {
       const orderIdString = await addOrder({
-        user_id: user.auth_uid,
+        user_id: user.id,
         items: orderItems,
         shipping_address: selectedAddress,
-        full_name: selectedAddress.fullName,
+        full_name: selectedAddress.name,
         phone: selectedAddress.phone,
         email: user.email,
         subtotal: subtotal,
@@ -113,9 +113,9 @@ const CheckoutPage: React.FC = () => {
                 >
                   <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-bold text-sm">{address.fullName}</p>
+                        <p className="font-bold text-sm">{address.name}</p>
                         <p className="text-xs mt-1 text-text-secondary leading-relaxed">
-                            {address.street}, {address.city}, {address.state} — {address.zip}
+                            {address.address_line}, {address.city}, {address.state} — {address.pincode}
                         </p>
                       </div>
                       {selectedAddress?.id === address.id && (

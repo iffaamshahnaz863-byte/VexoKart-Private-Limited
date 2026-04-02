@@ -20,15 +20,20 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const fetchBanners = async () => {
     try {
       setIsLoading(true);
+      console.log("Fetching banners from Supabase...");
       const { data, error } = await supabase
         .from('banners')
         .select('*')
         .order('display_order', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error("[BannerContext] Supabase error:", error);
+        throw error;
+      }
+      console.log("Banners fetched successfully:", data?.length || 0);
       setBanners(data || []);
-    } catch (error) {
-      console.error("[BannerContext] Error fetching banners:", error);
+    } catch (error: any) {
+      console.error("[BannerContext] Error fetching banners:", error.message);
     } finally {
       setIsLoading(false);
     }

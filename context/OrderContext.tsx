@@ -68,7 +68,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
         .order('created_at', { ascending: false });
 
       if (user.role === "user") {
-        query = query.eq('user_id', user.auth_uid);
+        query = query.eq('user_id', user.id);
       } else if (user.role === "vendor") {
         const { data: vendorData, error: vendorError } = await supabase
           .from('vendors')
@@ -153,12 +153,12 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
     const qrToken = Math.random().toString(36).substring(2, 15);
     
     const addressSnapshot = {
-      fullName: orderData.shippingAddress?.fullName || 'Customer',
-      street: orderData.shippingAddress?.street || '',
-      city: orderData.shippingAddress?.city || '',
-      state: orderData.shippingAddress?.state || '',
-      zip: orderData.shippingAddress?.zip || '',
-      phone: orderData.shippingAddress?.phone || '',
+      name: orderData.shipping_address?.name || 'Customer',
+      phone: orderData.shipping_address?.phone || '',
+      address_line: orderData.shipping_address?.address_line || '',
+      city: orderData.shipping_address?.city || '',
+      state: orderData.shipping_address?.state || '',
+      pincode: orderData.shipping_address?.pincode || '',
     };
 
     const rawVendorId = orderData.items[0]?.vendor_id;
@@ -167,7 +167,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({
       vendorIdValue = isNaN(Number(rawVendorId)) ? rawVendorId : Number(rawVendorId);
     }
 
-    const userIdValue = user.auth_uid ? user.auth_uid : null;
+    const userIdValue = user.id;
 
     const payload: any = {
       user_id: userIdValue,

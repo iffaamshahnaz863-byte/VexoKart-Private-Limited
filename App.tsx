@@ -112,9 +112,21 @@ const AppContent: React.FC = () => {
   );
 }
 
+import { supabase } from './supabase.ts';
+
 const AppRoutes: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   
+  useEffect(() => {
+    const testFetch = async () => {
+      console.log("Testing Supabase fetch from 'products' table...");
+      const { data, error } = await supabase.from('products').select('*').limit(1);
+      console.log("TEST DATA:", data);
+      console.log("TEST ERROR:", error);
+    };
+    testFetch();
+  }, []);
+
   if (isInitializing) return <SplashScreen onFinish={() => setIsInitializing(false)} />;
 
   return (

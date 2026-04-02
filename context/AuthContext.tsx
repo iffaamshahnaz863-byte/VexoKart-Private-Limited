@@ -29,10 +29,11 @@ const sanitizeUser = (u: any): User => ({
 });
 
 const getUserProfile = async (sessionUser: any): Promise<User | null> => {
+    // Fetch user profile
     let { data: profile, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_uid', sessionUser.id)
+        .eq('id', sessionUser.id)
         .single();
     
     if (error && !profile) {
@@ -40,12 +41,12 @@ const getUserProfile = async (sessionUser: any): Promise<User | null> => {
         const { data: newProfile, error: upsertError } = await supabase
             .from('users')
             .upsert({
-                auth_uid: sessionUser.id,
+                id: sessionUser.id,
                 email: sessionUser.email,
                 name: sessionUser.user_metadata?.name || sessionUser.email,
-                role: 'user',
+                role: 'customer',
                 status: 'active'
-            }, { onConflict: 'auth_uid' })
+            }, { onConflict: 'id' })
             .select()
             .single();
         
@@ -55,8 +56,18 @@ const getUserProfile = async (sessionUser: any): Promise<User | null> => {
         }
         profile = newProfile;
     }
+
+    // Fetch user addresses from the new addresses table
+    const { data: addresses, error: addressesError } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', sessionUser.id);
     
-    return profile ? sanitizeUser(profile) : null;
+    if (addressesError) {
+        console.error("Failed to fetch user addresses.", addressesError);
+    }
+    
+    return profile ? sanitizeUser({ ...profile, addresses: addresses || [] }) : null;
 };
 
 
@@ -113,18 +124,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (authError) throw authError;
     if (!authData.user) throw new Error("Signup failed: No user data returned from auth service.");
 
+    // Manual insert into users table as requested
     const { error: profileError } = await supabase
       .from('users')
-      .upsert({
-        auth_uid: authData.user.id,
-        email: email,
-        name: name,
-        role: 'user',
-        status: 'active'
-      }, { onConflict: 'auth_uid' });
+      .insert([
+        {
+          id: authData.user.id,
+          email: email,
+          name: name,
+          role: 'customer',
+          status: 'active'
+        }
+      ]);
 
     if (profileError) {
-      console.error("CRITICAL: User profile upsert failed after auth signup. The login handler will fix this.", profileError);
+      console.error("CRITICAL: User profile insert failed after auth signup.", profileError);
     }
   };
 
@@ -145,23 +159,66 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(prevUser => prevUser ? sanitizeUser({ ...prevUser, [column]: data }) : null);
   };
 
-  const addAddress = async (address: Omit<Address, 'id'>) => {
-    if (!user) return;
-    const newAddress = { ...address, id: Date.now().toString() };
-    const updated = [...user.addresses, newAddress];
-    await modifyUserJson('addresses', updated);
+  const addAddress = async (address: Omit<Address, 'id' | 'user_id'>) => {
+    if (!user) throw new Error("User not authenticated");
+    
+    const { data, error } = await supabase
+      .from('addresses')
+      .insert([
+        {
+          ...address,
+          user_id: user.id
+        }
+      ])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    if (data) {
+      setUser(prevUser => prevUser ? {
+        ...prevUser,
+        addresses: [...prevUser.addresses, data]
+      } : null);
+    }
   };
 
   const updateAddress = async (address: Address) => {
-    if (!user) return;
-    const updated = user.addresses.map(a => a.id === address.id ? address : a);
-    await modifyUserJson('addresses', updated);
+    if (!user) throw new Error("User not authenticated");
+    
+    const { data, error } = await supabase
+      .from('addresses')
+      .update(address)
+      .eq('id', address.id)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    if (data) {
+      setUser(prevUser => prevUser ? {
+        ...prevUser,
+        addresses: prevUser.addresses.map(a => a.id === address.id ? data : a)
+      } : null);
+    }
   };
 
   const deleteAddress = async (addressId: string) => {
-    if (!user) return;
-    const updated = user.addresses.filter(a => a.id !== addressId);
-    await modifyUserJson('addresses', updated);
+    if (!user) throw new Error("User not authenticated");
+    
+    const { error } = await supabase
+      .from('addresses')
+      .delete()
+      .eq('id', addressId)
+      .eq('user_id', user.id);
+    
+    if (error) throw error;
+    
+    setUser(prevUser => prevUser ? {
+      ...prevUser,
+      addresses: prevUser.addresses.filter(a => a.id !== addressId)
+    } : null);
   };
 
   const addToWishlist = async (productId: number) => {

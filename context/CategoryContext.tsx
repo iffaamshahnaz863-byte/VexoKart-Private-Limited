@@ -22,15 +22,20 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   const fetchCategories = async () => {
     try {
       setIsLoading(true);
+      console.log("Fetching categories from Supabase...");
       const { data, error } = await supabase
         .from('categories')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("[CategoryContext] Supabase error:", error);
+        throw error;
+      }
+      console.log("Categories fetched successfully:", data?.length || 0);
       setCategories(data || []);
-    } catch (error) {
-      console.error("[CategoryContext] Error fetching categories:", error);
+    } catch (error: any) {
+      console.error("[CategoryContext] Error fetching categories:", error.message);
     } finally {
       setIsLoading(false);
     }
