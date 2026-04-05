@@ -1,50 +1,55 @@
-import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-import { Banner } from '../types';
-import { supabase } from '../supabase';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { supabase } from './supabase';
 
+/* ================= TYPES ================= */
+interface Banner {
+  id: number;
+  image_url: string;
+  title: string;
+  status: boolean;
+  display_order: number;
+}
+
+/* ================= CONTEXT ================= */
 interface BannerContextType {
   banners: Banner[];
   isLoading: boolean;
-  addBanner: (imageUrl: string, title: string) => Promise<void>;
-  deleteBanner: (id: number) => Promise<void>;
-  toggleBannerStatus: (id: number, currentStatus: boolean) => Promise<void>;
-  refreshBanners: (options?: { status?: boolean }) => Promise<void>;
 }
 
-const BannerContext = createContext<BannerContextType | undefined>(undefined);
+const BannerContext = createContext<BannerContextType | null>(null);
 
-export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+/* ================= PROVIDER ================= */
+const BannerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchBanners = async (options: { status?: boolean } = {}) => {
-    const { status } = options;
+  const fetchBanners = async () => {
     try {
       setIsLoading(true);
-      console.log("Fetching banners from Supabase with options:", options);
-      
-      let query = supabase
+      console.log("Fetching banners...");
+
+      const { data, error } = await supabase
         .from('banners')
         .select('*')
         .order('display_order', { ascending: true });
 
-      if (status !== undefined) {
-        query = query.eq('status', status);
-      } else if (options.status === undefined && !window.location.pathname.includes('/admin/')) {
-        // Default to active only for non-admin pages if not specified
-        query = query.eq('status', true);
-      }
-      
-      const { data, error } = await query;
-      
       if (error) {
-        console.error("[BannerContext] Supabase error:", error);
-        throw error;
+        console.error("Error:", error);
+        return;
       }
-      console.log("Banners fetched successfully:", data);
-      setBanners(data || []);
-    } catch (error: any) {
-      console.error("[BannerContext] Error fetching banners:", error.message);
+
+      console.log("RAW DATA:", data);
+
+      // ✅ Safe filter
+      const filtered = (data || []).filter(
+        (b) => b.status === true && b.image_url
+      );
+
+      console.log("FILTERED:", filtered);
+
+      setBanners(filtered);
+    } catch (err) {
+      console.error("Fetch error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -54,61 +59,61 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     fetchBanners();
   }, []);
 
-  const addBanner = async (url: string, title: string) => {
-    try {
-      const nextOrder = banners.length > 0 ? Math.max(...banners.map(b => b.display_order)) + 1 : 0;
-      const { error } = await supabase
-        .from('banners')
-        .insert([{ 
-          image_url: url, 
-          title: title,
-          status: true, 
-          display_order: nextOrder 
-        }]);
-      
-      if (error) throw error;
-      await fetchBanners();
-    } catch (err) {
-      console.error("[BannerContext] Error adding banner:", err);
-      throw err;
-    }
-  };
-
-  const deleteBanner = async (id: number) => {
-    try {
-      const { error } = await supabase
-        .from('banners')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      setBanners(prev => prev.filter(b => b.id !== id));
-    } catch (err) {
-      console.error("[BannerContext] Error deleting banner:", err);
-    }
-  };
-
-  const toggleBannerStatus = async (id: number, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('banners')
-        .update({ status: !currentStatus })
-        .eq('id', id);
-      if (error) throw error;
-      setBanners(prev => prev.map(b => b.id === id ? { ...b, status: !currentStatus } : b));
-    } catch (err) {
-      console.error("[BannerContext] Error toggling banner status:", err);
-    }
-  };
-
   return (
-    <BannerContext.Provider value={{ banners, isLoading, addBanner, deleteBanner, toggleBannerStatus, refreshBanners: fetchBanners }}>
+    <BannerContext.Provider value={{ banners, isLoading }}>
       {children}
     </BannerContext.Provider>
   );
 };
 
-export const useBanners = () => {
-  const context = useContext(BannerContext);
-  if (!context) throw new Error('useBanners must be used within a BannerProvider');
-  return context;
+/* ================= HOOK ================= */
+const useBanners = () => {
+  const ctx = useContext(BannerContext);
+  if (!ctx) throw new Error("useBanners must be used inside BannerProvider");
+  return ctx;
 };
+
+/* ================= UI COMPONENT ================= */
+const BannerSlider = () => {
+  const { banners, isLoading } = useBanners();
+
+  if (isLoading) return <p>Loading banners...</p>;
+  if (!banners.length) return <p>No banners available</p>;
+
+  return (
+    <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', padding: '10px' }}>
+      {banners.map((banner) => (
+        <img
+          key={banner.id}
+          src={banner.image_url}
+          alt={banner.title}
+          style={{
+            width: '300px',
+            height: '150px',
+            objectFit: 'cover',
+            borderRadius: '10px'
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+/* ================= MAIN PAGE ================= */
+const Home = () => {
+  return (
+    <div>
+      <h2>Banner Section</h2>
+      <BannerSlider />
+    </div>
+  );
+};
+
+/* ================= APP ================= */
+export default function App() {
+  return (
+    <BannerProvider>
+      <Home />
+    </BannerProvider>
+  );
+}
