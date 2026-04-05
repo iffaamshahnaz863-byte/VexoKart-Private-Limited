@@ -36,8 +36,8 @@ const AdminPincodesPage: React.FC = () => {
     <div className="space-y-8 pb-20">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 italic uppercase tracking-tighter">Daily Needs Pincodes</h1>
-          <p className="text-gray-400 font-bold text-sm mt-1">Manage pincodes eligible for 10-minute grocery delivery.</p>
+          <h1 className="text-3xl font-black text-gray-900 italic uppercase tracking-tighter">Service Areas</h1>
+          <p className="text-gray-400 font-bold text-sm mt-1">Manage pincodes eligible for delivery services.</p>
         </div>
         <button 
           onClick={() => setIsAdding(!isAdding)}

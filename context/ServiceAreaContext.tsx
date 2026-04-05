@@ -27,25 +27,14 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('daily_needs_pincodes')
+        .from('service_areas')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
 
       if (data) {
-        // Adapt the simpler pincode data to the ServiceArea structure for compatibility
-        const adaptedData = data.map((p: any) => ({
-          id: p.id,
-          pincode: p.pincode,
-          is_active: p.is_active,
-          created_at: p.created_at,
-          country: 'India',
-          state: '',
-          city: '',
-          area_name: ''
-        }));
-        setServiceAreas(Array.isArray(adaptedData) ? adaptedData : []);
+        setServiceAreas(Array.isArray(data) ? data : []);
       } else {
         setServiceAreas([]);
       }
@@ -65,11 +54,15 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
     const payload = {
         pincode: String(area.pincode).trim(),
         is_active: area.is_active,
-        created_by: area.created_by
+        created_by: area.created_by,
+        country: area.country || 'India',
+        state: area.state || '',
+        city: area.city || '',
+        area_name: area.area_name || ''
     };
     try {
       const { error } = await supabase
-        .from('daily_needs_pincodes')
+        .from('service_areas')
         .insert([payload]);
       
       if (error) throw error;
@@ -83,7 +76,7 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
     const payload = { is_active: updates.is_active };
     try {
       const { error } = await supabase
-        .from('daily_needs_pincodes')
+        .from('service_areas')
         .update(payload)
         .eq('id', id);
       
@@ -97,7 +90,7 @@ export const ServiceAreaProvider: React.FC<{ children: ReactNode }> = ({ childre
   const deleteServiceArea = async (id: number) => {
     try {
       const { error } = await supabase
-        .from('daily_needs_pincodes')
+        .from('service_areas')
         .delete()
         .eq('id', id);
       
