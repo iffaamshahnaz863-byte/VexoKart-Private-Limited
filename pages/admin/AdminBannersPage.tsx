@@ -7,6 +7,10 @@ import Toast from '../../components/Toast';
 const AdminBannersPage: React.FC = () => {
   const { banners, addBanner, deleteBanner, toggleBannerStatus, refreshBanners } = useBanners();
   const [newImage, setNewImage] = useState('');
+
+  React.useEffect(() => {
+    refreshBanners({ status: undefined });
+  }, []);
   const [title, setTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);

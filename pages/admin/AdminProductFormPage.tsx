@@ -24,7 +24,7 @@ const AdminProductFormPage: React.FC = () => {
     images: [],
     description: '',
     vendor_id: '',
-    status: 'approved',
+    status: true,
     highlights: [],
     stock: 10,
     specifications: {},

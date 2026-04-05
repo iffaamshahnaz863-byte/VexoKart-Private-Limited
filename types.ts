@@ -87,7 +87,7 @@ export interface Product {
   stock: number;
   highlights?: string[];
   created_at: string;
-  status?: ProductStatus;
+  status: boolean;
   product_type?: 'normal' | 'daily_needs'; 
   is_cod_enabled?: boolean; 
   is_online_enabled?: boolean; 
@@ -121,6 +121,7 @@ export interface Category {
   name: string;
   slug: string;
   image_url: string;
+  status: boolean;
   created_at?: string;
 }
 

@@ -48,7 +48,7 @@ const ProductsPage: React.FC = () => {
     setSearchParams(newParams);
   };
 
-  const approvedProducts = products.filter(p => p.status === 'approved' || !p.status);
+  const approvedProducts = products; // Already filtered by status: true in context
 
   return (
     <div className="bg-surface min-h-screen pb-20">

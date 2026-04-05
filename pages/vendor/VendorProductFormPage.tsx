@@ -103,7 +103,7 @@ const VendorProductFormPage: React.FC = () => {
             ...formData,
             highlights: finalHighlights,
             vendor_id: String(currentVendor.id), 
-            status: 'approved',
+            status: true,
             service_pincodes: formData.product_type === 'daily_needs' ? formData.service_pincodes : []
         };
 

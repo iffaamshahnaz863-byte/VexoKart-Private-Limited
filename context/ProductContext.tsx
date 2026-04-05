@@ -11,7 +11,7 @@ interface ProductContextType {
   updateProduct: (productData: Product) => Promise<void>;
   deleteProduct: (productId: number) => Promise<void>;
   toggleProductStatus: (productId: number) => Promise<void>;
-  refreshProducts: (options?: { vendorId?: number; categoryId?: number; search?: string; limit?: number }) => Promise<void>;
+  refreshProducts: (options?: { vendorId?: number; categoryId?: number; search?: string; limit?: number; status?: boolean }) => Promise<void>;
 }
 
 export const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -20,8 +20,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshProducts = async (options: { vendorId?: number; categoryId?: number; search?: string; limit?: number } = {}) => {
-    const { vendorId, categoryId, search, limit } = options;
+  const refreshProducts = async (options: { vendorId?: number; categoryId?: number; search?: string; limit?: number; status?: boolean } = {}) => {
+    const { vendorId, categoryId, search, limit, status } = options;
     try {
       setIsLoading(true);
       console.log("Fetching products from Supabase with options:", options);
@@ -31,6 +31,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         .select('*, category_data:categories(name)')
         .order('created_at', { ascending: false });
 
+      if (status !== undefined) {
+        query = query.eq('status', status);
+      } else if (options.status === undefined && !window.location.pathname.includes('/admin/')) {
+        // Default to active only for non-admin pages if not specified
+        query = query.eq('status', true);
+      }
+      
       if (vendorId) query = query.eq('vendor_id', vendorId);
       if (categoryId) query = query.eq('category_id', categoryId);
       if (search) query = query.ilike('name', `%${search}%`);
@@ -43,7 +50,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw error;
       }
 
-      console.log("Products fetched successfully:", data?.length || 0);
+      console.log("Products fetched successfully:", data);
       if (data) {
         const mappedProducts: Product[] = data.map((item: any) => {
           const basePrice = Number(item.price || 0);
@@ -60,7 +67,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             category: item.category_data?.name || 'General',
             category_id: Number(item.category_id),
             vendor_id: String(item.vendor_id),
-            status: item.status || 'approved',
+            status: !!item.status,
             is_cod_enabled: item.allow_cod !== false,
             is_online_enabled: item.allow_online !== false,
             product_type: item.product_type || 'simple',
@@ -105,7 +112,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       category_id: Number(productData.category_id),
       images: Array.isArray(productData.images) ? productData.images : [],
       created_at: new Date().toISOString(),
-      status: productData.status || 'approved',
+      status: productData.status ?? true,
       allow_cod: is_cod_enabled,
       allow_online: is_online_enabled,
       product_type: productData.product_type || 'simple'
@@ -167,7 +174,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const toggleProductStatus = async (id: number) => {
     const product = getProduct(id);
     if (!product) return;
-    const newStatus = product.status === 'approved' ? 'disabled' : 'approved';
+    const newStatus = !product.status;
     
     try {
       const { error } = await supabase

@@ -7,20 +7,22 @@ import { Product } from '../../types';
 
 const getStatusPill = (status: Product['status']) => {
     switch(status) {
-        case 'approved': 
-        case 'live': return 'text-green-400 bg-green-900/50 border-green-600/50';
-        case 'disabled':
-        case 'archived': return 'text-gray-400 bg-gray-700/50 border-gray-600/50';
+        case true: return 'text-green-400 bg-green-900/50 border-green-600/50';
+        case false: return 'text-gray-400 bg-gray-700/50 border-gray-600/50';
         default: return 'text-text-muted bg-surface border-border';
     }
 }
 
 const AdminProductsPage: React.FC = () => {
-  const { products, deleteProduct, toggleProductStatus } = useProducts();
+  const { products, deleteProduct, toggleProductStatus, refreshProducts } = useProducts();
   const navigate = useNavigate();
 
-  const handleToggle = (id: number, currentStatus: string) => {
-    const action = currentStatus === 'approved' ? 'disable' : 'enable';
+  React.useEffect(() => {
+    refreshProducts({ status: undefined });
+  }, []);
+
+  const handleToggle = (id: number, currentStatus: boolean) => {
+    const action = currentStatus ? 'disable' : 'enable';
     if (window.confirm(`Are you sure you want to ${action} this product?`)) {
       toggleProductStatus(id);
     }
@@ -53,13 +55,13 @@ const AdminProductsPage: React.FC = () => {
                     <td className="p-4 text-sm">₹{product.price.toFixed(2)}</td>
                     <td className="p-4">
                         <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold border ${getStatusPill(product.status)}`}>
-                            {product.status === 'approved' ? 'Active' : 'Disabled'}
+                            {product.status ? 'Active' : 'Disabled'}
                         </span>
                     </td>
                     <td className="p-4 space-x-2 text-sm">
                         <button onClick={() => navigate(`/admin/products/edit/${product.id}`)} className="text-accent font-semibold py-1 px-3 rounded-md hover:bg-accent/20">Edit</button>
                         <button onClick={() => handleToggle(product.id, product.status)} className="text-text-secondary font-semibold py-1 px-3 rounded-md hover:bg-surface">
-                          {product.status === 'approved' ? 'Disable' : 'Enable'}
+                          {product.status ? 'Disable' : 'Enable'}
                         </button>
                         <button onClick={() => deleteProduct(product.id)} className="text-red-400 font-semibold py-1 px-3 rounded-md hover:bg-red-500/20">Delete</button>
                     </td>

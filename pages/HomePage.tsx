@@ -38,9 +38,8 @@ const HomePage: React.FC = () => {
     refreshBanners();
   };
 
-  const approvedProducts = products.filter(p => p.status === 'approved' || !p.status);
-
-  const activeBanners = banners.filter(b => b.status !== false);
+  const approvedProducts = products; // Already filtered by status: true in context
+  const activeBanners = banners; // Already filtered by status: true in context
 
   return (
     <div className="bg-surface min-h-screen pb-20">

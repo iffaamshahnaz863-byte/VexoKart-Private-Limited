@@ -12,8 +12,8 @@ const AdminApprovalsPage: React.FC = () => {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   const filteredProducts = products.filter(p => {
-    if (filter === 'pending') return p.status === 'pending';
-    if (filter === 'rejected') return p.status === 'rejected';
+    if (filter === 'pending') return p.status === false;
+    if (filter === 'rejected') return p.status === false; // Assuming false for non-approved
     return true;
   }).reverse();
 
@@ -22,7 +22,7 @@ const AdminApprovalsPage: React.FC = () => {
     if (window.confirm("Approve this product for the marketplace? It will immediately go live for customers.")) {
       setProcessingId(p.id);
       try {
-        await updateProduct({ ...p, status: 'approved' });
+        await updateProduct({ ...p, status: true });
       } catch (err) {
         console.error(`Failed to approve product ${p.id}`, err);
         alert("Failed to approve product.");
@@ -39,7 +39,7 @@ const AdminApprovalsPage: React.FC = () => {
     if (reason && reason.trim()) {
       setProcessingId(p.id);
       try {
-        await updateProduct({ ...p, status: 'rejected', rejection_reason: reason.trim() } as any);
+        await updateProduct({ ...p, status: false, rejection_reason: reason.trim() } as any);
       } catch (err) {
         console.error(`Failed to reject product ${p.id}`, err);
         alert("Failed to reject product.");
@@ -59,6 +59,10 @@ const AdminApprovalsPage: React.FC = () => {
         setProcessingId(null);
       }
     }
+  };
+
+  const getStatusLabel = (status: boolean) => {
+    return status ? 'Active' : 'Pending/Disabled';
   };
 
   return (
@@ -128,20 +132,19 @@ const AdminApprovalsPage: React.FC = () => {
                     <td className="p-6">
                       <div className="flex flex-col gap-1">
                         <span className={`px-2 py-1 rounded-md text-[10px] uppercase font-black tracking-widest text-center border ${
-                          p.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 
-                          p.status === 'approved' || p.status === 'live' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
-                          p.status === 'disabled' ? 'bg-gray-500/10 text-text-muted border-border' :
+                          p.status === false ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 
+                          p.status === true ? 'bg-green-500/10 text-green-500 border-green-500/20' :
                           'bg-red-500/10 text-red-500 border-red-500/20'
                         }`}>
-                          {p.status}
+                          {getStatusLabel(p.status)}
                         </span>
-                        {p.status === 'rejected' && (p as any).rejection_reason && (
+                        {p.status === false && (p as any).rejection_reason && (
                           <p className="text-[10px] text-red-400 mt-1 max-w-[150px] italic leading-tight">"{(p as any).rejection_reason}"</p>
                         )}
                       </div>
                     </td>
                     <td className="p-6 space-x-2 whitespace-nowrap">
-                      {p.status === 'pending' && (
+                      {p.status === false && (
                         <>
                           <button 
                             onClick={() => handleApprove(p)} 
@@ -159,22 +162,13 @@ const AdminApprovalsPage: React.FC = () => {
                           </button>
                         </>
                       )}
-                      {(p.status === 'approved' || p.status === 'live') && (
+                      {p.status === true && (
                         <button 
                           onClick={() => handleDisable(p.id)} 
                           disabled={!!processingId}
                           className="bg-gray-500/10 text-text-muted border border-border px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all disabled:opacity-50"
                         >
                           Disable Listing
-                        </button>
-                      )}
-                      {(p.status === 'disabled' || p.status === 'rejected') && (
-                        <button 
-                          onClick={() => handleApprove(p)} 
-                          disabled={!!processingId}
-                          className="bg-accent/10 text-accent border border-accent/20 px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-accent hover:text-white transition-all disabled:opacity-50"
-                        >
-                          Review & Approve
                         </button>
                       )}
                     </td>

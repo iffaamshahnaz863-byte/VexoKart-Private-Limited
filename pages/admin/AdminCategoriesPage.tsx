@@ -5,8 +5,12 @@ import { useCategories } from '../../hooks/useCategories';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 
 const AdminCategoriesPage: React.FC = () => {
-  const { categories, deleteCategory } = useCategories();
+  const { categories, deleteCategory, refreshCategories } = useCategories();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    refreshCategories({ status: undefined });
+  }, []);
 
   return (
     <div>

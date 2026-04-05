@@ -10,7 +10,7 @@ interface CategoryContextType {
   updateCategory: (category: Category) => Promise<void>;
   deleteCategory: (categoryId: string | number) => Promise<void>;
   getCategory: (id: string | number) => Category | undefined;
-  refreshCategories: () => Promise<void>;
+  refreshCategories: (options?: { status?: boolean }) => Promise<void>;
 }
 
 export const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
@@ -19,20 +19,31 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (options: { status?: boolean } = {}) => {
+    const { status } = options;
     try {
       setIsLoading(true);
-      console.log("Fetching categories from Supabase...");
-      const { data, error } = await supabase
+      console.log("Fetching categories from Supabase with options:", options);
+      
+      let query = supabase
         .from('categories')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (status !== undefined) {
+        query = query.eq('status', status);
+      } else if (options.status === undefined && !window.location.pathname.includes('/admin/')) {
+        // Default to active only for non-admin pages if not specified
+        query = query.eq('status', true);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error("[CategoryContext] Supabase error:", error);
         throw error;
       }
-      console.log("Categories fetched successfully:", data?.length || 0);
+      console.log("Categories fetched successfully:", data);
       setCategories(data || []);
     } catch (error: any) {
       console.error("[CategoryContext] Error fetching categories:", error.message);
@@ -51,6 +62,7 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
           .from('categories')
           .insert([{ 
             ...cat, 
+            status: true,
             slug: cat.name.toLowerCase().replace(/\s+/g, '-'), 
             created_at: new Date().toISOString() 
           }]);
@@ -67,7 +79,12 @@ export const CategoryProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
         const { error } = await supabase
           .from('categories')
-          .update({ name: cat.name, image_url: cat.image_url })
+          .update({ 
+            name: cat.name, 
+            image_url: cat.image_url,
+            status: cat.status ?? true,
+            slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-')
+          })
           .eq('id', cat.id);
         if (error) throw error;
         await fetchCategories();

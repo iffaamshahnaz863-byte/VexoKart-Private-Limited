@@ -38,7 +38,7 @@ const DailyNeedsPage: React.FC = () => {
   // FILTER LOGIC: Strict check for 'daily_needs'
   const filteredProducts = products.filter(p => {
       const isDailyNeeds = p.product_type === 'daily_needs';
-      const isLive = p.status === 'approved' || p.status === 'live';
+      const isLive = p.status === true;
       const catMatch = activeCategory === 'All' || p.category === activeCategory;
       return isLive && isDailyNeeds && catMatch;
   });

@@ -71,9 +71,9 @@ const VendorProductsPage: React.FC = () => {
                     <div className="flex justify-between items-start">
                         <span className="text-[8px] font-black uppercase text-gray-400 tracking-widest">{product.category}</span>
                         <span className={`text-[7px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                            product.status === 'approved' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'
+                            product.status ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'
                         }`}>
-                            {product.status}
+                            {product.status ? 'Active' : 'Disabled'}
                         </span>
                     </div>
                     <h3 className="text-sm font-bold text-gray-800 line-clamp-1 italic uppercase tracking-tight mt-1">{product.name}</h3>

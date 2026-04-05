@@ -8,7 +8,7 @@ interface BannerContextType {
   addBanner: (imageUrl: string, title: string) => Promise<void>;
   deleteBanner: (id: number) => Promise<void>;
   toggleBannerStatus: (id: number, currentStatus: boolean) => Promise<void>;
-  refreshBanners: () => Promise<void>;
+  refreshBanners: (options?: { status?: boolean }) => Promise<void>;
 }
 
 const BannerContext = createContext<BannerContextType | undefined>(undefined);
@@ -17,20 +17,31 @@ export const BannerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [banners, setBanners] = useState<Banner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchBanners = async () => {
+  const fetchBanners = async (options: { status?: boolean } = {}) => {
+    const { status } = options;
     try {
       setIsLoading(true);
-      console.log("Fetching banners from Supabase...");
-      const { data, error } = await supabase
+      console.log("Fetching banners from Supabase with options:", options);
+      
+      let query = supabase
         .from('banners')
         .select('*')
         .order('display_order', { ascending: true });
+
+      if (status !== undefined) {
+        query = query.eq('status', status);
+      } else if (options.status === undefined && !window.location.pathname.includes('/admin/')) {
+        // Default to active only for non-admin pages if not specified
+        query = query.eq('status', true);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error("[BannerContext] Supabase error:", error);
         throw error;
       }
-      console.log("Banners fetched successfully:", data?.length || 0);
+      console.log("Banners fetched successfully:", data);
       setBanners(data || []);
     } catch (error: any) {
       console.error("[BannerContext] Error fetching banners:", error.message);
