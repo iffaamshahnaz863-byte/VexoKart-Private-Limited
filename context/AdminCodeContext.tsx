@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { AdminCode } from '../types';
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface AdminCodeContextType {
   adminCodes: AdminCode[];

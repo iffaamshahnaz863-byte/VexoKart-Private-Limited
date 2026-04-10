@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User, Address } from '../types.ts';
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface AuthContextType {
   user: User | null;

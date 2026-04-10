@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { CartItem, Product } from '../types.ts';
 import { useAuth } from './AuthContext.tsx';
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface CartContextType {
   cartItems: CartItem[];

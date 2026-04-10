@@ -4,7 +4,7 @@ import GlassmorphicCard from '../../components/GlassmorphicCard';
 import { useProducts } from '../../hooks/useProducts';
 import { useOrders } from '../../context/OrderContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabase.ts';
+import { supabase } from '../../supabase';
 import { User } from '../../types.ts';
 
 const AdminDashboardPage: React.FC = () => {

@@ -9,7 +9,7 @@ import React, {
 import { Order, OrderStatus, Address, PaymentStatus, Vendor, User, AppNotification } from "../types.ts";
 import { useAuth } from "./AuthContext.tsx";
 import { useNotifications } from "./NotificationContext.tsx";
-import { supabase } from "../supabase.ts";
+import { supabase } from "../supabase";
 
 interface OrderContextType {
   orders: any[];

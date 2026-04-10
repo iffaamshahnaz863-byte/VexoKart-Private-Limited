@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { ServiceArea } from '../types.ts'; // Keep type for compatibility, but logic simplifies
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface ServiceAreaContextType {
   serviceAreas: ServiceArea[];

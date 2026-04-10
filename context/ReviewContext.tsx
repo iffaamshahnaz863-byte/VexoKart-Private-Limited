@@ -3,7 +3,7 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 import { Review } from '../types';
 import { useAuth } from './AuthContext';
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface ReviewContextType {
   getReviewsByProduct: (productId: number) => Promise<Review[]>;

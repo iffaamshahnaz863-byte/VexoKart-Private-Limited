@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { NotificationLog, NotificationSettings, Order, User, AppNotification } from '../types.ts';
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface NotificationContextType {
   settings: NotificationSettings;

@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { Vendor } from '../types';
-import { supabase } from '../supabase.ts';
+import { supabase } from '../supabase';
 
 interface VendorContextType {
   vendors: Vendor[];

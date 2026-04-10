@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
 import UserFormModal from '../../components/admin/UserFormModal';
 import { User } from '../../types';
-import { supabase } from '../../supabase.ts';
+import { supabase } from '../../supabase';
 
 const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);

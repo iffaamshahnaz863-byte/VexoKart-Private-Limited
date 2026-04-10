@@ -113,7 +113,7 @@ const AppContent: React.FC = () => {
   );
 }
 
-import { supabase } from './supabase.ts';
+import { supabase } from './supabase';
 
 const AppRoutes: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);

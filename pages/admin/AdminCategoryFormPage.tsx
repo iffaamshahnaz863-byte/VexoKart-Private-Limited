@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCategories } from '../../context/CategoryContext';
 import GlassmorphicCard from '../../components/GlassmorphicCard';
-import { SUPABASE_URL, SUPABASE_KEY } from '../../constants';
+import { SUPABASE_URL } from '../../constants';
 import { supabase } from '../../supabase';
 
 const AdminCategoryFormPage: React.FC = () => {
